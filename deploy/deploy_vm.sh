@@ -19,6 +19,6 @@ flav="m1.small"
 # From `openstack security group list`
 secgroup="cproctor_lustre"
 # To allow root remote login
-datafile="./remove_authkey_limitation.sh"
+datafile="./init_vm.sh"
 
 openstack server create --flavor "${flav}" --image "${img}" --nic net-id="${nic}" --security-group "${secgroup}" --key-name "${key}" --user-data "${datafile}" "${1}"

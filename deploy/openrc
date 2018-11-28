@@ -15,7 +15,7 @@ unset OS_TENANT_ID
 unset OS_TENANT_NAME
 
 echo "Pleaes enter your OpenStack Username for project $OS_PROJECT_NAME: "
-read -sr OS_USERNAME_INPUT
+read -r OS_USERNAME_INPUT
 export OS_USERNAME=$OS_USERNAME_INPUT
 
 echo "Please enter your OpenStack Password for project $OS_PROJECT_NAME as user $OS_USERNAME: "
