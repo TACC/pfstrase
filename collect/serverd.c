@@ -107,25 +107,26 @@ static int collect_exports(const char *type_path, char *stats_buffer, int size_s
 
       char *line_buf = NULL;
       size_t line_buf_size = 0;    
-      int sec = 0, nsec = 0;
-      int count = 0, sum = 0, value = 0;
+      unsigned long long secs = 0, nsecs = 0, count = 0, sum = 0, value = 0;
       while(getline(&line_buf, &line_buf_size, fd) >= 0) {
 	char *line = line_buf;
 	char *key = strsep(&line, " \t\n\v\f\r");	
 	if (key == NULL || line == NULL)
 	  continue;
 	if (strcmp(key, "snapshot_time") == 0) {
-	  sscanf(line, "%d.%d %*s", &sec, &nsec);
+	  sscanf(line, "%llu.%llu secs.nsecs", &secs, &nsecs);
 	  continue;
 	}
+
 	int n = sscanf(line, "%llu samples %*s %*u %*u %llu", &count, &sum);
 	if (n == 1)
 	  value = count;
 	if (n == 20)
 	  value = sum;
+
 	sb_pos += snprintf(stats_buffer + sb_pos, size_stats_buffer, 
-			   "time: %d.%d host: %s key: %s val: %d\n", 
-			   sec, nsec, nid_de->d_name, key, value);	
+			   "time: %llu.%llu host: %s key: %s val: %llu\n", 
+			   secs, nsecs, nid_de->d_name, key, value);	
       }
       if (line_buf != NULL) 
 	free(line_buf);
