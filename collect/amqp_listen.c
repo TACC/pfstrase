@@ -85,8 +85,8 @@ int main(int argc, char const *const *argv) {
   die_on_amqp_error(amqp_get_rpc_reply(conn), "Opening channel");
 
   {
-    gethostname(localhost, sizeof(localhost)); 
-    amqp_queue_declare_ok_t *r = amqp_queue_declare(conn, 1, amqp_cstring_bytes(localhost), 
+    gethostname(hostname, sizeof(hostname)); 
+    amqp_queue_declare_ok_t *r = amqp_queue_declare(conn, 1, amqp_cstring_bytes(hostname), 
 						    0, 0, 1, 1, amqp_empty_table);
     die_on_amqp_error(amqp_get_rpc_reply(conn), "Declaring request queue");
     request_queue = amqp_bytes_malloc_dup(r->queue);
