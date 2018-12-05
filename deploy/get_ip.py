@@ -32,14 +32,31 @@ def create_session():
 
 
 def get_ip_address(server):
-  return nova.servers.ips(server.id)[NETWORK][0]['addr']
+  return [nova.servers.ips(server.id)[NETWORK][0]['addr']]
+
+def get_volume_id(volume):
+  return [volume.id]
 
 def create_ip_dict(server_list):
   ip_dict = dict()
   for server in server_list:
-    ip_dict[server.name] = get_ip_address(server)
+    if server.name in ip_dict:
+      ip_dict[server.name].extend(get_ip_address(server))
+    else:
+      ip_dict[server.name] = get_ip_address(server)
 
   return ip_dict
+
+def create_volume_dict(volume_list):
+  volume_dict = dict()
+  for volume in volume_list:
+    if volume.name in volume_dict:
+      volume_dict[volume.name].extend(get_volume_id(volume))
+    else:
+      volume_dict[volume.name] = get_volume_id(volume)
+    
+
+  return volume_dict
 
 ## for server in nova.servers.list(search_opts={'addr': 1}):
 ##   print(server.name, server.tenant_id, server.flavor)
@@ -62,7 +79,16 @@ def create_ip_dict(server_list):
 if __name__ == "__main__":
   sess = create_session()
   nova = novaclient.Client(OS_NOVA_API_VERSION, session=sess)
+  cinder = cinderclient.Client(OS_IDENTITY_API_VERSION, session=sess)
   all_servers = nova.servers.list()
+  all_volumes = cinder.volumes.list()
+  print(all_servers)
+  print(all_volumes)
+  #cinder.volumes.create(name="v1", size=10) 
   ip_dict = create_ip_dict(all_servers)
   for name, ip_addr in ip_dict.iteritems():
     print(name, ip_addr)
+
+  volume_dict = create_volume_dict(all_volumes)
+  for volume_name, volume_id in volume_dict.iteritems():
+    print(volume_name, volume_id)
