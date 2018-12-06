@@ -9,7 +9,6 @@
 
 int collect_lod(char *buffer, int size_buffer)
 {
-  DIR *typedir = NULL;
   int rc = -1;
   int pos = 0;
 
@@ -22,6 +21,7 @@ int collect_lod(char *buffer, int size_buffer)
     goto typedir_err;
   }
 
+  DIR *typedir = NULL;
   typedir = opendir(TYPEPATH);
   if(typedir == NULL) {
     fprintf(stderr, "cannot open `%s' : %m\n", TYPEPATH);
@@ -65,9 +65,9 @@ int collect_lod(char *buffer, int size_buffer)
       while(getline(&line_buf, &line_buf_size, fd) >= 0) {
 	char *line = line_buf;
 	pos += snprintf(buffer + pos, size_buffer, 
-			"time: %llu.%llu host: %s key: %s val: %s",  
-			time.tv_sec, time.tv_nsec, localhost, 
-			devde->d_name, line);
+			"host: %s time: %llu.%llu key: %s val: %s",  
+			localhost, time.tv_sec, time.tv_nsec, devde->d_name, 
+			line);
       }
       if (line_buf != NULL) 
 	free(line_buf);
