@@ -22,7 +22,7 @@ int collect_exports(char **buffer)
     fprintf(stderr, "cannot clock_gettime(): %m\n");
     goto typedir_err;
   }
-
+  printf("%s\n", "here");
   asprintf(buffer, "type: exports host: %s time: %llu.%llu",
 	   localhost, time.tv_sec, time.tv_nsec);       
 

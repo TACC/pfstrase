@@ -8,7 +8,7 @@
 #define TYPEPATH "/proc/fs/lustre/lod"
 #define PROCFS_BUF_SIZE 4096
 
-int collect_lod(char *buffer)
+int collect_lod(char **buffer)
 {
   int rc = -1;
 
@@ -53,7 +53,7 @@ int collect_lod(char *buffer)
 
       char filepath[256];
       snprintf(filepath, sizeof(filepath), "%s/%s", devpath, devde->d_name);
-      if (collect_single(filepath, &buffer, devde->d_name) < 0)
+      if (collect_single(filepath, buffer, devde->d_name) < 0)
 	continue;
     }
   }

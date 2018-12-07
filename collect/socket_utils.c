@@ -129,10 +129,10 @@ void amqp_send_data(amqp_connection_state_t conn)
 			 amqp_cstring_bytes("response"),
 			 0, 0, &props,
 			 amqp_cstring_bytes(buf));
+      free(buf);      
     }
     else
       fprintf(stderr, "export collection failed\n");
-    if (buf) free(buf);
   }
   
   {
@@ -145,11 +145,10 @@ void amqp_send_data(amqp_connection_state_t conn)
 			 amqp_cstring_bytes("response"),
 			 0, 0, &props,
 			 amqp_cstring_bytes(buf));
-      
+      free(buf);
     }
     else
       fprintf(stderr, "lod collection failed\n");    
-    if (buf) free(buf);
   }
   
   {
@@ -162,10 +161,10 @@ void amqp_send_data(amqp_connection_state_t conn)
 			 amqp_cstring_bytes("response"),
 			 0, 0, &props,
 			 amqp_cstring_bytes(buf));      
+      free(buf);
     }
     else
       fprintf(stderr, "llite collection failed\n");
-    if (buf) free(buf);
   }
 
 }
@@ -236,18 +235,27 @@ void sock_rpc(int fd)
 void sock_send_data(int fd)
 {
   {
-    char buf[SOCKET_BUFFERSIZE];
-    collect_exports(buf);
-    int rv = send(fd, buf, sizeof(buf), 0);
+    char *buf;
+    collect_exports(&buf);
+    if (buf) {
+      int rv = send(fd, buf, sizeof(buf), 0);
+      free(buf);
+    }
   }
   {
-    char buf[SOCKET_BUFFERSIZE];
-    collect_lod(buf);
-    int rv = send(fd, buf, sizeof(buf), 0);
+    char *buf;
+    collect_lod(&buf);
+    if (buf) {
+      int rv = send(fd, buf, sizeof(buf), 0);
+      free(buf);
+    }
   }
   {
-    char buf[SOCKET_BUFFERSIZE];
-    collect_llite(buf);
-    int rv = send(fd, buf, sizeof(buf), 0);
+    char *buf;
+    collect_llite(&buf);
+    if (buf) {
+      int rv = send(fd, buf, sizeof(buf), 0);
+      free(buf);
+    }
   }
 }
