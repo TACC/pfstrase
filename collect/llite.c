@@ -5,13 +5,11 @@
 #include <time.h>
 #include "collect.h"
 
-#define TYPEPATH "/proc/fs/lustre/lod"
-#define PROCFS_BUF_SIZE 4096
+#define TYPEPATH "/proc/fs/lustre/llite"
 
-int collect_lod(char *buffer)
+int collect_llite(char **buffer)
 {
   int rc = -1;
-
   char localhost[64];
   gethostname(localhost, sizeof(localhost));
 
@@ -21,7 +19,7 @@ int collect_lod(char *buffer)
     goto typedir_err;
   }
 
-  asprintf(buffer, "type: lod host: %s time: %llu.%llu",
+  asprintf(buffer, "type: llite host: %s time: %llu.%llu",
 	   localhost, time.tv_sec, time.tv_nsec);       
 
   DIR *typedir = NULL;
@@ -35,11 +33,10 @@ int collect_lod(char *buffer)
   while ((typede = readdir(typedir)) != NULL) {  
     if (typede->d_type != DT_DIR || typede->d_name[0] == '.')
       continue;
-
+    DIR *devdir = NULL;
     char devpath[256];
     snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);
 
-    DIR *devdir = NULL;
     devdir = opendir(devpath);
     if(devdir == NULL) {
       fprintf(stderr, "cannot open `%s' : %m\n", devpath);
@@ -50,14 +47,20 @@ int collect_lod(char *buffer)
     while ((devde = readdir(devdir)) != NULL) {  
       if (devde->d_type == DT_DIR || devde->d_name[0] == '.')
 	continue;
-
+      
       char filepath[256];
       snprintf(filepath, sizeof(filepath), "%s/%s", devpath, devde->d_name);
-      if (collect_single(filepath, &buffer, devde->d_name) < 0)
-	continue;
+      if (strcmp(devde->d_name, "stats") == 0) {
+	if (collect_stats(filepath, buffer) < 0)
+	  continue;
+      }
+      else {
+	if(collect_single(filepath, buffer, devde->d_name) < 0)
+	  continue;
+      }
     }
   }
-  
+
   rc = 0;
  typedir_err:
   if (typedir != NULL)

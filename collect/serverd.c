@@ -24,17 +24,24 @@ static void signal_cb(EV_P_ ev_signal *sigterm, int revents)
   ev_break (EV_A_ EVBREAK_ALL);
 }
 
+/* using bare sockets */
+static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
+{
+  printf("collect and send data based on rpc\n");
+  sock_rpc(w->fd);
+}
+static void sock_send_cb(struct ev_loop *loop, ev_timer *w, int revents) 
+{
+  printf("collect and send data based on timer\n");
+  sock_send_data(*((int *)w->data));
+}
+
+/* using amqp sockets */
 static void amqp_rpc_cb(EV_P_ ev_io *w, int revents)
 {
   printf("collect and send data based on rpc\n");
   amqp_rpc(*((amqp_connection_state_t *)w->data));
 }
-
-static void sock_send_cb(struct ev_loop *loop, ev_timer *w, int revents) 
-{
-  sock_send_data(*((int *)w->data));
-}
-
 static void amqp_send_cb(struct ev_loop *loop, ev_timer *w, int revents) 
 {
   printf("collect and send data based on timer\n");
@@ -66,12 +73,7 @@ int main(int argc, char *argv[])
   int fd = amqp_setup_connection(&conn, port, host);
   
   /*
-  int lfd;
-  if ((lfd = listen_on_socket(port)) < 0) {
-    fprintf(stderr, "server: fatal error getting listening socket\n");
-    exit(1);
-  }
-  int cfd = accept_connection(lfd);  
+  int fd = socket_setup_connection(port);  
   */  
 
   signal(SIGPIPE, SIG_IGN);
@@ -83,20 +85,19 @@ int main(int argc, char *argv[])
   timer.data = (void *)&conn;
   ev_timer_init(&timer, amqp_send_cb, 0.0, 5.0);
   ev_timer_start(EV_DEFAULT, &timer);
-  //ev_run(EV_DEFAULT, 0);
     
   ev_io watcher;
   watcher.data = (void *)&conn;
   ev_io_init(&watcher, amqp_rpc_cb, fd, EV_READ);
   ev_io_start(EV_DEFAULT, &watcher);
+
   ev_run(EV_DEFAULT, 0);
   
   if (pidfile_path != NULL)
     unlink(pidfile_path);
 
   /*
-  close(cfd);
-  close(lfd);
+  close(fd);
   */
 
   die_on_amqp_error(amqp_channel_close(conn, 1, AMQP_REPLY_SUCCESS),

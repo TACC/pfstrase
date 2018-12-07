@@ -84,34 +84,31 @@ void amqp_rpc(amqp_connection_state_t conn)
   char localhost[64];
   gethostname(localhost, sizeof(localhost)); 
 
-  //for (;;) {
-    amqp_rpc_reply_t res;
-    amqp_envelope_t envelope;
-    
-    amqp_maybe_release_buffers(conn);
-    res = amqp_consume_message(conn, &envelope, NULL, 0);
-    
-    if (AMQP_RESPONSE_NORMAL != res.reply_type) {
-      return;
-    }
-    
-    printf("Delivery %u, exchange %.*s routingkey %.*s\n",
-	   (unsigned)envelope.delivery_tag, (int)envelope.exchange.len,
-	   (char *)envelope.exchange.bytes, (int)envelope.routing_key.len,
-	   (char *)envelope.routing_key.bytes);
-    
-    if (envelope.message.properties._flags & AMQP_BASIC_CONTENT_TYPE_FLAG) {
-      printf("Content-type: %.*s\n",
-	     (int)envelope.message.properties.content_type.len,
-	     (char *)envelope.message.properties.content_type.bytes);
-    }
-    printf("----\n");    
-    amqp_dump(envelope.message.body.bytes, envelope.message.body.len);    
-    amqp_destroy_envelope(&envelope);
-    
-    amqp_send_data(conn);
-    //}
+  amqp_rpc_reply_t res;
+  amqp_envelope_t envelope;
   
+  amqp_maybe_release_buffers(conn);
+  res = amqp_consume_message(conn, &envelope, NULL, 0);
+  
+  if (AMQP_RESPONSE_NORMAL != res.reply_type) {
+    return;
+  }
+  
+  printf("Delivery %u, exchange %.*s routingkey %.*s\n",
+	 (unsigned)envelope.delivery_tag, (int)envelope.exchange.len,
+	 (char *)envelope.exchange.bytes, (int)envelope.routing_key.len,
+	 (char *)envelope.routing_key.bytes);
+  
+  if (envelope.message.properties._flags & AMQP_BASIC_CONTENT_TYPE_FLAG) {
+    printf("Content-type: %.*s\n",
+	   (int)envelope.message.properties.content_type.len,
+	   (char *)envelope.message.properties.content_type.bytes);
+  }
+  printf("----\n");    
+  amqp_dump(envelope.message.body.bytes, envelope.message.body.len);    
+  amqp_destroy_envelope(&envelope);
+  
+  amqp_send_data(conn);
 }
 
 void amqp_send_data(amqp_connection_state_t conn)      
@@ -121,29 +118,59 @@ void amqp_send_data(amqp_connection_state_t conn)
   props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG | AMQP_BASIC_DELIVERY_MODE_FLAG;
   props.content_type = amqp_cstring_bytes("text/plain");
   props.delivery_mode = 2; /* persistent delivery mode */
-
+  
   { 
-    char buf[4096];
-    collect_exports(buf, sizeof(buf));  
-    amqp_basic_publish(conn, 1,
-		       amqp_cstring_bytes(exchange),
-		       amqp_cstring_bytes("response"),
-		       0, 0, &props,
-		       amqp_cstring_bytes(buf));
+    char *buf;
+    collect_exports(&buf);  
+    if (buf) {      
+      printf("%s\n", buf);
+      amqp_basic_publish(conn, 1,
+			 amqp_cstring_bytes(exchange),
+			 amqp_cstring_bytes("response"),
+			 0, 0, &props,
+			 amqp_cstring_bytes(buf));
+    }
+    else
+      fprintf(stderr, "export collection failed\n");
+    if (buf) free(buf);
   }
+  
   {
-    char buf[4096];
-    collect_lod(buf, sizeof(buf));    
-    amqp_basic_publish(conn, 1,
-		       amqp_cstring_bytes(exchange),
-		       amqp_cstring_bytes("response"),
-		       0, 0, &props,
-		       amqp_cstring_bytes(buf));
-    
+    char *buf;
+    collect_lod(&buf);    
+    if (buf) {
+      printf("%s\n", buf);
+      amqp_basic_publish(conn, 1,
+			 amqp_cstring_bytes(exchange),
+			 amqp_cstring_bytes("response"),
+			 0, 0, &props,
+			 amqp_cstring_bytes(buf));
+      
+    }
+    else
+      fprintf(stderr, "lod collection failed\n");    
+    if (buf) free(buf);
   }
+  
+  {
+    char *buf;
+    collect_llite(&buf);    
+    if (buf) {
+      printf("%s\n", buf);
+      amqp_basic_publish(conn, 1,
+			 amqp_cstring_bytes(exchange),
+			 amqp_cstring_bytes("response"),
+			 0, 0, &props,
+			 amqp_cstring_bytes(buf));      
+    }
+    else
+      fprintf(stderr, "llite collection failed\n");
+    if (buf) free(buf);
+  }
+
 }
 
-int listen_on_socket(const char *port) 
+int sock_setup_connection(const char *port) 
 {
   int sockfd;
   int rc;
@@ -184,36 +211,43 @@ int listen_on_socket(const char *port)
     close(sockfd);
     return -1;
   }
-  return sockfd;
-}
 
-int accept_connection(int fd) {
   struct sockaddr_in addr;
   socklen_t addrlen = sizeof(addr);
-  int cfd = -1;
+  int fd = -1;
   
-  if ((cfd = accept(fd, (struct sockaddr *)&addr, &addrlen)) < 0)
+  if ((fd = accept(sockfd, (struct sockaddr *)&addr, &addrlen)) < 0)
     if (!(errno == EAGAIN || errno == EWOULDBLOCK || errno == ECONNABORTED))
       fprintf(stderr, "cannot accept connections: %s\n", strerror(errno));
-
-  return cfd;
+  
+  return fd;
 }
 
 void sock_rpc(int fd) 
 {
-  for (;;) {
-    char request[SOCKET_BUFFERSIZE];
-    int bytes_recvd = recv(fd, request, sizeof(request), 0);
-    if (bytes_recvd < 0)
-      fprintf(stderr, "cannot recv: %s\n", strerror(errno));
-    printf(request);    
-    sock_send_data(fd);
-  }
+  char request[SOCKET_BUFFERSIZE];
+  int bytes_recvd = recv(fd, request, sizeof(request), 0);
+  if (bytes_recvd < 0)
+    fprintf(stderr, "cannot recv: %s\n", strerror(errno));
+  printf(request);    
+  sock_send_data(fd);
 }
 
 void sock_send_data(int fd)
 {
-  char buf[SOCKET_BUFFERSIZE];
-  collect_exports(buf, sizeof(buf));
-  int rv = send(fd, buf, sizeof(buf), 0);
+  {
+    char buf[SOCKET_BUFFERSIZE];
+    collect_exports(buf);
+    int rv = send(fd, buf, sizeof(buf), 0);
+  }
+  {
+    char buf[SOCKET_BUFFERSIZE];
+    collect_lod(buf);
+    int rv = send(fd, buf, sizeof(buf), 0);
+  }
+  {
+    char buf[SOCKET_BUFFERSIZE];
+    collect_llite(buf);
+    int rv = send(fd, buf, sizeof(buf), 0);
+  }
 }
