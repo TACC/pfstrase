@@ -21,9 +21,6 @@ int collect_lod(char **buffer)
     goto typedir_err;
   }
 
-  asprintf(buffer, "type: lod host: %s time: %llu.%llu",
-	   localhost, time.tv_sec, time.tv_nsec);       
-
   DIR *typedir = NULL;
   typedir = opendir(TYPEPATH);
   if(typedir == NULL) {
@@ -38,6 +35,9 @@ int collect_lod(char **buffer)
 
     char devpath[256];
     snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);
+
+    asprintf(buffer, "type: lod dev: %s host: %s time: %llu.%llu",
+	     typede->d_name, localhost, time.tv_sec, time.tv_nsec);       
 
     DIR *devdir = NULL;
     devdir = opendir(devpath);

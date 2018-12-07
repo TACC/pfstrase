@@ -120,7 +120,7 @@ void amqp_send_data(amqp_connection_state_t conn)
   props.delivery_mode = 2; /* persistent delivery mode */
   
   { 
-    char *buf;
+    char *buf = NULL;
     collect_exports(&buf);  
     if (buf) {      
       printf("%s\n", buf);
@@ -136,7 +136,7 @@ void amqp_send_data(amqp_connection_state_t conn)
   }
   
   {
-    char *buf;
+    char *buf = NULL;
     collect_lod(&buf);    
     if (buf) {
       printf("%s\n", buf);
@@ -152,7 +152,7 @@ void amqp_send_data(amqp_connection_state_t conn)
   }
   
   {
-    char *buf;
+    char *buf = NULL;
     collect_llite(&buf);    
     if (buf) {
       printf("%s\n", buf);
@@ -235,7 +235,7 @@ void sock_rpc(int fd)
 void sock_send_data(int fd)
 {
   {
-    char *buf;
+    char *buf = NULL;
     collect_exports(&buf);
     if (buf) {
       int rv = send(fd, buf, sizeof(buf), 0);
@@ -243,7 +243,7 @@ void sock_send_data(int fd)
     }
   }
   {
-    char *buf;
+    char *buf = NULL;
     collect_lod(&buf);
     if (buf) {
       int rv = send(fd, buf, sizeof(buf), 0);
@@ -251,7 +251,7 @@ void sock_send_data(int fd)
     }
   }
   {
-    char *buf;
+    char *buf = NULL;
     collect_llite(&buf);
     if (buf) {
       int rv = send(fd, buf, sizeof(buf), 0);

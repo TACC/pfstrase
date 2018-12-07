@@ -19,9 +19,6 @@ int collect_llite(char **buffer)
     goto typedir_err;
   }
 
-  asprintf(buffer, "type: llite host: %s time: %llu.%llu",
-	   localhost, time.tv_sec, time.tv_nsec);       
-
   DIR *typedir = NULL;
   typedir = opendir(TYPEPATH);
   if(typedir == NULL) {
@@ -36,6 +33,9 @@ int collect_llite(char **buffer)
     DIR *devdir = NULL;
     char devpath[256];
     snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);
+
+    asprintf(buffer, "type: llite dev: %s host: %s time: %llu.%llu",
+	     typede->d_name, localhost, time.tv_sec, time.tv_nsec);       
 
     devdir = opendir(devpath);
     if(devdir == NULL) {

@@ -22,9 +22,6 @@ int collect_exports(char **buffer)
     fprintf(stderr, "cannot clock_gettime(): %m\n");
     goto typedir_err;
   }
-  printf("%s\n", "here");
-  asprintf(buffer, "type: exports host: %s time: %llu.%llu",
-	   localhost, time.tv_sec, time.tv_nsec);       
 
   size_t i;
   for (i = 0; i < sizeof(typepath)/sizeof(typepath[0]); i++) {
@@ -45,6 +42,9 @@ int collect_exports(char **buffer)
       snprintf(exportpath, sizeof(exportpath), 
 	       "%s/%s/exports", typepath[i], typede->d_name);
 
+      asprintf(buffer, "type: exports dev: %s host: %s time: %llu.%llu",
+	       typede->d_name, localhost, time.tv_sec, time.tv_nsec);       
+
       exportdir = opendir(exportpath); 
       if(exportdir == NULL) {
 	fprintf(stderr, "cannot open `%s' : %m\n", exportpath);
@@ -58,7 +58,8 @@ int collect_exports(char **buffer)
 
 	FILE *fd = NULL;
 	char statspath[256];
-	snprintf(statspath, sizeof(statspath), "%s/%s/stats", exportpath, nidde->d_name);
+	snprintf(statspath, sizeof(statspath), "%s/%s/stats", 
+		 exportpath, nidde->d_name);
 
 	asprintf(buffer, "%s nid: %s", *buffer, nidde->d_name);
 	if (collect_stats(statspath, buffer) < 0)
