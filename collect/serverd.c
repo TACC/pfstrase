@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
   
   ev_timer timer;
   timer.data = (void *)&conn;
-  ev_timer_init(&timer, amqp_send_cb, 0.0, 5.0);
+  ev_timer_init(&timer, amqp_send_cb, 0.0, 0.1);
   ev_timer_start(EV_DEFAULT, &timer);
     
   ev_io watcher;

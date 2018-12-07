@@ -33,14 +33,14 @@ int collect_llite(char **buffer)
     DIR *devdir = NULL;
     char devpath[256];
     snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);
-
+    char *tmp = *buffer;
     asprintf(buffer, "type: llite dev: %s host: %s time: %llu.%llu",
 	     typede->d_name, localhost, time.tv_sec, time.tv_nsec);       
-
+    if (tmp != NULL) free(tmp);
     devdir = opendir(devpath);
     if(devdir == NULL) {
       fprintf(stderr, "cannot open `%s' : %m\n", devpath);
-      goto typedir_err;
+      goto devdir_err;
     }
 
     struct dirent *devde;
@@ -59,6 +59,9 @@ int collect_llite(char **buffer)
 	  continue;
       }
     }
+  devdir_err:
+    if (devdir != NULL)
+      closedir(devdir);  
   }
 
   rc = 0;

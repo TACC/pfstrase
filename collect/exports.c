@@ -41,10 +41,10 @@ int collect_exports(char **buffer)
       char exportpath[256];
       snprintf(exportpath, sizeof(exportpath), 
 	       "%s/%s/exports", typepath[i], typede->d_name);
-
+      char *tmp = *buffer;
       asprintf(buffer, "type: exports dev: %s host: %s time: %llu.%llu",
 	       typede->d_name, localhost, time.tv_sec, time.tv_nsec);       
-
+      if (tmp != NULL) free(tmp);
       exportdir = opendir(exportpath); 
       if(exportdir == NULL) {
 	fprintf(stderr, "cannot open `%s' : %m\n", exportpath);
@@ -56,19 +56,16 @@ int collect_exports(char **buffer)
 	if (nidde->d_type != DT_DIR || nidde->d_name[0] == '.')
 	  continue;
 
-	FILE *fd = NULL;
 	char statspath[256];
 	snprintf(statspath, sizeof(statspath), "%s/%s/stats", 
 		 exportpath, nidde->d_name);
-
+	char *tmp = *buffer;
 	asprintf(buffer, "%s nid: %s", *buffer, nidde->d_name);
+	if (tmp != NULL) free(tmp);
 	if (collect_stats(statspath, buffer) < 0)
 	  continue;
-
-      statpath_err:
-	if (fd != NULL)
-	  fclose(fd);  	
       }      
+
     exportdir_err:
       if (exportdir != NULL)
 	closedir(exportdir);  

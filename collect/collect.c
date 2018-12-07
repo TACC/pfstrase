@@ -36,11 +36,12 @@ int collect_stats(const char *path, char **buffer)
       val = count;
     if (n == 2)
       val = sum;
-    
+    char *tmp = *buffer;
     if (asprintf(buffer, "%s key: %s val: %llu", *buffer, key, val) < 0) {
       rc = -1;
       fprintf(stderr, "Write to buffer failed for %s `%s\n'", path, key);
     }               
+    if (tmp != NULL) free(tmp);
   }
   if (line_buf != NULL) 
     free(line_buf);
@@ -69,11 +70,12 @@ int collect_single(const char *filepath, char **buffer, char *key)
   if (fscanf(fd, "%llu", &val) == 1) {
     rc = -1;
   }      
-
+  char *tmp = *buffer;
   if (asprintf(buffer, "%s key: %s val: %llu", *buffer, key, val) < 0 ) {
     rc = -1;
     fprintf(stderr, "Write to buffer failed for `%s\n'", key);
   }
+  if (tmp != NULL) free(tmp);
  devde_err:
   if (fd != NULL)
     fclose(fd);  	  
