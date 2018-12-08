@@ -121,6 +121,25 @@ def get_volume_id(volume):
 #---------------------------------------------------------------------------
 
 
+def get_server_id(server):
+  return [server.id]
+
+#---------------------------------------------------------------------------
+
+
+def create_server_dict(server_list):
+  server_dict = dict()
+  for server in server_list:
+    if server.name in server_dict:
+      server_dict[server.name].extend(get_server_id(server))
+    else:
+      server_dict[server.name] = get_server_id(server)
+
+  return server_dict
+  
+#---------------------------------------------------------------------------
+
+
 def create_ip_dict(state, server_list):
   ip_dict = dict()
   for server in server_list:
@@ -160,7 +179,7 @@ def create_vm(state, name):
 def destroy_vm(state, server):
   init_log.info("Detaching volumes from server {0}".format(server.id))
   detach_all_volumes_from_server(state, server)
-  init_log.info"Deleting server {0}".format(server.id))
+  init_log.info("Deleting server {0}".format(server.id))
   rt = state["nova"].servers.delete(server)
   init_log.info("Delete return tuple: {0}".format(rt))
  
