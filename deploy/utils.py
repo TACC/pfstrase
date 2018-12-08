@@ -25,7 +25,6 @@ OS_USER_DOMAIN_NAME     = os.environ['OS_USER_DOMAIN_NAME']
 OS_IDENTITY_API_VERSION = os.environ['OS_IDENTITY_API_VERSION']
 OS_NOVA_API_VERSION     = '2'
 OS_GLANCE_API_VERSION   = '2'
-NETWORK                 = 'cproctor_net'
 
 #---------------------------------------------------------------------------
 
@@ -36,6 +35,11 @@ config_parser = cp.RawConfigParser()
 config_parser.read("lustre.cfg")
 
 section = "setup"
+proj_prefix     = config_parser.get(    str(section), "proj_prefix"     )
+mds_prefix      = config_parser.get(    str(section), "mds_prefix"      )
+oss_prefix      = config_parser.get(    str(section), "oss_prefix"      )
+compute_prefix  = config_parser.get(    str(section), "compute_prefix"  )
+volume_prefix   = config_parser.get(    str(section), "volume_prefix"   )
 mds_count       = config_parser.getint( str(section), "mds_count"       )
 oss_count       = config_parser.getint( str(section), "oss_count"       )
 compute_count   = config_parser.getint( str(section), "compute_count"   )
@@ -51,6 +55,7 @@ img             = config_parser.get( str(section), "img"      )
 flav            = config_parser.get( str(section), "flav"     )
 secgroup        = config_parser.get( str(section), "secgroup" )
 datafile        = config_parser.get( str(section), "datafile" )
+network         = config_parser.get( str(section), "network"  )
 
 section = "logging"
 default_log_filepath = config_parser.get(    str(section), "default_log_filepath" )
@@ -105,8 +110,7 @@ def create_session():
 
 
 def get_ip_address(state, server):
-  print(state["nova"].servers.ips(server.id))
-  return [state["nova"].servers.ips(server.id)[str(NETWORK)][0]['addr']]
+  return [state["nova"].servers.ips(server.id)[str(network)][0]['addr']]
 
 #---------------------------------------------------------------------------
 
@@ -146,8 +150,60 @@ def create_volume_dict(volume_list):
 def create_vm(state, name):
   image  = state["glance"].images.get(image_id=img)
   flavor = state["nova"].flavors.find(name=flav)
+  init_log.debug("name:{0}, image:{1}, flavor:{2}, secgroup:{3}, key:{4}, nic:{5}, userdata:{6}".format(name, img, flav, secgroup, key, nic, datafile))
   return state["nova"].servers.create(name, image, flavor, security_groups=[secgroup], key_name=key, nics=[{"net-id":nic}], userdata=open(datafile,"r"))
+
+
+#---------------------------------------------------------------------------
+
+
+def destroy_vm(state, server):
+  init_log.info("Detaching volumes from server {0}".format(server.id))
+  detach_all_volumes_from_server(state, server)
+  init_log.info"Deleting server {0}".format(server.id))
+  rt = state["nova"].servers.delete(server)
+  init_log.info("Delete return tuple: {0}".format(rt))
  
+#---------------------------------------------------------------------------
+
+
+def create_volume(state, name, size):
+  init_log.debug("name:{0}, size:{1} GiB".format(name, size))
+  return state["cinder"].volumes.create(size, name=name)   
+
+#---------------------------------------------------------------------------
+
+
+def destroy_volume(state, volume):
+  init_log.info("Deleting volume {0}".format(volume.id))
+  rt = state["cinder"].volumes.delete(volume)
+  init_log.info("Delete return tuple: {0}".format(rt))
+
+#---------------------------------------------------------------------------
+
+
+def attach_volume(state, server, volume):
+  init_log.info("Attaching volume {0} to server {1}".format(volume.id, server.id))
+  return state["nova"].volumes.create_server_volume(server_id=server.id, volume_id=volume.id)
+  # TODO: Need to keep track of device location where mounted -- inside volume instance
+  #init_log.info("Volume {0} attached to server {1} at device location {3}".format(volume.id, volume.serverId, volume.device))
+
+#---------------------------------------------------------------------------
+
+
+def detach_volume(state, server, volume):
+  init_log.info("Detaching volume {0} from server {1}".format(volume.id, server.id))
+  rt = state["nova"].volumes.delete_server_volume(server.id, volume_id=volume.id)
+  init_log.info("Detach return tuple: {0}".format(rt))
+
+#---------------------------------------------------------------------------
+
+
+def detach_all_volumes_from_server(state, server):
+  attached_volume_list = state["nova"].volumes.get_server_volumes(server.id)
+  init_log.debug("Attached volume list for server {0}: {1}".format(server.id, attached_volume_list))
+  for attached_volume in attached_volume_list:
+    detach_volume(state, server, attached_volume)
 
 #---------------------------------------------------------------------------
 
