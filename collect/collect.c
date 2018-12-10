@@ -27,7 +27,6 @@ int collect_stats(const char *path, char **buffer)
     if (key == NULL || line == NULL)
       continue;
     if (strcmp(key, "snapshot_time") == 0) {
-      //sscanf(line, "%llu.%llu secs.nsecs", &secs, &nsecs);
       continue;
     }
     
@@ -37,7 +36,7 @@ int collect_stats(const char *path, char **buffer)
     if (n == 2)
       val = sum;
     char *tmp = *buffer;
-    if (asprintf(buffer, "%s key: %s val: %llu", *buffer, key, val) < 0) {
+    if (asprintf(buffer, "%s, \"%s\": %llu", *buffer, key, val) < 0) {
       rc = -1;
       fprintf(stderr, "Write to buffer failed for %s `%s\n'", path, key);
     }               
@@ -72,7 +71,7 @@ int collect_single(const char *filepath, char **buffer, char *key)
     goto devde_err;
   }      
   char *tmp = *buffer;
-  if (asprintf(buffer, "%s key: %s val: %llu", *buffer, key, val) < 0 ) {
+  if (asprintf(buffer, "%s, \"%s\": %llu", *buffer, key, val) < 0 ) {
     rc = -1;
     fprintf(stderr, "Write to buffer failed for `%s\n'", key);
   }

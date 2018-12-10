@@ -51,7 +51,7 @@ int collect_lod(char **buffer)
     char devpath[256];
     snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);
     char *tmp = *buffer;
-    asprintf(buffer, "type: lod dev: %s host: %s time: %llu.%llu",
+    asprintf(buffer, "\"type\": \"lod\", \"dev\": \"%s\", \"host\": \"%s\", \"time\": %llu.%llu",
 	     typede->d_name, localhost, time.tv_sec, time.tv_nsec);       
     if (tmp != NULL) free(tmp);
 

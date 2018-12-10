@@ -5,10 +5,12 @@
 #include <time.h>
 #include "collect.h"
 
-static const char *typepath[] = { 
-  [0] = "/proc/fs/lustre/mdt",
-  [1] = "/proc/fs/lustre/obdfilter",
+static const char *type[] = { 
+  [0] = "mdt",
+  [1] = "obdfilter",
 };
+
+#define basepath "/proc/fs/lustre"
 
 int collect_exports(char **buffer)
 {
@@ -24,11 +26,14 @@ int collect_exports(char **buffer)
   }
 
   size_t i;
-  for (i = 0; i < sizeof(typepath)/sizeof(typepath[0]); i++) {
+  for (i = 0; i < sizeof(type)/sizeof(type[0]); i++) {
+    char typepath[256];
+    snprintf(typepath, sizeof(typepath), "%s/%s", basepath, type[i]);
+
     DIR *typedir = NULL;
-    typedir = opendir(typepath[i]);
+    typedir = opendir(typepath);
     if(typedir == NULL) {
-      fprintf(stderr, "cannot open `%s' : %m\n", typepath[i]);
+      fprintf(stderr, "cannot open `%s' : %m\n", typepath);
       goto typedir_err;
     }
 
@@ -40,11 +45,13 @@ int collect_exports(char **buffer)
       DIR *exportdir = NULL;
       char exportpath[256];
       snprintf(exportpath, sizeof(exportpath), 
-	       "%s/%s/exports", typepath[i], typede->d_name);
+	       "%s/%s/exports", typepath, typede->d_name);
+
       char *tmp = *buffer;
-      asprintf(buffer, "type: exports dev: %s host: %s time: %llu.%llu",
-	       typede->d_name, localhost, time.tv_sec, time.tv_nsec);       
+      asprintf(buffer, "\"type\": \"%s\", \"dev\": \"%s\", \"host\": \"%s\", \"time\": %llu.%llu, \"exports\": [",
+	       type[i], typede->d_name, localhost, time.tv_sec, time.tv_nsec);       
       if (tmp != NULL) free(tmp);
+
       exportdir = opendir(exportpath); 
       if(exportdir == NULL) {
 	fprintf(stderr, "cannot open `%s' : %m\n", exportpath);
@@ -59,12 +66,21 @@ int collect_exports(char **buffer)
 	char statspath[256];
 	snprintf(statspath, sizeof(statspath), "%s/%s/stats", 
 		 exportpath, nidde->d_name);
-	char *tmp = *buffer;
-	asprintf(buffer, "%s nid: %s", *buffer, nidde->d_name);
+
+	tmp = *buffer;
+	asprintf(buffer, "%s{\"nid\": \"%s\"", *buffer, nidde->d_name);
 	if (tmp != NULL) free(tmp);
+	
 	if (collect_stats(statspath, buffer) < 0)
-	  continue;
-      }      
+	  fprintf(stderr, "cannot read `%s' from `%s': %m\n", nidde->d_name, statspath);
+
+	tmp = *buffer;
+	asprintf(buffer, "%s},", *buffer);
+	if (tmp != NULL) free(tmp);
+      }            
+      char *p = *buffer;
+      p = *buffer + strlen(*buffer) - 1;
+      *p = ']';
 
     exportdir_err:
       if (exportdir != NULL)

@@ -67,7 +67,7 @@ int collect_llite(char **buffer)
     *p = '\0'; 
    
     char *tmp = *buffer;
-    asprintf(buffer, "type: llite dev: %s host: %s time: %llu.%llu",
+    asprintf(buffer, "\"type\": \"llite\", \"dev\": \"%s\", \"host\": \"%s\", \"time\": %llu.%llu",
 	     typede->d_name, localhost, time.tv_sec, time.tv_nsec);       
     if (tmp != NULL) free(tmp);
     
