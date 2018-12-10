@@ -8,6 +8,21 @@
 #define TYPEPATH "/proc/fs/lustre/lod"
 #define PROCFS_BUF_SIZE 4096
 
+#define SINGLE	       \
+  X(activeobd),	       \
+    X(blocksize),      \
+    X(dom_stripesize), \
+    X(filesfree),      \
+    X(filestotal),     \
+    X(kbytesavail),    \
+    X(kbytesfree),     \
+    X(kbytestotal),    \
+    X(lmv_failout),    \
+    X(numobd),	       \
+    X(stripecount),    \
+    X(stripesize),     \
+    X(stripetype)
+
 int collect_lod(char **buffer)
 {
   int rc = -1;
@@ -39,28 +54,18 @@ int collect_lod(char **buffer)
     asprintf(buffer, "type: lod dev: %s host: %s time: %llu.%llu",
 	     typede->d_name, localhost, time.tv_sec, time.tv_nsec);       
     if (tmp != NULL) free(tmp);
-    DIR *devdir = NULL;
-    devdir = opendir(devpath);
-    if(devdir == NULL) {
-      fprintf(stderr, "cannot open `%s' : %m\n", devpath);
-      goto devdir_err;
-    }
 
-    struct dirent *devde;
-    while ((devde = readdir(devdir)) != NULL) {  
-      if (devde->d_type == DT_DIR || devde->d_name[0] == '.')
-	continue;
-
-      char filepath[256];
-      snprintf(filepath, sizeof(filepath), "%s/%s", devpath, devde->d_name);
-      if (collect_single(filepath, buffer, devde->d_name) < 0)
-	continue;
-    }
-  devdir_err:
-    if (devdir != NULL)
-      closedir(devdir);
+#define X(k,r...)						           \
+    ({								           \
+      char filepath[256];						   \
+      snprintf(filepath, sizeof(filepath), "%s/%s", devpath, #k);	   \
+      if (collect_single(filepath, buffer, #k) < 0)			   \
+	fprintf(stderr, "cannot read `%s' from `%s': %m\n", #k, filepath); \
+    })
+    SINGLE;
+#undef X
   }
-  
+
   rc = 0;
  typedir_err:
   if (typedir != NULL)
