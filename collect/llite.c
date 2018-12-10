@@ -7,6 +7,31 @@
 
 #define TYPEPATH "/proc/fs/lustre/llite"
 
+#define STATS		 \
+  X(max_cached_mb),	 \
+    X(read_ahead_stats), \
+    X(stats),		 \
+    X(statahead_stats),	 \
+    X(unstable_stats)
+
+#define SINGLE			   \
+  X(max_read_ahead_whole_mb),	   \
+    X(max_read_ahead_mb),	   \
+    X(max_read_ahead_per_file_mb), \
+    X(default_easize),		   \
+    X(max_easize),		   \
+    X(uuid),			   \
+    X(statahead_agl),		   \
+    X(statahead_max),		   \
+    X(stat_blocksize),		   \
+    X(kbytesavail),		   \
+    X(kbytesfree),		   \
+    X(kbytestotal),		   \
+    X(fast_read),		   \
+    X(filesfree),		   \
+    X(filestotal),		   \
+    X(lazystatfs)                                                                  
+                  
 int collect_llite(char **buffer)
 {
   int rc = -1;
@@ -30,40 +55,42 @@ int collect_llite(char **buffer)
   while ((typede = readdir(typedir)) != NULL) {  
     if (typede->d_type != DT_DIR || typede->d_name[0] == '.')
       continue;
-    DIR *devdir = NULL;
+
     char devpath[256];
     snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);
+
+    if (strlen(typede->d_name) < 16) {
+      fprintf(stderr, "invalid obd name `%s'\n", typede->d_name);
+      continue;
+    }
+    char *p = typede->d_name + strlen(typede->d_name) - 16 - 1;
+    *p = '\0'; 
+   
     char *tmp = *buffer;
     asprintf(buffer, "type: llite dev: %s host: %s time: %llu.%llu",
 	     typede->d_name, localhost, time.tv_sec, time.tv_nsec);       
     if (tmp != NULL) free(tmp);
-    devdir = opendir(devpath);
-    if(devdir == NULL) {
-      fprintf(stderr, "cannot open `%s' : %m\n", devpath);
-      goto devdir_err;
-    }
-
-    struct dirent *devde;
-    while ((devde = readdir(devdir)) != NULL) {  
-      if (devde->d_type == DT_DIR || devde->d_name[0] == '.')
-	continue;
-      
-      char filepath[256];
-      snprintf(filepath, sizeof(filepath), "%s/%s", devpath, devde->d_name);
-      if (strcmp(devde->d_name, "stats") == 0) {
-	if (collect_stats(filepath, buffer) < 0)
-	  continue;
-      }
-      else {
-	if(collect_single(filepath, buffer, devde->d_name) < 0)
-	  continue;
-      }
-    }
-  devdir_err:
-    if (devdir != NULL)
-      closedir(devdir);  
+    
+#define X(k,r...)							\
+    ({									\
+      char filepath[256];						\
+      snprintf(filepath, sizeof(filepath), "%s/%s", devpath, #k); \
+      if (collect_stats(filepath, buffer) < 0)				\
+	fprintf(stderr, "cannot read `%s' from `%s': %m\n", #k, filepath); \
+    })
+    STATS;
+#undef X
+#define X(k,r...)							\
+    ({									\
+      char filepath[256];						\
+      snprintf(filepath, sizeof(filepath), "%s/%s", devpath, #k);	\
+      if (collect_single(filepath, buffer, #k) < 0)			\
+	fprintf(stderr, "cannot read `%s' from `%s': %m\n", #k, filepath); \
+    })
+    SINGLE;
+#undef X
   }
-
+  
   rc = 0;
  typedir_err:
   if (typedir != NULL)

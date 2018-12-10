@@ -67,8 +67,9 @@ int collect_single(const char *filepath, char **buffer, char *key)
   char procfs_buf[PROCFS_BUF_SIZE];
   setvbuf(fd, procfs_buf, _IOFBF, sizeof(procfs_buf));
   unsigned long long val;
-  if (fscanf(fd, "%llu", &val) == 1) {
+  if (fscanf(fd, "%llu", &val) != 1) {
     rc = -1;
+    goto devde_err;
   }      
   char *tmp = *buffer;
   if (asprintf(buffer, "%s key: %s val: %llu", *buffer, key, val) < 0 ) {
