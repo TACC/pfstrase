@@ -18,7 +18,7 @@ def deploy(state, meta_dict, count, prefix):
   for index in range(count):
     name = str(utils.proj_prefix) + str(prefix) + str(index)
     utils.init_log.debug("creating VM with name {0}".format(name))
-    server = utils.create_vm(state, name=name)
+    server = utils.create_server(state, name=name)
     meta_dict[name] = server
 
   return meta_dict

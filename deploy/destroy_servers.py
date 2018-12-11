@@ -22,7 +22,7 @@ def main():
   server_dict = utils.create_server_dict(all_servers, filter_regex=None)
 
   for server_name, server in server_dict.iteritems():
-    utils.destroy_vm(state, server)
+    utils.destroy_server(state, server)
   
   utils.init_log.info("10 second destroy cooldown...")
   time.sleep(10)
