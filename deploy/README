@@ -34,6 +34,12 @@ source openrc
 # Make sure keypair does not already exist.
 ./init_keypair.sh
 # Customize lustre.cfg
-python deploy_vms.py
+python deploy_servers.py
 python deploy_volumes.py
 python attach_volumes.py
+
+# To shut down
+# Make sure disks are unmounted first
+python detach_volumes.py
+python destroy_servers.py
+python destroy_volumes.py

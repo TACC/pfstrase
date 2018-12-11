@@ -5,6 +5,7 @@ from __future__ import print_function
 import ConfigParser as cp
 import logging      as lg
 import os           as os
+import re           as re
 import sys          as sys
 
 #---------------------------------------------------------------------------
@@ -115,11 +116,13 @@ def get_ip_address(state, server):
 #---------------------------------------------------------------------------
 
 
-def create_server_dict(server_list):
+def create_server_dict(server_list, filter_regex=None):
   server_dict = dict()
   for server in server_list:
     if "master" in server.name: continue
     if proj_prefix not in server.name: continue
+    if filter_regex: 
+      if re.findall(filter_regex, server.name): continue
     if server.name in server_dict:
       init_log.error("Non-unique server names in use: {0}".format(server.name))
       init_log.error("Server with ID {0} will be overwritten.".format(server_dict[server.name].id))
@@ -132,9 +135,11 @@ def create_server_dict(server_list):
 #---------------------------------------------------------------------------
 
 
-def create_ip_dict(state, server_list):
+def create_ip_dict(state, server_list, filter_regex=None):
   ip_dict = dict()
   for server in server_list:
+    if filter_regex: 
+      if re.findall(filter_regex, server.name): continue
     if server.name in ip_dict:
       init_log.error("Multiple server IPs in use: {0}".format(server.name))
       init_log.error("Server with IP {0} will be overwritten.".format(ip_dict[server.name]))
@@ -147,9 +152,13 @@ def create_ip_dict(state, server_list):
 #---------------------------------------------------------------------------
 
 
-def create_volume_dict(volume_list):
+def create_volume_dict(volume_list, filter_regex=None):
   volume_dict = dict()
   for volume in volume_list:
+    if "master" in volume.name: continue
+    if proj_prefix not in volume.name: continue
+    if filter_regex: 
+      if re.findall(filter_regex, volume.name): continue
     if volume.name in volume_dict:
       init_log.error("Non-unique volume names in use: {0}".format(volume.name))
       init_log.error("Server with ID {0} will be overwritten.".format(volume_dict[volume.name].id))
@@ -162,7 +171,7 @@ def create_volume_dict(volume_list):
 #---------------------------------------------------------------------------
 
 
-def create_vm(state, name):
+def create_server(state, name):
   image  = state["glance"].images.get(image_id=img)
   flavor = state["nova"].flavors.find(name=flav)
   init_log.debug("name:{0}, image:{1}, flavor:{2}, secgroup:{3}, key:{4}, nic:{5}, userdata:{6}".format(name, img, flav, secgroup, key, nic, datafile))
@@ -172,7 +181,7 @@ def create_vm(state, name):
 #---------------------------------------------------------------------------
 
 
-def destroy_vm(state, server):
+def destroy_server(state, server):
   init_log.info("Detaching volumes from server {0}".format(server.id))
   detach_all_volumes_from_server(state, server)
   init_log.info("Deleting server {0}".format(server.id))
