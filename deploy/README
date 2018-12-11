@@ -1,0 +1,39 @@
+Launching a miniature Lustre testbed on Jetstream
+W. Cyrus Proctor
+2018-12-10
+
+
+Launch a master server JS web GUI.
+From: https://tacc.jetstream-cloud.org/dashboard/project/instances
+Click Launch Instance:
+========================
+Instance Name: cy_master
+Create New Volume: No
+Source: JS-API-Featured-CentOS7-Nov-13-2018
+Flavor: m1.small
+Networks: cproctor_net
+Security Groups: cproctor_lustre
+Key Pair: cyrus-spren
+Customization Script:
+#!/bin/bash
+# Remove the first several characters of root's authorized keys file to allow ssh entry
+sed -i 's:^.*\(ssh-rsa\):\1:' /root/.ssh/authorized_keys
+yum -y install centos-release-openstack-rocky
+yum -y install python2-openstackclient python2-openstacksdk
+yum -y install vim git emacs
+========================
+Launch the instance.
+Associate Floating IP.
+Lock the master instance against further openstack changes.
+
+ssh -A root@<<master server public IP address>>
+# Wait until yum process has completed (~5 minutes).
+git clone git@github.com:TACC/pfstrase.git
+cd pfstrase/deploy
+source openrc
+# Make sure keypair does not already exist.
+./init_keypair.sh
+# Customize lustre.cfg
+python deploy_vms.py
+python deploy_volumes.py
+python attach_volumes.py
