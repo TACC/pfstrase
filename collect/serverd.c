@@ -56,6 +56,8 @@ int main(int argc, char *argv[])
   int pidfile_fd = -1;
   const char *pidfile_path = "/var/run/serverd.lock";
 
+  int amqp_mode = 1;
+  int sock_mode = 0;
   /*
   if (daemon(0, 0) < 0) {
     fprintf(stderr, "failed to daemonize %m\n");
@@ -68,43 +70,52 @@ int main(int argc, char *argv[])
     if (pidfile_fd < 0)      
       exit(1);
   }
-
-  amqp_connection_state_t conn;
-  int fd = amqp_setup_connection(&conn, port, host);
-  
-  /*
-  int fd = socket_setup_connection(port);  
-  */  
-
+    
   signal(SIGPIPE, SIG_IGN);
   static struct ev_signal sigterm;
   ev_signal_init(&sigterm, signal_cb, SIGTERM);
   ev_signal_start(EV_DEFAULT, &sigterm);
-  
-  ev_timer timer;
-  timer.data = (void *)&conn;
-  ev_timer_init(&timer, amqp_send_cb, 0.0, 0.1);
-  ev_timer_start(EV_DEFAULT, &timer);
-    
-  ev_io watcher;
-  watcher.data = (void *)&conn;
-  ev_io_init(&watcher, amqp_rpc_cb, fd, EV_READ);
-  ev_io_start(EV_DEFAULT, &watcher);
 
+  amqp_connection_state_t conn;
+  int fd;
+  ev_timer timer;
+  ev_io watcher;
+  
+  if(amqp_mode) {
+    fd = amqp_setup_connection(&conn, port, host);
+    timer.data = (void *)&conn;
+    ev_timer_init(&timer, amqp_send_cb, 0.0, 1);   
+    watcher.data = (void *)&conn;
+    ev_io_init(&watcher, amqp_rpc_cb, fd, EV_READ);
+
+  }   
+  else if (sock_mode) {
+    fd = sock_setup_connection(port);  
+    timer.data = (void *)&fd;
+    ev_timer_init(&timer, sock_send_cb, 0.0, 1);  
+    ev_io_init(&watcher, sock_rpc_cb, fd, EV_READ);
+  }
+  else {
+    fprintf(stderr, "Error: connection mode not supported\n");
+    exit(1);
+  }  
+
+  ev_timer_start(EV_DEFAULT, &timer);
+  ev_io_start(EV_DEFAULT, &watcher);    
   ev_run(EV_DEFAULT, 0);
   
   if (pidfile_path != NULL)
     unlink(pidfile_path);
+    
+  if (amqp_mode) {
+    die_on_amqp_error(amqp_channel_close(conn, 1, AMQP_REPLY_SUCCESS),
+		      "Closing channel");
+    die_on_amqp_error(amqp_connection_close(conn, AMQP_REPLY_SUCCESS),
+		      "Closing connection");
+    die_on_error(amqp_destroy_connection(conn), "Ending connection");
+  }
 
-  /*
   close(fd);
-  */
-
-  die_on_amqp_error(amqp_channel_close(conn, 1, AMQP_REPLY_SUCCESS),
-                    "Closing channel");
-  die_on_amqp_error(amqp_connection_close(conn, AMQP_REPLY_SUCCESS),
-                    "Closing connection");
-  die_on_error(amqp_destroy_connection(conn), "Ending connection");
 
   return 0;
 }
