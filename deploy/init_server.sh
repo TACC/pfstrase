@@ -34,3 +34,6 @@ if [ ! -c /dev/lnet ] ; then
     exec /sbin/modprobe lnet >/dev/null 2>&1
 fi
 EOF
+
+# Disable selinux
+sed -i "s/SELINUX=enforcing/SELINUX=disabled/g" /etc/selinux/config
