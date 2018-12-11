@@ -118,6 +118,8 @@ def get_ip_address(state, server):
 def create_server_dict(server_list):
   server_dict = dict()
   for server in server_list:
+    if "master" in server.name: continue
+    if proj_prefix not in server.name: continue
     if server.name in server_dict:
       init_log.error("Non-unique server names in use: {0}".format(server.name))
       init_log.error("Server with ID {0} will be overwritten.".format(server_dict[server.name].id))
