@@ -110,19 +110,7 @@ def create_session():
 
 
 def get_ip_address(state, server):
-  return [state["nova"].servers.ips(server.id)[str(network)][0]['addr']]
-
-#---------------------------------------------------------------------------
-
-
-def get_volume_id(volume):
-  return [volume.id]
-
-#---------------------------------------------------------------------------
-
-
-def get_server_id(server):
-  return [server.id]
+  return state["nova"].servers.ips(server.id)[str(network)][0]['addr']
 
 #---------------------------------------------------------------------------
 
@@ -131,9 +119,11 @@ def create_server_dict(server_list):
   server_dict = dict()
   for server in server_list:
     if server.name in server_dict:
-      server_dict[server.name].extend(get_server_id(server))
-    else:
-      server_dict[server.name] = get_server_id(server)
+      init_log.error("Non-unique server names in use: {0}".format(server.name))
+      init_log.error("Server with ID {0} will be overwritten.".format(server_dict[server.name].id))
+      init_log.error("Server with ID {0} will replace.".format(server.id))
+
+    server_dict[server.name] = server
 
   return server_dict
   
@@ -144,9 +134,11 @@ def create_ip_dict(state, server_list):
   ip_dict = dict()
   for server in server_list:
     if server.name in ip_dict:
-      ip_dict[server.name].extend(get_ip_address(state, server))
-    else:
-      ip_dict[server.name] = get_ip_address(state, server)
+      init_log.error("Multiple server IPs in use: {0}".format(server.name))
+      init_log.error("Server with IP {0} will be overwritten.".format(ip_dict[server.name]))
+      init_log.error("Server with IP {0} will replace.".format(get_ip_address(state, server)))
+
+    ip_dict[server.name] = get_ip_address(state, server)
 
   return ip_dict
 
@@ -157,9 +149,11 @@ def create_volume_dict(volume_list):
   volume_dict = dict()
   for volume in volume_list:
     if volume.name in volume_dict:
-      volume_dict[volume.name].extend(get_volume_id(volume))
-    else:
-      volume_dict[volume.name] = get_volume_id(volume)
+      init_log.error("Non-unique volume names in use: {0}".format(volume.name))
+      init_log.error("Server with ID {0} will be overwritten.".format(volume_dict[volume.name].id))
+      init_log.error("Server with ID {0} will replace.".format(volume.id))
+
+    volume_dict[volume.name] = volume
     
   return volume_dict
 
