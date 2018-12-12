@@ -50,12 +50,22 @@ ansible -i hosts all -a reboot
 # Once the servers are back up, check the kernel version:
 ansible -i hosts all -a "uname -a"
 # For CentOS 7.5 (2018-12-11) the version is 3.10.0-693.21.1.el7_lustre.x86_64
+# Next, update your host inventory
+# This will update /etc/hosts, /etc/ansible/hosts, and ~/.ssh/known_hosts
+python update_inventory.py
+# From there, you may try:
+ansible all -a uptime
+ansible mds -a uptime
+ansible oss -a uptime
+ansible c -a uptime
+# Which allows ad-hoc commands to be run on each type of server.
 # Now create the volumes
 python deploy_volumes.py
 # Attach the volumes
 python attach_volumes.py
 
-# To shut down
+
+# To clean up
 # Make sure disks are unmounted first
 python detach_volumes.py
 python destroy_servers.py
