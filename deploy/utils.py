@@ -138,6 +138,8 @@ def create_server_dict(server_list, filter_regex=None):
 def create_ip_dict(state, server_list, filter_regex=None):
   ip_dict = dict()
   for server in server_list:
+    if "master" in server.name: continue
+    if proj_prefix not in server.name: continue
     if filter_regex: 
       if re.findall(filter_regex, server.name): continue
     if server.name in ip_dict:
