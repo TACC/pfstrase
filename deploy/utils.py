@@ -74,7 +74,7 @@ def setup_logging( name,
   logger = lg.getLogger(name)
   logger.setLevel(log_level)
 
-  file_handler = lg.FileHandler(log_filepath, mode="w", encoding="utf8")        
+  file_handler = lg.FileHandler(log_filepath, mode="a", encoding="utf8")        
   file_handler.setFormatter(formatter)
 
   stream_handler = lg.StreamHandler(stream=sys.stdout)
