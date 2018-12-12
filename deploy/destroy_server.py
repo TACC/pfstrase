@@ -31,8 +31,8 @@ def main():
   if input_name in server_dict:
     utils.destroy_server(state, server_dict[input_name])
   
-  utils.init_log.info("3 second destroy cooldown...")
-  time.sleep(3)
+  utils.init_log.info("10 second destroy cooldown...")
+  time.sleep(10)
 
 
   utils.summarize(state)

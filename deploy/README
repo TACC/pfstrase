@@ -20,7 +20,7 @@ Customization Script:
 sed -i 's:^.*\(ssh-rsa\):\1:' /root/.ssh/authorized_keys
 yum -y install centos-release-openstack-rocky
 yum -y install python2-openstackclient python2-openstacksdk
-yum -y install vim git emacs
+yum -y install vim git emacs ansible
 ========================
 Launch the instance.
 Associate Floating IP.
@@ -35,7 +35,24 @@ source openrc
 ./init_keypair.sh
 # Customize lustre.cfg
 python deploy_servers.py
+# Note that installing the lustre kernel may take up to 20 minutes
+# Generate an ansible host inventory
+openstack server list -c Name -c Networks -f value | awk -F, '{print $1}' | sed 's/cproctor_net/ansible_ssh_host/' | grep cy | grep -v master > hosts
+# Attempt to connect to all hosts
+ansible -i hosts all -a uptime
+# If deployment is complete (check console logs) and a host is not reachable
+# then redeploy it via:
+./redeploy_server.sh <<<hostname>>>
+# If the host exists in openstack, it will be destroyed and redeployed.
+# Repeat as necessary to obtain a reachable server.
+# Once all servers are up, fully deployed, and pingable reboot them to into the lustre kernel:
+ansible -i hosts all -a reboot
+# Once the servers are back up, check the kernel version:
+ansible -i hosts all -a "uname -a"
+# For CentOS 7.5 (2018-12-11) the version is 3.10.0-693.21.1.el7_lustre.x86_64
+# Now create the volumes
 python deploy_volumes.py
+# Attach the volumes
 python attach_volumes.py
 
 # To shut down

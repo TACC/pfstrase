@@ -65,8 +65,8 @@ def main():
 
   created = deploy_lustre_vms(state, input_name)
 
-  utils.init_log.info("3 second deployment cooldown...")
-  time.sleep(3)
+  utils.init_log.info("10 second deployment cooldown...")
+  time.sleep(10)
 
   vm_creation_summary(created)
 
