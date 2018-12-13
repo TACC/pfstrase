@@ -1,0 +1,22 @@
+---
+- set_fact: abort=true
+
+- name: Create volume partition
+  parted:
+    device: "{{ item.device }}"
+    number: 1
+    state: present
+  with_items: "{{ partitions }}"
+  when:
+    - abort is undefined
+  tags: create_volume_partition
+
+- name: Destroy volume partition
+  parted:
+    device: "{{ item.device }}"
+    number: 1
+    state: absent
+  with_items: "{{ partitions }}"
+  when:
+    - abort is undefined
+  tags: destroy_volume_partition

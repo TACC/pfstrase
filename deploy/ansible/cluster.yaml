@@ -1,0 +1,9 @@
+---
+
+- hosts: all
+  roles:
+    - { role: filesync, tags: filesync }
+
+- hosts: mds, oss
+  roles:
+    - { role: partition, tags: partition }
