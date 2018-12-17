@@ -15,6 +15,8 @@ serverd_SOURCES = 	 \
 	lod.c		\
 	llite.h		\
 	llite.c		\
+	sysinfo.h	\
+	sysinfo.c	\
 	socket_utils.h \
 	socket_utils.c \
 	serverd.c
