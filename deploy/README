@@ -1,0 +1,72 @@
+Launching a miniature Lustre testbed on Jetstream
+W. Cyrus Proctor
+2018-12-10
+
+
+Launch a master server JS web GUI.
+From: https://tacc.jetstream-cloud.org/dashboard/project/instances
+Click Launch Instance:
+========================
+Instance Name: cy_master
+Create New Volume: No
+Source: JS-API-Featured-CentOS7-Nov-13-2018
+Flavor: m1.small
+Networks: cproctor_net
+Security Groups: cproctor_lustre
+Key Pair: cyrus-spren
+Customization Script:
+#!/bin/bash
+# Remove the first several characters of root's authorized keys file to allow ssh entry
+sed -i 's:^.*\(ssh-rsa\):\1:' /root/.ssh/authorized_keys
+yum -y install centos-release-openstack-rocky
+yum -y install python2-openstackclient python2-openstacksdk
+yum -y install vim git emacs ansible
+========================
+Launch the instance.
+Associate Floating IP.
+Lock the master instance against further openstack changes.
+
+ssh -A root@<<master server public IP address>>
+# Wait until yum process has completed (~5 minutes).
+git clone git@github.com:TACC/pfstrase.git
+cd pfstrase/deploy
+source openrc
+# Make sure keypair does not already exist.
+./init_keypair.sh
+# Customize lustre.cfg
+python deploy_servers.py
+# Note that installing the lustre kernel may take up to 20 minutes
+# Generate an ansible host inventory
+openstack server list -c Name -c Networks -f value | awk -F, '{print $1}' | sed 's/cproctor_net/ansible_ssh_host/' | grep cy | grep -v master > hosts
+# Attempt to connect to all hosts
+ansible -i hosts all -a uptime
+# If deployment is complete (check console logs) and a host is not reachable
+# then redeploy it via:
+./redeploy_server.sh <<<hostname>>>
+# If the host exists in openstack, it will be destroyed and redeployed.
+# Repeat as necessary to obtain a reachable server.
+# Once all servers are up, fully deployed, and pingable reboot them to into the lustre kernel:
+ansible -i hosts all -a reboot
+# Once the servers are back up, check the kernel version:
+ansible -i hosts all -a "uname -a"
+# For CentOS 7.5 (2018-12-11) the version is 3.10.0-693.21.1.el7_lustre.x86_64
+# Next, update your host inventory
+# This will update /etc/hosts, /etc/ansible/hosts, and ~/.ssh/known_hosts
+python update_inventory.py
+# From there, you may try:
+ansible all -a uptime
+ansible mds -a uptime
+ansible oss -a uptime
+ansible c -a uptime
+# Which allows ad-hoc commands to be run on each type of server.
+# Now create the volumes
+python deploy_volumes.py
+# Attach the volumes
+python attach_volumes.py
+
+
+# To clean up
+# Make sure disks are unmounted first
+python detach_volumes.py
+python destroy_servers.py
+python destroy_volumes.py

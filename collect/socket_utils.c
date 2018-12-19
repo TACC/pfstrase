@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -255,7 +256,7 @@ void sock_send_data(int fd)
     char *buf = NULL;
     collect_exports(&buf);
     if (buf) {
-      int rv = send(fd, buf, sizeof(buf), 0);
+      int rv = send(fd, buf, strlen(buf), 0);
       free(buf);
     }
   }
@@ -263,7 +264,7 @@ void sock_send_data(int fd)
     char *buf = NULL;
     collect_lod(&buf);
     if (buf) {
-      int rv = send(fd, buf, sizeof(buf), 0);
+      int rv = send(fd, buf, strlen(buf), 0);
       free(buf);
     }
   }
@@ -271,7 +272,7 @@ void sock_send_data(int fd)
     char *buf = NULL;
     collect_llite(&buf);
     if (buf) {
-      int rv = send(fd, buf, sizeof(buf), 0);
+      int rv = send(fd, buf, strlen(buf), 0);
       free(buf);
     }
   }

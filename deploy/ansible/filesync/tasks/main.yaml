@@ -1,0 +1,34 @@
+---
+- name: Copy /etc/hosts
+  copy:
+    src: /etc/hosts
+    dest: /etc/hosts
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Copy /root/.ssh/known_hosts
+  copy:
+    src: /root/.ssh/known_hosts
+    dest: /root/.ssh/known_hosts
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Copy /root/.ssh/id_rsa
+  copy:
+    src: /root/.ssh/id_rsa
+    dest: /root/.ssh/id_rsa
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Copy /root/.ssh/id_rsa.pub
+  copy:
+    src: /root/.ssh/id_rsa.pub
+    dest: /root/.ssh/id_rsa.pub
+    owner: root
+    group: root
+    mode: 0600
+
+
