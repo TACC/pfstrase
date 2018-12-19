@@ -1,11 +1,9 @@
 #include <sys/types.h>
 #include <unistd.h>
-
 #include <stdlib.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>
-
 #include <ev.h>
 #include <string.h>
 
@@ -13,11 +11,8 @@
 #include <amqp_tcp_socket.h>
 
 #include "pidfile_create.h"
+#include "utils.h"
 #include "socket_utils.h"
-
-
-#define SOCKET_BUFFERSIZE 655336
-
 
 static void signal_cb(EV_P_ ev_signal *sigterm, int revents)
 {
@@ -54,7 +49,8 @@ int main(int argc, char *argv[])
   const char *port = "5672";
 
   int pidfile_fd = -1;
-  const char *pidfile_path = "/var/run/serverd.lock";
+  //const char *pidfile_path = "/var/run/serverd.lock";
+  const char *pidfile_path = "serverd.lock";
 
   int amqp_mode = 1;
   int sock_mode = 0;

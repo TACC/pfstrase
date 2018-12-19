@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/sysinfo.h>
 #include <time.h>
 #include <stdio.h>

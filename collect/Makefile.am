@@ -1,6 +1,6 @@
-ACLOCAL_AMFLAGS = -I m4
-
 bin_PROGRAMS = serverd
+
+serverd_CPPFLAGS = -D_GNU_SOURCE
 
 serverd_SOURCES = 	 \
 	pidfile_create.h \

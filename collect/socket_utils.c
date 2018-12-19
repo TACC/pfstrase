@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -7,10 +8,13 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <amqp.h>
+#include <amqp_tcp_socket.h>
 
+#include "utils.h"
 #include "socket_utils.h"
 #include "exports.h"
 #include "lod.h"
+#include "llite.h"
 #include "sysinfo.h"
 
 char const *exchange = "amq.direct";

@@ -1,5 +1,6 @@
 *~
 *.o
+*.lock
 serverd
 .deps
 Makefile
