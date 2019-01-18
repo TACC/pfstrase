@@ -31,4 +31,36 @@
     group: root
     mode: 0600
 
+- name: Copy /etc/selinux/config
+  copy:
+    src: /etc/selinux/config
+    dest: /etc/selinux/config
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Copy /etc/yum.repos.d/lustre.repo
+  copy:
+    src: /etc/yum.repos.d/lustre.repo
+    dest: /etc/yum.repos.d/lustre.repo
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Copy /etc/modprobe.d/lnet.conf
+  copy:
+    src: /etc/modprobe.d/lnet.conf
+    dest: /etc/modprobe.d/lnet.conf
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Copy /etc/sysconfig/modules/lnet.modules
+  copy:
+    src: /etc/sysconfig/modules/lnet.modules
+    dest: /etc/sysconfig/modules/lnet.modules
+    owner: root
+    group: root
+    mode: 0644
+
 

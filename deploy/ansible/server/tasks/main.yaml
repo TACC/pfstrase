@@ -1,0 +1,12 @@
+---
+
+- name: Server Packages
+  yum: pkg={{item}} state=installed
+  with_items:
+    - vim
+    - git
+    - emacs
+    - e2fsprogs
+    - lustre-tests
+
+

@@ -7,3 +7,4 @@
 - hosts: mds, oss
   roles:
     - { role: partition, tags: partition }
+    - { role: server,    tags: server }

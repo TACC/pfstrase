@@ -1,0 +1,7 @@
+---
+
+partitions:
+  - name: oss1-ost0
+    device: /dev/sdb
+  - name: oss1-ost1
+    device: /dev/sdc
