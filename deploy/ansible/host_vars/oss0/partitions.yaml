@@ -5,3 +5,9 @@ partitions:
     device: /dev/sdb
   - name: oss0-ost1
     device: /dev/sdc
+
+zpools:
+  - name: oss0-ost0
+    device: /dev/sdb
+  - name: oss0-ost1
+    device: /dev/sdc

@@ -1,0 +1,9 @@
+---
+- set_fact: abort=true
+
+- name: Create a zpool
+  command: /sbin/zpool create "{{ item.name }}" "{{ item.device }}"
+  with_items: "{{ zpools }}"
+  when:
+    - abort is undefined
+  tags: create_zpool

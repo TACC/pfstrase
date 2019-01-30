@@ -5,3 +5,9 @@ partitions:
     device: /dev/sdb
   - name: mds0-mdt1
     device: /dev/sdc
+
+zpools:
+  - name: mds0-mdt0
+    device: /dev/sdb
+  - name: mds0-mdt1
+    device: /dev/sdc

@@ -1,13 +1,13 @@
 ---
 
-- name: Server Packages
+- name: Client Packages
   yum: pkg={{item}} state=installed
   with_items:
     - vim
     - git
     - emacs
     - e2fsprogs
-    - lustre-tests
+    - lustre-client
 
 
 - lineinfile:
