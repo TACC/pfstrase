@@ -1,13 +1,18 @@
 ---
 
+- name: Server Package List
+  set_fact:
+    pkg_list:
+      - vim
+      - git
+      - emacs
+      - e2fsprogs
+      - lustre-tests
+
 - name: Server Packages
-  yum: pkg={{item}} state=installed
-  with_items:
-    - vim
-    - git
-    - emacs
-    - e2fsprogs
-    - lustre-tests
+  yum: 
+    name: "{{ pkg_list }}"
+    state: present
 
 
 - lineinfile:

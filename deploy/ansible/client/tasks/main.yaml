@@ -1,13 +1,18 @@
 ---
 
+- name: Client Package List
+  set_fact:
+    pkg_list:
+      - vim
+      - git
+      - emacs
+      - e2fsprogs
+      - lustre-client
+
 - name: Client Packages
-  yum: pkg={{item}} state=installed
-  with_items:
-    - vim
-    - git
-    - emacs
-    - e2fsprogs
-    - lustre-client
+  yum: 
+    name: "{{ pkg_list }}"
+    state: present
 
 
 - lineinfile:
