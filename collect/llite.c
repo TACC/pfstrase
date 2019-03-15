@@ -6,7 +6,8 @@
 #include <time.h>
 #include "collect.h"
 
-#define TYPEPATH "/proc/fs/lustre/llite"
+//#define TYPEPATH "/sys/fs/lustre/llite"
+#define TYPEPATH "/sys/kernel/debug/lustre/llite"
 
 #define STATS		 \
   X(max_cached_mb),	 \

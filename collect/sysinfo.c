@@ -26,7 +26,7 @@ int collect_sysinfo(char **buffer)
   }
 
   char *tmp = *buffer;
-  if (asprintf(buffer, "\"type\": \"sysinfo\", \"host\": \"%s\", \"time\": %llu.%llu, \"load average\": {\"1m\": %.2f, \"5m\": %.2f, \"15m\": %.2f \"freeram\": %lu, \"bufferram\": %lu, \"totalram\": %lu }", 
+  if (asprintf(buffer, "\"type\": \"sysinfo\", \"host\": \"%s\", \"time\": %llu.%llu, \"load average\": {\"1m\": %.2f, \"5m\": %.2f, \"15m\": %.2f, \"freeram\": %lu, \"bufferram\": %lu, \"totalram\": %lu }", 
 	       localhost, time.tv_sec, time.tv_nsec, 
 	       f_load*info.loads[0], f_load*info.loads[1], f_load*info.loads[2],
 	       info.freeram*info.mem_unit, info.bufferram*info.mem_unit, info.totalram*info.mem_unit) < 0 ) {

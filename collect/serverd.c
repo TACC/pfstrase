@@ -111,7 +111,8 @@ int main(int argc, char *argv[])
     die_on_error(amqp_destroy_connection(conn), "Ending connection");
   }
 
-  close(fd);
+  if(fd)
+    close(fd);
 
   return 0;
 }

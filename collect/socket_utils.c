@@ -14,6 +14,7 @@
 #include "socket_utils.h"
 #include "exports.h"
 #include "lod.h"
+#include "osc.h"
 #include "llite.h"
 #include "sysinfo.h"
 
@@ -189,6 +190,21 @@ void amqp_send_data(amqp_connection_state_t conn)
       fprintf(stderr, "sysinfo collection failed\n");
   }
 
+  {
+    char *buf = NULL;
+    collect_osc(&buf);
+    if (buf) {
+      printf("%s\n", buf);
+      amqp_basic_publish(conn, 1,
+			 amqp_cstring_bytes(exchange),
+			 amqp_cstring_bytes("response"),
+			 0, 0, &props,
+			 amqp_cstring_bytes(buf));
+      free(buf);
+    }
+    else
+      fprintf(stderr, "osc collection failed\n");
+  }
 }
 
 int sock_setup_connection(const char *port) 
