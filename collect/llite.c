@@ -5,9 +5,10 @@
 #include <string.h>
 #include <time.h>
 #include "collect.h"
+#include "llite.h"
 
 //#define TYPEPATH "/sys/fs/lustre/llite"
-#define TYPEPATH "/sys/kernel/debug/lustre/llite"
+
 
 #define STATS		 \
   X(max_cached_mb),	 \
@@ -34,22 +35,16 @@
     X(filestotal),		   \
     X(lazystatfs)                                                                  
                   
-int collect_llite(char **buffer)
+int collect_llite(struct device_info *info, char **buffer)
 {
   int rc = -1;
-  char localhost[64];
-  gethostname(localhost, sizeof(localhost));
 
-  struct timespec time;
-  if (clock_gettime(CLOCK_REALTIME, &time) != 0) {
-    fprintf(stderr, "cannot clock_gettime(): %m\n");
-    goto typedir_err;
-  }
+  char *typepath = "/sys/kernel/debug/lustre/llite";
 
   DIR *typedir = NULL;
-  typedir = opendir(TYPEPATH);
+  typedir = opendir(typepath);
   if(typedir == NULL) {
-    fprintf(stderr, "cannot open `%s' : %m\n", TYPEPATH);
+    fprintf(stderr, "cannot open `%s' : %m\n", typepath);
     goto typedir_err;
   }
 
@@ -59,7 +54,7 @@ int collect_llite(char **buffer)
       continue;
 
     char devpath[256];
-    snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);
+    snprintf(devpath, sizeof(devpath), "%s/%s", typepath, typede->d_name);
 
     if (strlen(typede->d_name) < 16) {
       fprintf(stderr, "invalid obd name `%s'\n", typede->d_name);
@@ -70,7 +65,7 @@ int collect_llite(char **buffer)
    
     char *tmp = *buffer;
     asprintf(buffer, "\"type\": \"llite\", \"dev\": \"%s\", \"host\": \"%s\", \"time\": %llu.%llu",
-	     typede->d_name, localhost, time.tv_sec, time.tv_nsec);       
+	     typede->d_name, info->hostname, info->time.tv_sec, info->time.tv_nsec);       
     if (tmp != NULL) free(tmp);
     
 #define X(k,r...)							\
@@ -82,6 +77,7 @@ int collect_llite(char **buffer)
     })
     STATS;
 #undef X
+    /*
 #define X(k,r...)							\
     ({									\
       char filepath[256];						\
@@ -91,6 +87,7 @@ int collect_llite(char **buffer)
     })
     SINGLE;
 #undef X
+    */
   }
   
   rc = 0;

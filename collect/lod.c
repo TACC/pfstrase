@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include "collect.h"
+#include "lod.h"
 
 #define TYPEPATH "/proc/fs/lustre/lod"
 #define PROCFS_BUF_SIZE 4096
@@ -24,18 +25,9 @@
     X(stripesize),     \
     X(stripetype)
 
-int collect_lod(char **buffer)
+int collect_lod(struct device_info *info, char **buffer)
 {
   int rc = -1;
-
-  char localhost[64];
-  gethostname(localhost, sizeof(localhost));
-
-  struct timespec time;
-  if (clock_gettime(CLOCK_REALTIME, &time) != 0) {
-    fprintf(stderr, "cannot clock_gettime(): %m\n");
-    goto typedir_err;
-  }
 
   DIR *typedir = NULL;
   typedir = opendir(TYPEPATH);
@@ -53,7 +45,7 @@ int collect_lod(char **buffer)
     snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);
     char *tmp = *buffer;
     asprintf(buffer, "\"type\": \"lod\", \"dev\": \"%s\", \"host\": \"%s\", \"time\": %llu.%llu",
-	     typede->d_name, localhost, time.tv_sec, time.tv_nsec);       
+	     typede->d_name, info->hostname, info->time.tv_sec, info->time.tv_nsec);       
     if (tmp != NULL) free(tmp);
 
 #define X(k,r...)						           \

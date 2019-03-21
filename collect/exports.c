@@ -11,15 +11,26 @@ int collect_exports(struct device_info *info, char **buffer)
 {
   int rc = -1;
 
+  char *type;
+  char *typepath;
+  if (info->class == MDS) {
+    typepath = "/proc/fs/lustre/mdt";
+    type = "mdt";
+  }
+  if (info->class == OSS) {
+    typepath = "/proc/fs/lustre/obdfilter";
+    type = "obdfilter";
+  }
+
   DIR *typedir = NULL;
-  typedir = opendir(info->typepath);
+  typedir = opendir(typepath);
   if(typedir == NULL) {
-    fprintf(stderr, "cannot open `%s' : %m\n", info->typepath);
+    fprintf(stderr, "cannot open `%s' : %m\n", typepath);
     goto typedir_err;
   }
 
   char *tmp = *buffer;
-  asprintf(buffer, "\"type\": \"%s\", \"host\": \"%s\", \"time\": %llu.%llu, \"dev\": [", info->type, info->hostname, info->time.tv_sec, info->time.tv_nsec);       
+  asprintf(buffer, "\"type\": \"%s\", \"host\": \"%s\", \"time\": %llu.%llu, \"dev\": [", type, info->hostname, info->time.tv_sec, info->time.tv_nsec);       
   if (tmp != NULL) free(tmp);
 
   struct dirent *typede;
@@ -30,10 +41,10 @@ int collect_exports(struct device_info *info, char **buffer)
     DIR *exportdir = NULL;
     char exportpath[256];
     snprintf(exportpath, sizeof(exportpath), 
-	     "%s/%s/exports", info->typepath, typede->d_name);
+	     "%s/%s/exports", typepath, typede->d_name);
    
     tmp = *buffer;
-    asprintf(buffer, "%s{\"%s\", \"exports\": [", *buffer, typede->d_name);
+    asprintf(buffer, "%s{\"idx\": \"%s\", \"exports\": [", *buffer, typede->d_name);
     if (tmp != NULL) free(tmp);
 
     exportdir = opendir(exportpath); 

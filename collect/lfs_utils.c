@@ -61,25 +61,22 @@ int devices_discover(struct device_info *info) {
 
     if (strcmp(type, "mdt") == 0) {
       info->class = MDS;      
-      snprintf(info->type, sizeof(info->type), type);
-      snprintf(info->typepath, sizeof(info->typepath), "/proc/fs/lustre/mdt");
+      snprintf(info->type, sizeof(info->type), "mds");
     }
     if (strcmp(type, "obdfilter") == 0) {
       info->class = OSS;
-      snprintf(info->type, sizeof(info->type), type);
-      snprintf(info->typepath, sizeof(info->typepath), "/proc/fs/lustre/obdfilter");
+      snprintf(info->type, sizeof(info->type), "oss");
     }
-    if (strcmp(type, "llite") == 0) {
+    if (strcmp(type, "osc") == 0) {
       info->class = OSC;
-      snprintf(info->type, sizeof(info->type), type);
-      snprintf(info->typepath, sizeof(info->typepath), "/sys/kernel/debug/lustre/llite");
+      snprintf(info->type, sizeof(info->type), "osc");
     }
   }
 
   if (line_buf != NULL) 
     free(line_buf);
+
   fprintf(stdout, "device type/class: %s/%d\n", info->type, info->class);
-  fprintf(stdout, "collect data from: %s\n", info->typepath);
 
  disco_err:
   if (fd != NULL)

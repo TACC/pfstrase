@@ -5,35 +5,30 @@
 #include <string.h>
 #include <time.h>
 #include "collect.h"
+#include "osc.h"
 
 //#define TYPEPATH "/sys/fs/lustre/osc"
-#define TYPEPATH "/sys/kernel/debug/lustre/osc"
+//#define TYPEPATH "/sys/kernel/debug/lustre/osc"
 
 #define STATS		 \
     X(stats)
 
-int collect_osc(char **buffer)
+int collect_osc(struct device_info *info, char **buffer)
 {
   int rc = -1;
-  char localhost[64];
-  gethostname(localhost, sizeof(localhost));
-  
-  struct timespec time;
-  if (clock_gettime(CLOCK_REALTIME, &time) != 0) {
-    fprintf(stderr, "cannot clock_gettime(): %m\n");
-    goto typedir_err;
-  }
+
+  char *typepath = "/sys/kernel/debug/lustre/osc";
 
   DIR *typedir = NULL;
-  typedir = opendir(TYPEPATH);
+  typedir = opendir(typepath);
   if(typedir == NULL) {
-    fprintf(stderr, "cannot open `%s' : %m\n", TYPEPATH);
+    fprintf(stderr, "cannot open `%s' : %m\n", typepath);
     goto typedir_err;
   }
 
   char *tmp = *buffer;
   asprintf(buffer, "\"type\": \"osc\", \"host\": \"%s\", \"time\": %llu.%llu, \"osts\": [",
-	   localhost, time.tv_sec, time.tv_nsec);       
+	   info->hostname, info->time.tv_sec, info->time.tv_nsec);       
   if (tmp != NULL) free(tmp);
 
   struct dirent *typede;
@@ -42,7 +37,7 @@ int collect_osc(char **buffer)
       continue;
 
     char devpath[256];
-    snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);    
+    snprintf(devpath, sizeof(devpath), "%s/%s", typepath, typede->d_name);    
 
     if (strlen(typede->d_name) < 16) {
       fprintf(stderr, "invalid obd name `%s'\n", typede->d_name);

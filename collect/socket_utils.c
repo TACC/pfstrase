@@ -129,9 +129,9 @@ void amqp_send_data(amqp_connection_state_t conn)
 
   struct device_info info;
   devices_discover(&info);  
-
-  if (info.class == MDS || info.class == OSS)
-  { 
+  
+  // Exports
+  if (info.class == MDS || info.class == OSS) { 
     char *buf = NULL;
     collect_exports(&info, &buf);  
     if (buf) {      
@@ -147,10 +147,10 @@ void amqp_send_data(amqp_connection_state_t conn)
       fprintf(stderr, "export collection failed\n");
   }
 
-  if (info.class == MDS)
-  {
+  // LOD
+  if (info.class == MDS) {
     char *buf = NULL;
-    collect_lod(&buf);    
+    collect_lod(&info, &buf);    
     if (buf) {
       printf("%s\n", buf);
       amqp_basic_publish(conn, 1,
@@ -163,11 +163,14 @@ void amqp_send_data(amqp_connection_state_t conn)
     else
       fprintf(stderr, "lod collection failed\n");    
   }
-  if (info.class == OSC)
-  {
-    char *buf = NULL;
-    collect_llite(&buf);    
-    if (buf) {
+
+
+  if (info.class == OSC) {
+    // LLITE
+    {
+      char *buf = NULL;
+      collect_llite(&info, &buf);    
+      if (buf) {
       printf("%s\n", buf);
       amqp_basic_publish(conn, 1,
 			 amqp_cstring_bytes(exchange),
@@ -175,14 +178,32 @@ void amqp_send_data(amqp_connection_state_t conn)
 			 0, 0, &props,
 			 amqp_cstring_bytes(buf));      
       free(buf);
+      }
+      else
+	fprintf(stderr, "llite collection failed\n");
     }
-    else
-      fprintf(stderr, "llite collection failed\n");
+    // OSC
+    {
+      char *buf = NULL;
+      collect_osc(&info, &buf);
+      if (buf) {
+	printf("%s\n", buf);
+	amqp_basic_publish(conn, 1,
+			   amqp_cstring_bytes(exchange),
+			   amqp_cstring_bytes("response"),
+			   0, 0, &props,
+			   amqp_cstring_bytes(buf));
+	free(buf);
+      }
+      else
+	fprintf(stderr, "osc collection failed\n");
+    }
   }
 
+  // SYSINFO
   {
     char *buf = NULL;
-    collect_sysinfo(&buf);    
+    collect_sysinfo(&info, &buf);    
     if (buf) {
       printf("%s\n", buf);
       amqp_basic_publish(conn, 1,
@@ -194,22 +215,6 @@ void amqp_send_data(amqp_connection_state_t conn)
     }
     else
       fprintf(stderr, "sysinfo collection failed\n");
-  }
-  if (info.class == OSC)
-  {
-    char *buf = NULL;
-    collect_osc(&buf);
-    if (buf) {
-      printf("%s\n", buf);
-      amqp_basic_publish(conn, 1,
-			 amqp_cstring_bytes(exchange),
-			 amqp_cstring_bytes("response"),
-			 0, 0, &props,
-			 amqp_cstring_bytes(buf));
-      free(buf);
-    }
-    else
-      fprintf(stderr, "osc collection failed\n");
   }
 }
 
@@ -292,7 +297,7 @@ void sock_send_data(int fd)
   }
   {
     char *buf = NULL;
-    collect_lod(&buf);
+    collect_lod(&info, &buf);
     if (buf) {
       int rv = send(fd, buf, strlen(buf), 0);
       free(buf);
@@ -300,7 +305,7 @@ void sock_send_data(int fd)
   }
   {
     char *buf = NULL;
-    collect_llite(&buf);
+    collect_llite(&info, &buf);
     if (buf) {
       int rv = send(fd, buf, strlen(buf), 0);
       free(buf);
