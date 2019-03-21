@@ -1,0 +1,14 @@
+---
+
+- name: Common Package List
+  set_fact:
+    pkg_list:
+      - autoconf
+      - automake
+      - libev-devel
+      - librabbitmq-devel
+
+- name: Server Packages
+  yum:
+    name: "{{ pkg_list }}"
+    state: present
