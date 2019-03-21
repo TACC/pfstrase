@@ -11,6 +11,8 @@ serverd_SOURCES = 	 \
 	collect.c	\
 	exports.h	\
 	exports.c	\
+	lfs_utils.h	\
+	lfs_utils.c	\
 	lod.h		\
 	lod.c		\
 	llite.h		\

@@ -11,6 +11,7 @@
 #include <amqp_tcp_socket.h>
 
 #include "utils.h"
+#include "lfs_utils.h"
 #include "socket_utils.h"
 #include "exports.h"
 #include "lod.h"
@@ -125,10 +126,14 @@ void amqp_send_data(amqp_connection_state_t conn)
   props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG | AMQP_BASIC_DELIVERY_MODE_FLAG;
   props.content_type = amqp_cstring_bytes("text/plain");
   props.delivery_mode = 2; /* persistent delivery mode */
-  
+
+  struct device_info info;
+  devices_discover(&info);  
+
+  if (info.class == MDS || info.class == OSS)
   { 
     char *buf = NULL;
-    collect_exports(&buf);  
+    collect_exports(&info, &buf);  
     if (buf) {      
       printf("%s\n", buf);
       amqp_basic_publish(conn, 1,
@@ -141,7 +146,8 @@ void amqp_send_data(amqp_connection_state_t conn)
     else
       fprintf(stderr, "export collection failed\n");
   }
-  
+
+  if (info.class == MDS)
   {
     char *buf = NULL;
     collect_lod(&buf);    
@@ -157,7 +163,7 @@ void amqp_send_data(amqp_connection_state_t conn)
     else
       fprintf(stderr, "lod collection failed\n");    
   }
-  
+  if (info.class == OSC)
   {
     char *buf = NULL;
     collect_llite(&buf);    
@@ -189,7 +195,7 @@ void amqp_send_data(amqp_connection_state_t conn)
     else
       fprintf(stderr, "sysinfo collection failed\n");
   }
-
+  if (info.class == OSC)
   {
     char *buf = NULL;
     collect_osc(&buf);
@@ -272,9 +278,13 @@ void sock_rpc(int fd)
 
 void sock_send_data(int fd)
 {
+
+  struct device_info info;
+  devices_discover(&info);  
+
   {
     char *buf = NULL;
-    collect_exports(&buf);
+    collect_exports(&info, &buf);
     if (buf) {
       int rv = send(fd, buf, strlen(buf), 0);
       free(buf);
