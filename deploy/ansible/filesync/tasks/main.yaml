@@ -55,4 +55,9 @@
     group: root
     mode: 0644
 
+- name: Exclude Kernel in Yum Updates
+  lineinfile:
+    path: /etc/yum.conf
+    insertafter: 'distroverpkg=centos-release'
+    line: 'exclude=kernel* perf-* python-perf-*'
 

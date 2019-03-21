@@ -3,6 +3,7 @@
 - hosts: all
   roles:
     - { role: filesync, tags: filesync }
+    - { role: common, tags: common }
 
 - hosts: mds, oss
   roles:
