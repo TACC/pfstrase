@@ -48,6 +48,10 @@ int collect_llite(struct device_info *info, char **buffer)
     goto typedir_err;
   }
 
+  char *tmp = *buffer;
+  asprintf(buffer, "%s{\"type\": \"llite\", \"dev\": [", *buffer);       
+  if (tmp != NULL) free(tmp);
+
   struct dirent *typede;
   while ((typede = readdir(typedir)) != NULL) {  
     if (typede->d_type != DT_DIR || typede->d_name[0] == '.')
@@ -64,8 +68,7 @@ int collect_llite(struct device_info *info, char **buffer)
     *p = '\0'; 
    
     char *tmp = *buffer;
-    asprintf(buffer, "\"type\": \"llite\", \"dev\": \"%s\"",
-	     typede->d_name);       
+    asprintf(buffer, "%s{\"filesystem\": \"%s\"", *buffer, typede->d_name);       
     if (tmp != NULL) free(tmp);
     
 #define X(k,r...)							\
@@ -88,8 +91,16 @@ int collect_llite(struct device_info *info, char **buffer)
     SINGLE;
 #undef X
     */
-  }
-  
+
+    tmp = *buffer;
+    asprintf(buffer, "%s},", *buffer);
+    if (tmp != NULL) free(tmp);
+  }  
+  char *p = *buffer;
+  p = *buffer + strlen(*buffer) - 1;
+  *p = ']';
+
+
   rc = 0;
  typedir_err:
   if (typedir != NULL)

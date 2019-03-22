@@ -27,8 +27,7 @@ int collect_osc(struct device_info *info, char **buffer)
   }
 
   char *tmp = *buffer;
-  asprintf(buffer, "\"type\": \"osc\", \"host\": \"%s\", \"time\": %llu.%llu, \"osts\": [",
-	   info->hostname, info->time.tv_sec, info->time.tv_nsec);       
+  asprintf(buffer, "%s{\"type\": \"osc\", \"osts\": [", *buffer);       
   if (tmp != NULL) free(tmp);
 
   struct dirent *typede;
@@ -62,13 +61,12 @@ int collect_osc(struct device_info *info, char **buffer)
     
     tmp = *buffer;
     asprintf(buffer, "%s},", *buffer);
-    if (tmp != NULL) free(tmp);
-    
+    if (tmp != NULL) free(tmp);    
   }
+
   char *p = *buffer;
   p = *buffer + strlen(*buffer) - 1;
   *p = ']';
-
 
   rc = 0;
  typedir_err:
