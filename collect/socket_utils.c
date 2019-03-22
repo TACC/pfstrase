@@ -127,94 +127,76 @@ void amqp_send_data(amqp_connection_state_t conn)
   props.content_type = amqp_cstring_bytes("text/plain");
   props.delivery_mode = 2; /* persistent delivery mode */
 
+  // Gt basic device info
   struct device_info info;
-  devices_discover(&info);  
-  
+  devices_discover(&info);
+  char *buf = NULL;
+  asprintf(&buf, "\"host\": \"%s\", \"time\": %llu.%llu, \"stats\": [",
+	   info.hostname, info.time.tv_sec, info.time.tv_nsec);
+
   // Exports
-  if (info.class == MDS || info.class == OSS) { 
-    char *buf = NULL;
-    collect_exports(&info, &buf);  
-    if (buf) {      
-      printf("%s\n", buf);
-      amqp_basic_publish(conn, 1,
-			 amqp_cstring_bytes(exchange),
-			 amqp_cstring_bytes("response"),
-			 0, 0, &props,
-			 amqp_cstring_bytes(buf));
-      free(buf);      
-    }
+  if (info.class == MDS || info.class == OSS) {
+    if (collect_exports(&info, &buf) == 0) {
+      char *tmp = buf;
+      asprintf(&buf, "%s},", buf);
+      if (tmp != NULL) free(tmp);
+    } 
     else
       fprintf(stderr, "export collection failed\n");
   }
 
   // LOD
   if (info.class == MDS) {
-    char *buf = NULL;
-    collect_lod(&info, &buf);    
-    if (buf) {
-      printf("%s\n", buf);
-      amqp_basic_publish(conn, 1,
-			 amqp_cstring_bytes(exchange),
-			 amqp_cstring_bytes("response"),
-			 0, 0, &props,
-			 amqp_cstring_bytes(buf));
-      free(buf);
+    if (collect_lod(&info, &buf) == 0) {    
+      char *tmp = buf;
+      asprintf(&buf, "%s},", buf);
+      if (tmp != NULL) free(tmp);
     }
     else
       fprintf(stderr, "lod collection failed\n");    
   }
 
-
   if (info.class == OSC) {
     // LLITE
-    {
-      char *buf = NULL;
-      collect_llite(&info, &buf);    
-      if (buf) {
-      printf("%s\n", buf);
-      amqp_basic_publish(conn, 1,
-			 amqp_cstring_bytes(exchange),
-			 amqp_cstring_bytes("response"),
-			 0, 0, &props,
-			 amqp_cstring_bytes(buf));      
-      free(buf);
-      }
-      else
-	fprintf(stderr, "llite collection failed\n");
+    if (collect_llite(&info, &buf) == 0) {
+      char *tmp = buf;
+      asprintf(&buf, "%s},", buf);
+      if (tmp != NULL) free(tmp);
     }
+    else
+      fprintf(stderr, "llite collection failed\n");
     // OSC
-    {
-      char *buf = NULL;
-      collect_osc(&info, &buf);
-      if (buf) {
-	printf("%s\n", buf);
-	amqp_basic_publish(conn, 1,
-			   amqp_cstring_bytes(exchange),
-			   amqp_cstring_bytes("response"),
-			   0, 0, &props,
-			   amqp_cstring_bytes(buf));
-	free(buf);
-      }
-      else
-	fprintf(stderr, "osc collection failed\n");
+    if (collect_osc(&info, &buf) == 0) {
+      char *tmp = buf;
+      asprintf(&buf, "%s},", buf);
+      if (tmp != NULL) free(tmp);
     }
+    else
+      fprintf(stderr, "osc collection failed\n");
   }
 
   // SYSINFO
-  {
-    char *buf = NULL;
-    collect_sysinfo(&info, &buf);    
-    if (buf) {
-      printf("%s\n", buf);
-      amqp_basic_publish(conn, 1,
-			 amqp_cstring_bytes(exchange),
-			 amqp_cstring_bytes("response"),
-			 0, 0, &props,
-			 amqp_cstring_bytes(buf));      
-      free(buf);
-    }
-    else
-      fprintf(stderr, "sysinfo collection failed\n");
+  if (collect_sysinfo(&info, &buf) == 0) {
+      char *tmp = buf;
+      asprintf(&buf, "%s},", buf);
+      if (tmp != NULL) free(tmp);
+  }
+  else
+    fprintf(stderr, "sysinfo collection failed\n");
+
+  char *p = buf;
+  p = buf + strlen(buf) - 1;
+  *p = ']';
+
+  // Send data
+  if (buf) {
+    printf("%s\n", buf);
+    amqp_basic_publish(conn, 1,
+		       amqp_cstring_bytes(exchange),
+		       amqp_cstring_bytes("response"),
+		       0, 0, &props,
+		       amqp_cstring_bytes(buf));          
+    free(buf);
   }
 }
 

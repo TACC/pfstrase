@@ -7,7 +7,7 @@
 #include "collect.h"
 #include "lod.h"
 
-#define TYPEPATH "/proc/fs/lustre/lod"
+#define TYPEPATH "/sys/fs/lustre/lod"
 #define PROCFS_BUF_SIZE 4096
 
 #define SINGLE	       \
@@ -36,6 +36,10 @@ int collect_lod(struct device_info *info, char **buffer)
     goto typedir_err;
   }
 
+  char *tmp = *buffer;
+  asprintf(buffer, "%s{\"type\": \"lod\", \"dev\": [", *buffer);       
+  if (tmp != NULL) free(tmp);
+
   struct dirent *typede;
   while ((typede = readdir(typedir)) != NULL) {  
     if (typede->d_type != DT_DIR || typede->d_name[0] == '.')
@@ -44,8 +48,7 @@ int collect_lod(struct device_info *info, char **buffer)
     char devpath[256];
     snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);
     char *tmp = *buffer;
-    asprintf(buffer, "\"type\": \"lod\", \"dev\": \"%s\", \"host\": \"%s\", \"time\": %llu.%llu",
-	     typede->d_name, info->hostname, info->time.tv_sec, info->time.tv_nsec);       
+    asprintf(buffer, "%s{\"idx\": \"%s\"", *buffer, typede->d_name);       
     if (tmp != NULL) free(tmp);
 
 #define X(k,r...)						           \
@@ -57,12 +60,19 @@ int collect_lod(struct device_info *info, char **buffer)
     })
     SINGLE;
 #undef X
-  }
 
-  rc = 0;
+    tmp = *buffer;
+    asprintf(buffer, "%s},", *buffer);
+    if (tmp != NULL) free(tmp);
+  }
+  char *p = *buffer;
+  p = *buffer + strlen(*buffer) - 1;
+  *p = ']';
+
+  rc = 0;  
  typedir_err:
   if (typedir != NULL)
     closedir(typedir);
-  
+
   return rc;
 }

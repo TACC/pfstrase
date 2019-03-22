@@ -64,8 +64,8 @@ int collect_llite(struct device_info *info, char **buffer)
     *p = '\0'; 
    
     char *tmp = *buffer;
-    asprintf(buffer, "\"type\": \"llite\", \"dev\": \"%s\", \"host\": \"%s\", \"time\": %llu.%llu",
-	     typede->d_name, info->hostname, info->time.tv_sec, info->time.tv_nsec);       
+    asprintf(buffer, "\"type\": \"llite\", \"dev\": \"%s\"",
+	     typede->d_name);       
     if (tmp != NULL) free(tmp);
     
 #define X(k,r...)							\

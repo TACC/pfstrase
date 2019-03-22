@@ -30,7 +30,7 @@ int collect_exports(struct device_info *info, char **buffer)
   }
 
   char *tmp = *buffer;
-  asprintf(buffer, "\"type\": \"%s\", \"host\": \"%s\", \"time\": %llu.%llu, \"dev\": [", type, info->hostname, info->time.tv_sec, info->time.tv_nsec);       
+  asprintf(buffer, "%s{\"type\": \"%s\", \"dev\": [", *buffer, type);       
   if (tmp != NULL) free(tmp);
 
   struct dirent *typede;
@@ -77,7 +77,7 @@ int collect_exports(struct device_info *info, char **buffer)
     char *p = *buffer;
     p = *buffer + strlen(*buffer) - 1;
     *p = ']';
-  
+
   exportdir_err:
     if (exportdir != NULL)
       closedir(exportdir);  
@@ -89,11 +89,12 @@ int collect_exports(struct device_info *info, char **buffer)
     char *p = *buffer;
     p = *buffer + strlen(*buffer) - 1;
     *p = ']';
+    rc = 0;  
    
  typedir_err:
   if (typedir != NULL)
     closedir(typedir);   
   
-  rc = 0;
+
   return rc;
 }

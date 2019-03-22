@@ -18,8 +18,7 @@ int collect_sysinfo(struct device_info *info, char **buffer)
   }
 
   char *tmp = *buffer;
-  if (asprintf(buffer, "\"type\": \"sysinfo\", \"host\": \"%s\", \"time\": %llu.%llu, \"load average\": {\"1m\": %.2f, \"5m\": %.2f, \"15m\": %.2f, \"freeram\": %lu, \"bufferram\": %lu, \"totalram\": %lu }", 
-	       info->hostname, info->time.tv_sec, info->time.tv_nsec, 
+  if (asprintf(buffer, "%s{\"type\": \"sysinfo\", \"load average\": {\"1m\": %.2f, \"5m\": %.2f, \"15m\": %.2f}, \"freeram\": %lu, \"bufferram\": %lu, \"totalram\": %lu", *buffer, 
 	       f_load*sinfo.loads[0], f_load*sinfo.loads[1], f_load*sinfo.loads[2],
 	       sinfo.freeram*sinfo.mem_unit, sinfo.bufferram*sinfo.mem_unit, sinfo.totalram*sinfo.mem_unit) < 0 ) {
     rc = -1;
