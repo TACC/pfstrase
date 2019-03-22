@@ -7,7 +7,8 @@
 #include "collect.h"
 #include "osc.h"
 
-//#define TYPEPATH "/sys/fs/lustre/osc"
+#define OSSPATH "/sys/fs/lustre/osc"
+//#define TYPEPATH "/proc/fs/lustre/osc"
 //#define TYPEPATH "/sys/kernel/debug/lustre/osc"
 
 #define STATS		 \
@@ -35,6 +36,9 @@ int collect_osc(struct device_info *info, char **buffer)
     if (typede->d_type != DT_DIR || typede->d_name[0] == '.')
       continue;
 
+    char osspath[256];
+    snprintf(osspath, sizeof(osspath), "%s/%s/ost_conn_uuid", OSSPATH, typede->d_name);    
+
     char devpath[256];
     snprintf(devpath, sizeof(devpath), "%s/%s", typepath, typede->d_name);    
 
@@ -48,7 +52,10 @@ int collect_osc(struct device_info *info, char **buffer)
     tmp = *buffer;
     asprintf(buffer, "%s{\"idx\": \"%s\"", *buffer, typede->d_name);
     if (tmp != NULL) free(tmp);
-    
+
+    if (collect_string(osspath, buffer, "oss") < 0)			       
+      fprintf(stderr, "cannot read `%s' from `%s': %m\n", "ost_conn_uuid", osspath);
+     
 #define X(k,r...)							\
     ({									\
       char filepath[256];						\
@@ -75,12 +82,3 @@ int collect_osc(struct device_info *info, char **buffer)
   
   return rc;
 }
-/*
-struct stats_type osc_stats_type = {
-  .st_name = "osc",
-  .st_collect = &osc_collect,
-#define X SCHEMA_DEF
-  .st_schema_def = JOIN(KEYS),
-#undef X
-};
-*/

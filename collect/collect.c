@@ -81,3 +81,34 @@ int collect_single(const char *filepath, char **buffer, char *key)
     fclose(fd);  	  
   return rc;
 }
+
+int collect_string(const char *filepath, char **buffer, char *key)
+{
+  int rc = 0;
+
+  FILE *fd = NULL;
+  fd = fopen(filepath, "r");
+  if (fd == NULL) {
+    fprintf(stderr, "cannot open %s: %m\n", filepath);
+    rc = -1;
+   goto devde_err;
+  }
+
+  char procfs_buf[PROCFS_BUF_SIZE];
+  setvbuf(fd, procfs_buf, _IOFBF, sizeof(procfs_buf));
+  char val[32];
+  if (fscanf(fd, "%s", val) != 1) {
+    rc = -1;
+    goto devde_err;
+  }      
+  char *tmp = *buffer;
+  if (asprintf(buffer, "%s, \"%s\": \"%s\"", *buffer, key, val) < 0 ) {
+    rc = -1;
+    fprintf(stderr, "Write to buffer failed for `%s\n'", key);
+  }
+  if (tmp != NULL) free(tmp);
+ devde_err:
+  if (fd != NULL)
+    fclose(fd);  	  
+  return rc;
+}
