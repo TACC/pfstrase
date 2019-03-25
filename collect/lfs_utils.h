@@ -9,6 +9,7 @@ struct device_info
 {
   struct timespec time;
   char hostname[64];
+  char nid[32];
   char typepath[64];
   char type[16];
   enum device_class class;   

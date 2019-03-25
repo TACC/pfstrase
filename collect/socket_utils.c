@@ -131,8 +131,8 @@ void amqp_send_data(amqp_connection_state_t conn)
   struct device_info info;
   devices_discover(&info);
   char *buf = NULL;
-  asprintf(&buf, "\"host\": \"%s\", \"time\": %llu.%llu, \"stats\": [",
-	   info.hostname, info.time.tv_sec, info.time.tv_nsec);
+  asprintf(&buf, "\"host\": \"%s\", \"nid\": \"%s\",\"time\": %llu.%llu, \"stats\": [",
+	   info.hostname, info.nid, info.time.tv_sec, info.time.tv_nsec);
 
   // Exports
   if (info.class == MDS || info.class == OSS) {
