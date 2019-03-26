@@ -1,8 +1,72 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "lfs_utils.h"
+#include "exports.h"
+#include "lod.h"
+#include "osc.h"
+#include "llite.h"
+#include "sysinfo.h"
+
 
 #define PROCFS_BUF_SIZE 4096
+
+void collect_devices(struct device_info *info, char **buffer)
+{
+  asprintf(buffer, "\"host\": \"%s\", \"nid\": \"%s\",\"time\": %llu.%llu, \"stat\
+s\": [", info->hostname, info->nid, info->time.tv_sec, info->time.tv_nsec);
+  
+  // Exports
+  if (info->class == MDS || info->class == OSS) {
+    if (collect_exports(info, buffer) == 0) {
+      char *tmp = *buffer;
+      asprintf(buffer, "%s},", *buffer);
+      if (tmp != NULL) free(tmp);
+    }
+    else
+      fprintf(stderr, "export collection failed\n");
+  }
+  // LOD
+  if (info->class == MDS) {
+    if (collect_lod(info, buffer) == 0) {
+      char *tmp = *buffer;
+      asprintf(buffer, "%s},", *buffer);
+      if (tmp != NULL) free(tmp);
+    }
+    else
+      fprintf(stderr, "lod collection failed\n");
+  }
+  if (info->class == OSC) {
+    // LLITE
+    if (collect_llite(info, buffer) == 0) {
+      char *tmp = *buffer;
+      asprintf(buffer, "%s},", *buffer);
+      if (tmp != NULL) free(tmp);
+    }
+    else
+      fprintf(stderr, "llite collection failed\n");
+    // OSC
+    if (collect_osc(info, buffer) == 0) {
+      char *tmp = *buffer;
+      asprintf(buffer, "%s},", *buffer);
+      if (tmp != NULL) free(tmp);
+    }
+    else
+      fprintf(stderr, "osc collection failed\n");
+  }
+  // SYSINFO
+  if (collect_sysinfo(info, buffer) == 0) {
+    char *tmp = *buffer;
+    asprintf(buffer, "%s},", *buffer);
+    if (tmp != NULL) free(tmp);
+  }
+  else
+    fprintf(stderr, "sysinfo collection failed\n");
+
+  char *p = *buffer;
+  p = *buffer + strlen(*buffer) - 1;
+  *p = ']';
+}
 
 int collect_stats(const char *path, char **buffer)
 {

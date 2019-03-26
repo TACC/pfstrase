@@ -13,14 +13,12 @@
 #include "utils.h"
 #include "lfs_utils.h"
 #include "socket_utils.h"
-#include "exports.h"
-#include "lod.h"
-#include "osc.h"
-#include "llite.h"
-#include "sysinfo.h"
 
 char const *exchange = "amq.direct";
+struct device_info info;
+amqp_basic_properties_t props; 
 
+// Setup connection to RabbitMQ Server
 int amqp_setup_connection(amqp_connection_state_t *conn, 
 			  const char *port, const char *hostname)
 {
@@ -28,9 +26,10 @@ int amqp_setup_connection(amqp_connection_state_t *conn,
   amqp_bytes_t request_queue;
   amqp_bytes_t response_queue;
   int status = -1;
-  char localhost[64];
 
-  gethostname(localhost, sizeof(localhost)); 
+  props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG | AMQP_BASIC_DELIVERY_MODE_FLAG;
+  props.content_type = amqp_cstring_bytes("text/plain");
+  props.delivery_mode = 2; /* persistent delivery mode */
 
   *conn = amqp_new_connection();
 
@@ -50,7 +49,7 @@ int amqp_setup_connection(amqp_connection_state_t *conn,
   die_on_amqp_error(amqp_get_rpc_reply(*conn), "Opening channel");
   
   {
-    amqp_queue_declare_ok_t *r = amqp_queue_declare(*conn, 1, amqp_cstring_bytes(localhost), 
+    amqp_queue_declare_ok_t *r = amqp_queue_declare(*conn, 1, amqp_cstring_bytes(info.hostname), 
 						    0, 0, 1, 1, amqp_empty_table);
     die_on_amqp_error(amqp_get_rpc_reply(*conn), "Declaring request queue");
     request_queue = amqp_bytes_malloc_dup(r->queue);
@@ -82,16 +81,12 @@ int amqp_setup_connection(amqp_connection_state_t *conn,
                      amqp_empty_table);
   die_on_amqp_error(amqp_get_rpc_reply(*conn), "Consuming");
   
-  //return 1;
   return amqp_socket_get_sockfd(socket);
 }
 
+// Receive and process rpc
 void amqp_rpc(amqp_connection_state_t conn)
 {
-
-  char localhost[64];
-  gethostname(localhost, sizeof(localhost)); 
-
   amqp_rpc_reply_t res;
   amqp_envelope_t envelope;
   
@@ -112,83 +107,20 @@ void amqp_rpc(amqp_connection_state_t conn)
 	   (int)envelope.message.properties.content_type.len,
 	   (char *)envelope.message.properties.content_type.bytes);
   }
-  printf("----\n");    
+  printf("----\n");
   amqp_dump(envelope.message.body.bytes, envelope.message.body.len);    
   amqp_destroy_envelope(&envelope);
   
   amqp_send_data(conn);
 }
 
+// Collect and send data
 void amqp_send_data(amqp_connection_state_t conn)      
-{
-  
-  amqp_basic_properties_t props;
-  props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG | AMQP_BASIC_DELIVERY_MODE_FLAG;
-  props.content_type = amqp_cstring_bytes("text/plain");
-  props.delivery_mode = 2; /* persistent delivery mode */
-
-  // Gt basic device info
-  struct device_info info;
+{  
+  // Get basic device info
   devices_discover(&info);
   char *buf = NULL;
-  asprintf(&buf, "\"host\": \"%s\", \"nid\": \"%s\",\"time\": %llu.%llu, \"stats\": [",
-	   info.hostname, info.nid, info.time.tv_sec, info.time.tv_nsec);
-
-  // Exports
-  if (info.class == MDS || info.class == OSS) {
-    if (collect_exports(&info, &buf) == 0) {
-      char *tmp = buf;
-      asprintf(&buf, "%s},", buf);
-      if (tmp != NULL) free(tmp);
-    } 
-    else
-      fprintf(stderr, "export collection failed\n");
-  }
-
-  // LOD
-  if (info.class == MDS) {
-    if (collect_lod(&info, &buf) == 0) {    
-      char *tmp = buf;
-      asprintf(&buf, "%s},", buf);
-      if (tmp != NULL) free(tmp);
-    }
-    else
-      fprintf(stderr, "lod collection failed\n");    
-  }
-
-  if (info.class == OSC) {
-    // LLITE
-    if (collect_llite(&info, &buf) == 0) {
-      char *tmp = buf;
-      asprintf(&buf, "%s},", buf);
-      if (tmp != NULL) free(tmp);
-    }
-    else
-      fprintf(stderr, "llite collection failed\n");
-    // OSC
-    if (collect_osc(&info, &buf) == 0) {
-      char *tmp = buf;
-      asprintf(&buf, "%s},", buf);
-      if (tmp != NULL) free(tmp);
-    }
-    else
-      fprintf(stderr, "osc collection failed\n");
-  }
-
-  // SYSINFO
-  if (collect_sysinfo(&info, &buf) == 0) {
-      char *tmp = buf;
-      asprintf(&buf, "%s},", buf);
-      if (tmp != NULL) free(tmp);
-  }
-  else
-    fprintf(stderr, "sysinfo collection failed\n");
-
-  char *p = buf;
-  p = buf + strlen(buf) - 1;
-  *p = ']';
-
-  // Send data
+  collect_devices(&info, &buf); 
   if (buf) {
     printf("%s\n", buf);
     amqp_basic_publish(conn, 1,
@@ -203,94 +135,68 @@ void amqp_send_data(amqp_connection_state_t conn)
 int sock_setup_connection(const char *port) 
 {
   int sockfd;
-  int rc;
   int opt = 1;
   int backlog = 10;
-  struct addrinfo *servinfo, *p;
-  struct addrinfo hints = {
-    .ai_family = AF_UNSPEC,
-    .ai_socktype = SOCK_STREAM,
-    .ai_flags = AI_PASSIVE, // use my IP
-  };
-
-  if ((rc = getaddrinfo(NULL, port, &hints, &servinfo)) != 0) {
-    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rc));
-    return -1;
-  }
-
-  for(p = servinfo; p != NULL; p = p->ai_next) {
-
-    if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
-      continue;
-    }
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
-      fprintf(stderr, "cannot set SO_REUSEADDR: %s\n", strerror(errno));
-      freeaddrinfo(servinfo);
-    }
-    if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-      fprintf(stderr, "cannot bind: %s\n", strerror(errno));
-      close(sockfd);
-      continue;
-    }
-    break;
-  }
-  
-  freeaddrinfo(servinfo);
-  if (listen(sockfd, backlog) == -1) {
-    fprintf(stderr, "cannot listen: %s\n", strerror(errno));
-    close(sockfd);
-    return -1;
-  }
-
   struct sockaddr_in addr;
   socklen_t addrlen = sizeof(addr);
   int fd = -1;
-  
+
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = INADDR_ANY;
+  addr.sin_port = htons(atoi(port));
+
+  devices_discover(&info);  
+
+  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {    
+    fprintf(stderr, "cannot initialize socket: %s\n", strerror(errno));
+    goto err;
+  }
+  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char *) &opt, sizeof(opt)) == -1) {
+    fprintf(stderr, "cannot set SO_REUSEADDR: %s\n", strerror(errno));
+    goto err; 
+  }
+  if (bind(sockfd, (struct sockaddr *)&addr, addrlen) == -1) {
+    fprintf(stderr, "cannot bind: %s\n", strerror(errno));
+    close(sockfd);
+    goto err;
+  }
+  if (listen(sockfd, backlog) == -1) {
+    fprintf(stderr, "cannot listen: %s\n", strerror(errno));
+    close(sockfd);
+    goto err;
+  }
+ err:
+  return sockfd;
+}
+
+void sock_rpc(int sockfd) 
+{  
+  struct sockaddr_in addr;
+  socklen_t addrlen = sizeof(addr);
+  int fd = -1;
+
   if ((fd = accept(sockfd, (struct sockaddr *)&addr, &addrlen)) < 0)
     if (!(errno == EAGAIN || errno == EWOULDBLOCK || errno == ECONNABORTED))
       fprintf(stderr, "cannot accept connections: %s\n", strerror(errno));
-  
-  return fd;
-}
 
-void sock_rpc(int fd) 
-{
   char request[SOCKET_BUFFERSIZE];
   int bytes_recvd = recv(fd, request, sizeof(request), 0);
   if (bytes_recvd < 0)
     fprintf(stderr, "cannot recv: %s\n", strerror(errno));
-  printf(request);    
+  printf(request);
   sock_send_data(fd);
+  close(fd);
 }
 
 void sock_send_data(int fd)
 {
-
-  struct device_info info;
-  devices_discover(&info);  
-
-  {
-    char *buf = NULL;
-    collect_exports(&info, &buf);
-    if (buf) {
-      int rv = send(fd, buf, strlen(buf), 0);
-      free(buf);
-    }
-  }
-  {
-    char *buf = NULL;
-    collect_lod(&info, &buf);
-    if (buf) {
-      int rv = send(fd, buf, strlen(buf), 0);
-      free(buf);
-    }
-  }
-  {
-    char *buf = NULL;
-    collect_llite(&info, &buf);
-    if (buf) {
-      int rv = send(fd, buf, strlen(buf), 0);
-      free(buf);
-    }
+  // Get basic device info
+  devices_discover(&info);
+  char *buf = NULL;
+  collect_devices(&info, &buf); 
+  if (buf) {
+    printf("%s\n", buf);
+    int rv = send(fd, buf, strlen(buf), 0);
+    free(buf);
   }
 }

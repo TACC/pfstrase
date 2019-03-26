@@ -52,8 +52,8 @@ int main(int argc, char *argv[])
   //const char *pidfile_path = "/var/run/serverd.lock";
   const char *pidfile_path = "serverd.lock";
 
-  int amqp_mode = 1;
-  int sock_mode = 0;
+  int amqp_mode = 0;
+  int sock_mode = 1;
   /*
   if (daemon(0, 0) < 0) {
     fprintf(stderr, "failed to daemonize %m\n");
@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
   if(amqp_mode) {
     fd = amqp_setup_connection(&conn, port, host);
     timer.data = (void *)&conn;
-    ev_timer_init(&timer, amqp_send_cb, 0.0, 1);   
+    ev_timer_init(&timer, amqp_send_cb, 0.0, 300);   
     watcher.data = (void *)&conn;
     ev_io_init(&watcher, amqp_rpc_cb, fd, EV_READ);
 
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
   else if (sock_mode) {
     fd = sock_setup_connection(port);  
     timer.data = (void *)&fd;
-    ev_timer_init(&timer, sock_send_cb, 0.0, 1);  
+    ev_timer_init(&timer, sock_send_cb, 0.0, 300);  
     ev_io_init(&watcher, sock_rpc_cb, fd, EV_READ);
   }
   else {
@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
   if (pidfile_path != NULL)
     unlink(pidfile_path);
     
-  if (amqp_mode) {
+  if (conn) {
     die_on_amqp_error(amqp_channel_close(conn, 1, AMQP_REPLY_SUCCESS),
 		      "Closing channel");
     die_on_amqp_error(amqp_connection_close(conn, AMQP_REPLY_SUCCESS),

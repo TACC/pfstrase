@@ -106,5 +106,4 @@ int devices_discover(struct device_info *info) {
   if (fd != NULL)
     fclose(fd);  	
   return rc;
-
 }
