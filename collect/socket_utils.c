@@ -15,7 +15,6 @@
 #include "socket_utils.h"
 
 char const *exchange = "amq.direct";
-struct device_info info;
 amqp_basic_properties_t props; 
 
 // Setup connection to RabbitMQ Server
@@ -49,7 +48,7 @@ int amqp_setup_connection(amqp_connection_state_t *conn,
   die_on_amqp_error(amqp_get_rpc_reply(*conn), "Opening channel");
   
   {
-    amqp_queue_declare_ok_t *r = amqp_queue_declare(*conn, 1, amqp_cstring_bytes(info.hostname), 
+    amqp_queue_declare_ok_t *r = amqp_queue_declare(*conn, 1, amqp_cstring_bytes(get_dev_data()->hostname), 
 						    0, 0, 1, 1, amqp_empty_table);
     die_on_amqp_error(amqp_get_rpc_reply(*conn), "Declaring request queue");
     request_queue = amqp_bytes_malloc_dup(r->queue);
@@ -108,7 +107,10 @@ void amqp_rpc(amqp_connection_state_t conn)
 	   (char *)envelope.message.properties.content_type.bytes);
   }
   printf("----\n");
-  amqp_dump(envelope.message.body.bytes, envelope.message.body.len);    
+  //amqp_dump(envelope.message.body.bytes, envelope.message.body.len);    
+  char *p = (char*)(envelope.message.body.bytes + envelope.message.body.len);
+  *p = '\0';
+  printf("%s\n", (char *)envelope.message.body.bytes);
   amqp_destroy_envelope(&envelope);
   
   amqp_send_data(conn);
@@ -117,10 +119,8 @@ void amqp_rpc(amqp_connection_state_t conn)
 // Collect and send data
 void amqp_send_data(amqp_connection_state_t conn)      
 {  
-  // Get basic device info
-  devices_discover(&info);
   char *buf = NULL;
-  collect_devices(&info, &buf); 
+  collect_devices(&buf); 
   if (buf) {
     printf("%s\n", buf);
     amqp_basic_publish(conn, 1,
@@ -144,8 +144,6 @@ int sock_setup_connection(const char *port)
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = INADDR_ANY;
   addr.sin_port = htons(atoi(port));
-
-  devices_discover(&info);  
 
   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {    
     fprintf(stderr, "cannot initialize socket: %s\n", strerror(errno));
@@ -190,10 +188,8 @@ void sock_rpc(int sockfd)
 
 void sock_send_data(int fd)
 {
-  // Get basic device info
-  devices_discover(&info);
   char *buf = NULL;
-  collect_devices(&info, &buf); 
+  collect_devices(&buf); 
   if (buf) {
     printf("%s\n", buf);
     int rv = send(fd, buf, strlen(buf), 0);

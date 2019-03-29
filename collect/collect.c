@@ -11,8 +11,15 @@
 
 #define PROCFS_BUF_SIZE 4096
 
-void collect_devices(struct device_info *info, char **buffer)
+void collect_devices(char **buffer)
 {
+  struct device_info *info = get_dev_data();
+
+  // Get  time
+  if (clock_gettime(CLOCK_REALTIME, &info->time) != 0) {
+    fprintf(stderr, "cannot clock_gettime(): %m\n");
+  }
+
   asprintf(buffer, "\"host\": \"%s\", \"nid\": \"%s\",\"time\": %llu.%llu, \"stat\
 s\": [", info->hostname, info->nid, info->time.tv_sec, info->time.tv_nsec);
   

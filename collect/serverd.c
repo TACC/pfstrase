@@ -52,8 +52,8 @@ int main(int argc, char *argv[])
   //const char *pidfile_path = "/var/run/serverd.lock";
   const char *pidfile_path = "serverd.lock";
 
-  int amqp_mode = 0;
-  int sock_mode = 1;
+  int amqp_mode = 1;
+  int sock_mode = 0;
   /*
   if (daemon(0, 0) < 0) {
     fprintf(stderr, "failed to daemonize %m\n");

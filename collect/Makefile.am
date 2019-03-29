@@ -3,6 +3,8 @@ bin_PROGRAMS = serverd
 serverd_CPPFLAGS = -D_GNU_SOURCE
 
 serverd_SOURCES = 	 \
+	dict.h		\
+	dict.c		\
 	pidfile_create.h \
 	pidfile_create.c \
 	utils.h 	\

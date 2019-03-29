@@ -6,9 +6,8 @@
 
 #define devices_path "/sys/kernel/debug/lustre/devices"
 #define nid_path "/sys/kernel/debug/lnet/nis"
+#define peers_path "/sys/kernel/debug/lnet/peers"
 #define PROCFS_BUF_SIZE 4096
-
-struct device_info info;
 
  /* Discover device info from devices file 
     cat /sys/kernel/debug/lustre/devices
@@ -22,17 +21,18 @@ struct device_info info;
     7 UP lwp blue-MDT0000-lwp-OST0001 blue-MDT0000-lwp-OST0001_UUID 4
  */
 
-int devices_discover(struct device_info *info) {
+struct device_info info;
 
-  int rc = -1;
+__attribute__((constructor))
+static void devices_discover(void) {
 
-  if (clock_gettime(CLOCK_REALTIME, &info->time) != 0) {
+  // Get hostname, device class, and time
+  if (clock_gettime(CLOCK_REALTIME, &info.time) != 0) {
     fprintf(stderr, "cannot clock_gettime(): %m\n");
-    goto disco_err;
+    goto err;
   }
-
-  gethostname(info->hostname, sizeof(info->hostname));
-  fprintf(stdout, "discovering information for host %s\n", info->hostname);
+  gethostname(info.hostname, sizeof(info.hostname));
+  fprintf(stdout, "discovering information for host %s\n", info.hostname);
 
   char procfs_buf[PROCFS_BUF_SIZE];
   char *line_buf = NULL;
@@ -48,8 +48,7 @@ int devices_discover(struct device_info *info) {
   fd = fopen(devices_path, "r");
   if (fd == NULL) {
     fprintf(stderr, "cannot open %s: %m\n", devices_path);
-    rc = -1;
-    goto disco_err;
+    goto err;
   }
 
   setvbuf(fd, procfs_buf, _IOFBF, sizeof(procfs_buf));
@@ -61,49 +60,79 @@ int devices_discover(struct device_info *info) {
       continue;
 
     if (strcmp(type, "mdt") == 0) {
-      info->class = MDS;      
-      snprintf(info->type, sizeof(info->type), "mds");
+      info.class = MDS;      
+      snprintf(info.type, sizeof(info.type), "mds");
       break;
     }
     if (strcmp(type, "obdfilter") == 0) {
-      info->class = OSS;
-      snprintf(info->type, sizeof(info->type), "oss");
+      info.class = OSS;
+      snprintf(info.type, sizeof(info.type), "oss");
       break;
     }
     if (strcmp(type, "osc") == 0) {
-      info->class = OSC;
-      snprintf(info->type, sizeof(info->type), "osc");
+      info.class = OSC;
+      snprintf(info.type, sizeof(info.type), "osc");
       break;
     }
   }
   if (fd != NULL)
     fclose(fd);  	
 
+  // Get local nid
   fd = fopen(nid_path, "r");
   setvbuf(fd, procfs_buf, _IOFBF, sizeof(procfs_buf));
   if (fd == NULL) {
     fprintf(stderr, "cannot open %s: %m\n", nid_path);
-    rc = -1;
-    goto disco_err;
+    goto err;
   }
   char nid[32];
   while(getline(&line_buf, &line_buf_size, fd) >= 0) {
     char *line = line_buf;
     int n = sscanf(line, "%s %*s", &nid);
     if (strstr(nid, "@o2ib") != NULL) { 
-      snprintf(info->nid, sizeof(info->nid), nid);
+      snprintf(info.nid, sizeof(info.nid), nid);
       break;
     }
   }
 
+  // Get peer nids and make nid to jobid map
+  fd = fopen(peers_path, "r");
+  setvbuf(fd, procfs_buf, _IOFBF, sizeof(procfs_buf));
+  if (fd == NULL) {
+    fprintf(stderr, "cannot open %s: %m\n", peers_path);
+    goto err;
+  }
+
+  if (dict_init(&info.nid_jid_dict, 0) < 0) {
+    fprintf(stderr, "cannot create nid_jid_dict: %m\n");
+    goto err;  
+  }
+
+  char jobid[16];
+  snprintf(jobid, sizeof(jobid), "-");
+  while(getline(&line_buf, &line_buf_size, fd) >= 0) {
+    char *line = line_buf;
+    int n = sscanf(line, "%s %*s", &nid);
+    if (strstr(nid, "@o2ib") != NULL) {    
+      dict_add(&info.nid_jid_dict, nid, jobid);
+    }
+  }
+  
   if (line_buf != NULL) 
     free(line_buf);
-
   fprintf(stdout, "device type/class/nid: %s/%d/%s\n",
-	  info->type, info->class, info->nid);
+	  info.type, info.class, info.nid);
+  
+  size_t i = 0;
+  char *n;
+  while ((n = dict_for_each(&info.nid_jid_dict, &i)) != NULL)
+    printf("%d nid `%s', jid `%s'\n", i, n, dict_get(&info.nid_jid_dict, n));
 
- disco_err:
+ err:
   if (fd != NULL)
     fclose(fd);  	
-  return rc;
+}
+
+struct device_info *get_dev_data(void) {
+  return &info;
 }

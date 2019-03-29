@@ -2,6 +2,7 @@
 #define _LFS_UTILS_H_
 
 #include <time.h>
+#include "dict.h"
 
 enum device_class{MDS, OSS, OSC};
 
@@ -13,8 +14,9 @@ struct device_info
   char typepath[64];
   char type[16];
   enum device_class class;   
+  struct dict nid_jid_dict;
 };
 
-int devices_discover();
+struct device_info *get_dev_data();
 
 #endif
