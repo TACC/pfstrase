@@ -80,10 +80,9 @@ int main(int argc, char *argv[])
   if(amqp_mode) {
     fd = amqp_setup_connection(&conn, port, host);
     timer.data = (void *)&conn;
-    ev_timer_init(&timer, amqp_send_cb, 0.0, 300);   
+    ev_timer_init(&timer, amqp_send_cb, 0.0, 200);   
     watcher.data = (void *)&conn;
     ev_io_init(&watcher, amqp_rpc_cb, fd, EV_READ);
-
   }   
   else if (sock_mode) {
     fd = sock_setup_connection(port);  
