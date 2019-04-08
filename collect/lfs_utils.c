@@ -27,6 +27,8 @@ __attribute__((constructor))
 static void devices_discover(void) {
 
   snprintf(info.nid, sizeof(info.nid), "-");
+  snprintf(info.jid, sizeof(info.jid), "-");  
+  snprintf(info.user, sizeof(info.user), "-");
 
   // Get hostname, device class, and time
   if (clock_gettime(CLOCK_REALTIME, &info.time) != 0) {

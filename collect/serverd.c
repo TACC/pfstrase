@@ -22,24 +22,24 @@ static void signal_cb(EV_P_ ev_signal *sigterm, int revents)
 /* using bare sockets */
 static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
 {
-  printf("collect and send data based on rpc\n");
+  printf("collect and send data based on sock rpc\n");
   sock_rpc();
 }
 static void sock_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
 {
-  printf("collect and send data based on timer\n");
+  printf("collect and send data based on sock timer\n");
   sock_send_data();
 }
 
 /* using amqp sockets */
 static void amqp_rpc_cb(EV_P_ ev_io *w, int revents)
 {
-  printf("collect and send data based on rpc\n");
+  printf("collect and send data based on amqp rpc\n");
   amqp_rpc();
 }
 static void amqp_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
 {
-  printf("collect and send data based on timer\n");
+  printf("collect and send data based on amqp timer\n");
   amqp_send_data();
 }
 
@@ -49,11 +49,8 @@ int main(int argc, char *argv[])
   const char *port = "5672";
 
   int pidfile_fd = -1;
-  //const char *pidfile_path = "/var/run/serverd.lock";
-  const char *pidfile_path = "serverd.lock";
+  const char *pidfile_path = "/var/run/serverd.lock";
 
-  int amqp_mode = 1;
-  int sock_mode = 0;
   /*
   if (daemon(0, 0) < 0) {
     fprintf(stderr, "failed to daemonize %m\n");
@@ -72,20 +69,21 @@ int main(int argc, char *argv[])
   ev_signal_init(&sigterm, signal_cb, SIGTERM);
   ev_signal_start(EV_DEFAULT, &sigterm);
 
-  int fd;
+  int amqp_fd;
+  int sock_fd;
   ev_timer timer;
-  ev_io watcher;
+  ev_io amqp_watcher;
   ev_io sock_watcher;  
 
-  fd = amqp_setup_connection(port, host);
-  ev_timer_init(&timer, amqp_timer_cb, 0.0, 200);   
-  ev_io_init(&watcher, amqp_rpc_cb, fd, EV_READ);
+  amqp_fd = amqp_setup_connection(port, host);
+  ev_timer_init(&timer, amqp_timer_cb, 0.0, 10);   
+  ev_io_init(&amqp_watcher, amqp_rpc_cb, amqp_fd, EV_READ);
 
-  fd = sock_setup_connection("8888");  
-  ev_io_init(&sock_watcher, sock_rpc_cb, fd, EV_READ);
+  sock_fd = sock_setup_connection("8888");  
+  ev_io_init(&sock_watcher, sock_rpc_cb, sock_fd, EV_READ);
 
   ev_timer_start(EV_DEFAULT, &timer);
-  ev_io_start(EV_DEFAULT, &watcher);    
+  ev_io_start(EV_DEFAULT, &amqp_watcher);    
   ev_io_start(EV_DEFAULT, &sock_watcher);    
   ev_run(EV_DEFAULT, 0);
   
@@ -94,8 +92,11 @@ int main(int argc, char *argv[])
     
   amqp_kill_connection();
 
-  if(fd)
-    close(fd);
+  if(amqp_fd)
+    close(amqp_fd);
+  if(sock_fd)
+    close(sock_fd);
+
 
   return 0;
 }

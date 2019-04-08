@@ -20,8 +20,8 @@ void collect_devices(char **buffer)
     fprintf(stderr, "cannot clock_gettime(): %m\n");
   }
 
-  asprintf(buffer, "\"hostname\": \"%s\", \"nid\": \"%s\", \"jid\": \"%s\", \"time\": %llu.%llu, \"stat\
-s\": [", info->hostname, info->nid, info->jid, info->time.tv_sec, info->time.tv_nsec);
+  asprintf(buffer, "\"hostname\": \"%s\", \"nid\": \"%s\", \"jid\": \"%s\", \"user\": \"%s\", \"time\": %llu.%llu, \"stat\
+s\": [", info->hostname, info->nid, info->jid, info->user, info->time.tv_sec, info->time.tv_nsec);
   
   // Exports
   if (info->class == MDS || info->class == OSS) {

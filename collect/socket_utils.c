@@ -95,6 +95,41 @@ void amqp_kill_connection()
   }
 }
 
+// Process RPC
+static void process_rpc(char *rpc)
+{
+  printf("RPC %s\n", rpc);
+    
+  if (strstr(rpc, "jobid") != NULL || strstr(rpc, "user") != NULL) {
+    while(1) {
+      if (rpc == NULL) break;
+      if (rpc[0] == '{') rpc++;
+      char *kv = strsep(&rpc, ",");      
+
+      char *key = strsep(&kv, ":");
+      while(key[0] == ' ') key++;
+      while(key[0] == '"') key++;
+      key = strsep(&key, "\"");
+
+      char *val = strsep(&kv, "}");
+      while(val[0] == ' ') val++;
+      while(val[0] == '"') val++;
+      val = strsep(&val, "\"");
+
+      if (strcmp("jobid", key) == 0) 
+	snprintf(get_dev_data()->jid, sizeof(get_dev_data()->jid), val);
+      if (strcmp("user", key) == 0) 
+	snprintf(get_dev_data()->user, sizeof(get_dev_data()->user), val);
+      printf("key: val %s: %s\n", key, val);
+    
+      printf("jobid=%s nid=%s hostname=%s user=%s\n", get_dev_data()->jid, 
+	     get_dev_data()->nid, get_dev_data()->hostname, get_dev_data()->user);
+    }
+    //dict_add(&get_dev_data()->nid_jid_dict, get_dev_data()->nid, get_dev_data()->jid);
+  }
+
+}
+
 // Receive and process rpc
 void amqp_rpc()
 {
@@ -122,9 +157,10 @@ void amqp_rpc()
   //amqp_dump(envelope.message.body.bytes, envelope.message.body.len);    
   char *p = (char*)(envelope.message.body.bytes + envelope.message.body.len);
   *p = '\0';
-  printf("%s\n", (char *)envelope.message.body.bytes);
-  amqp_destroy_envelope(&envelope);
-  
+  char *rpc = (char *)envelope.message.body.bytes;
+  process_rpc(rpc);
+
+  amqp_destroy_envelope(&envelope);  
   amqp_send_data(conn);
 }
 
@@ -189,28 +225,28 @@ void sock_rpc()
       fprintf(stderr, "cannot accept connections: %s\n", strerror(errno));
 
   char request[SOCKET_BUFFERSIZE];
-  int bytes_recvd = recv(fd, request, sizeof(request), 0);
+  memset(request, 0, sizeof(request));
+  ssize_t bytes_recvd = recv(fd, request, sizeof(request), 0);
   if (bytes_recvd < 0) {
     fprintf(stderr, "cannot recv: %s\n", strerror(errno));
     goto err;
   }
   char *p = request + strlen(request) - 1;
-  if (*p == '\n') *p = '\0';
-  printf(request);
-  snprintf(get_dev_data()->jid, sizeof(get_dev_data()->jid), request);
-  sock_send_data(fd);
+  *p = '\0';
+  process_rpc(request);
+  amqp_send_data();
 
  err:
   close(fd);
 }
 
-void sock_send_data(int fd)
+void sock_send_data()
 {
   char *buf = NULL;
   collect_devices(&buf); 
   if (buf) {
     printf("%s\n", buf);
-    int rv = send(fd, buf, strlen(buf), 0);
+    int rv = send(sockfd, buf, strlen(buf), 0);
     free(buf);
   }
 }
