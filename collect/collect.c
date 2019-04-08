@@ -20,7 +20,7 @@ void collect_devices(char **buffer)
     fprintf(stderr, "cannot clock_gettime(): %m\n");
   }
 
-  asprintf(buffer, "\"host\": \"%s\", \"nid\": \"%s\",\"time\": %llu.%llu, \"stat\
+  asprintf(buffer, "\"hostname\": \"%s\", \"nid\": \"%s\",\"time\": %llu.%llu, \"stat\
 s\": [", info->hostname, info->nid, info->time.tv_sec, info->time.tv_nsec);
   
   // Exports

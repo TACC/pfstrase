@@ -26,6 +26,8 @@ struct device_info info;
 __attribute__((constructor))
 static void devices_discover(void) {
 
+  snprintf(info.nid, sizeof(info.nid), "-");
+
   // Get hostname, device class, and time
   if (clock_gettime(CLOCK_REALTIME, &info.time) != 0) {
     fprintf(stderr, "cannot clock_gettime(): %m\n");
