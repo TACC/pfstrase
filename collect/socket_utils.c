@@ -16,10 +16,11 @@
 
 char const *exchange = "amq.direct";
 amqp_basic_properties_t props; 
+amqp_connection_state_t conn;
+int sockfd;
 
 // Setup connection to RabbitMQ Server
-int amqp_setup_connection(amqp_connection_state_t *conn, 
-			  const char *port, const char *hostname)
+int amqp_setup_connection(const char *port, const char *hostname)
 {
   amqp_socket_t *socket = NULL;
   amqp_bytes_t request_queue;
@@ -30,9 +31,9 @@ int amqp_setup_connection(amqp_connection_state_t *conn,
   props.content_type = amqp_cstring_bytes("text/plain");
   props.delivery_mode = 2; /* persistent delivery mode */
 
-  *conn = amqp_new_connection();
+  conn = amqp_new_connection();
 
-  socket = amqp_tcp_socket_new(*conn);
+  socket = amqp_tcp_socket_new(conn);
   if (!socket) {
     die("creating TCP socket");
   }
@@ -42,15 +43,15 @@ int amqp_setup_connection(amqp_connection_state_t *conn,
     die("opening TCP socket");
   }
 
-  die_on_amqp_error(amqp_login(*conn, "/", 0, 131072, 0, AMQP_SASL_METHOD_PLAIN,
+  die_on_amqp_error(amqp_login(conn, "/", 0, 131072, 0, AMQP_SASL_METHOD_PLAIN,
 			       "guest", "guest"), "Logging in");
-  amqp_channel_open(*conn, 1);
-  die_on_amqp_error(amqp_get_rpc_reply(*conn), "Opening channel");
+  amqp_channel_open(conn, 1);
+  die_on_amqp_error(amqp_get_rpc_reply(conn), "Opening channel");
   
   {
-    amqp_queue_declare_ok_t *r = amqp_queue_declare(*conn, 1, amqp_cstring_bytes(get_dev_data()->hostname), 
+    amqp_queue_declare_ok_t *r = amqp_queue_declare(conn, 1, amqp_cstring_bytes(get_dev_data()->hostname), 
 						    0, 0, 1, 1, amqp_empty_table);
-    die_on_amqp_error(amqp_get_rpc_reply(*conn), "Declaring request queue");
+    die_on_amqp_error(amqp_get_rpc_reply(conn), "Declaring request queue");
     request_queue = amqp_bytes_malloc_dup(r->queue);
     if (request_queue.bytes == NULL) {
       fprintf(stderr, "Out of memory while copying queue name");
@@ -58,9 +59,9 @@ int amqp_setup_connection(amqp_connection_state_t *conn,
     }
   }
   {
-    amqp_queue_declare_ok_t *r = amqp_queue_declare(*conn, 1, amqp_cstring_bytes("response"), 
+    amqp_queue_declare_ok_t *r = amqp_queue_declare(conn, 1, amqp_cstring_bytes("response"), 
 						    0, 1, 0, 0, amqp_empty_table);
-    die_on_amqp_error(amqp_get_rpc_reply(*conn), "Declaring response queue");
+    die_on_amqp_error(amqp_get_rpc_reply(conn), "Declaring response queue");
     response_queue = amqp_bytes_malloc_dup(r->queue);
     if (response_queue.bytes == NULL) {
       fprintf(stderr, "Out of memory while copying queue name");
@@ -68,23 +69,34 @@ int amqp_setup_connection(amqp_connection_state_t *conn,
     }
   }
   
-  amqp_queue_bind(*conn, 1, request_queue, amqp_cstring_bytes(exchange),
+  amqp_queue_bind(conn, 1, request_queue, amqp_cstring_bytes(exchange),
                   amqp_cstring_bytes("request"), amqp_empty_table);
-  die_on_amqp_error(amqp_get_rpc_reply(*conn), "Binding queue");
+  die_on_amqp_error(amqp_get_rpc_reply(conn), "Binding queue");
 
-  amqp_queue_bind(*conn, 1, response_queue, amqp_cstring_bytes(exchange),
+  amqp_queue_bind(conn, 1, response_queue, amqp_cstring_bytes(exchange),
                   amqp_cstring_bytes("response"), amqp_empty_table);
-  die_on_amqp_error(amqp_get_rpc_reply(*conn), "Binding queue");
+  die_on_amqp_error(amqp_get_rpc_reply(conn), "Binding queue");
 
-  amqp_basic_consume(*conn, 1, request_queue, amqp_empty_bytes, 0, 1, 0,
+  amqp_basic_consume(conn, 1, request_queue, amqp_empty_bytes, 0, 1, 0,
                      amqp_empty_table);
-  die_on_amqp_error(amqp_get_rpc_reply(*conn), "Consuming");
+  die_on_amqp_error(amqp_get_rpc_reply(conn), "Consuming");
   
   return amqp_socket_get_sockfd(socket);
 }
 
+void amqp_kill_connection()
+{
+  if (conn) {
+    die_on_amqp_error(amqp_channel_close(conn, 1, AMQP_REPLY_SUCCESS),
+		      "Closing channel");
+    die_on_amqp_error(amqp_connection_close(conn, AMQP_REPLY_SUCCESS),
+		      "Closing connection");
+    die_on_error(amqp_destroy_connection(conn), "Ending connection");
+  }
+}
+
 // Receive and process rpc
-void amqp_rpc(amqp_connection_state_t conn)
+void amqp_rpc()
 {
   amqp_rpc_reply_t res;
   amqp_envelope_t envelope;
@@ -117,7 +129,7 @@ void amqp_rpc(amqp_connection_state_t conn)
 }
 
 // Collect and send data
-void amqp_send_data(amqp_connection_state_t conn)      
+void amqp_send_data()      
 {  
   char *buf = NULL;
   collect_devices(&buf); 
@@ -134,7 +146,6 @@ void amqp_send_data(amqp_connection_state_t conn)
 
 int sock_setup_connection(const char *port) 
 {
-  int sockfd;
   int opt = 1;
   int backlog = 10;
   struct sockaddr_in addr;
@@ -167,7 +178,7 @@ int sock_setup_connection(const char *port)
   return sockfd;
 }
 
-void sock_rpc(int sockfd) 
+void sock_rpc() 
 {  
   struct sockaddr_in addr;
   socklen_t addrlen = sizeof(addr);
@@ -179,10 +190,17 @@ void sock_rpc(int sockfd)
 
   char request[SOCKET_BUFFERSIZE];
   int bytes_recvd = recv(fd, request, sizeof(request), 0);
-  if (bytes_recvd < 0)
+  if (bytes_recvd < 0) {
     fprintf(stderr, "cannot recv: %s\n", strerror(errno));
+    goto err;
+  }
+  char *p = request + strlen(request) - 1;
+  if (*p == '\n') *p = '\0';
   printf(request);
+  snprintf(get_dev_data()->jid, sizeof(get_dev_data()->jid), request);
   sock_send_data(fd);
+
+ err:
   close(fd);
 }
 

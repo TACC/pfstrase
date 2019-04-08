@@ -23,24 +23,24 @@ static void signal_cb(EV_P_ ev_signal *sigterm, int revents)
 static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
 {
   printf("collect and send data based on rpc\n");
-  sock_rpc(w->fd);
+  sock_rpc();
 }
-static void sock_send_cb(struct ev_loop *loop, ev_timer *w, int revents) 
+static void sock_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
 {
   printf("collect and send data based on timer\n");
-  sock_send_data(*((int *)w->data));
+  sock_send_data();
 }
 
 /* using amqp sockets */
 static void amqp_rpc_cb(EV_P_ ev_io *w, int revents)
 {
   printf("collect and send data based on rpc\n");
-  amqp_rpc(*((amqp_connection_state_t *)w->data));
+  amqp_rpc();
 }
-static void amqp_send_cb(struct ev_loop *loop, ev_timer *w, int revents) 
+static void amqp_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
 {
   printf("collect and send data based on timer\n");
-  amqp_send_data(*((amqp_connection_state_t *)w->data));
+  amqp_send_data();
 }
 
 int main(int argc, char *argv[])
@@ -66,49 +66,33 @@ int main(int argc, char *argv[])
     if (pidfile_fd < 0)      
       exit(1);
   }
-    
+
   signal(SIGPIPE, SIG_IGN);
   static struct ev_signal sigterm;
   ev_signal_init(&sigterm, signal_cb, SIGTERM);
   ev_signal_start(EV_DEFAULT, &sigterm);
 
-  amqp_connection_state_t conn;
   int fd;
   ev_timer timer;
   ev_io watcher;
-  
-  if(amqp_mode) {
-    fd = amqp_setup_connection(&conn, port, host);
-    timer.data = (void *)&conn;
-    ev_timer_init(&timer, amqp_send_cb, 0.0, 200);   
-    watcher.data = (void *)&conn;
-    ev_io_init(&watcher, amqp_rpc_cb, fd, EV_READ);
-  }   
-  else if (sock_mode) {
-    fd = sock_setup_connection(port);  
-    timer.data = (void *)&fd;
-    ev_timer_init(&timer, sock_send_cb, 0.0, 300);  
-    ev_io_init(&watcher, sock_rpc_cb, fd, EV_READ);
-  }
-  else {
-    fprintf(stderr, "Error: connection mode not supported\n");
-    exit(1);
-  }  
+  ev_io sock_watcher;  
+
+  fd = amqp_setup_connection(port, host);
+  ev_timer_init(&timer, amqp_timer_cb, 0.0, 200);   
+  ev_io_init(&watcher, amqp_rpc_cb, fd, EV_READ);
+
+  fd = sock_setup_connection("8888");  
+  ev_io_init(&sock_watcher, sock_rpc_cb, fd, EV_READ);
 
   ev_timer_start(EV_DEFAULT, &timer);
   ev_io_start(EV_DEFAULT, &watcher);    
+  ev_io_start(EV_DEFAULT, &sock_watcher);    
   ev_run(EV_DEFAULT, 0);
   
   if (pidfile_path != NULL)
     unlink(pidfile_path);
     
-  if (conn) {
-    die_on_amqp_error(amqp_channel_close(conn, 1, AMQP_REPLY_SUCCESS),
-		      "Closing channel");
-    die_on_amqp_error(amqp_connection_close(conn, AMQP_REPLY_SUCCESS),
-		      "Closing connection");
-    die_on_error(amqp_destroy_connection(conn), "Ending connection");
-  }
+  amqp_kill_connection();
 
   if(fd)
     close(fd);
