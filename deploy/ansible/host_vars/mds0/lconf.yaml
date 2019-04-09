@@ -1,0 +1,9 @@
+---
+
+server:
+  mount_addr: imds0
+  mount_type: o2ib
+  fs_name: blue
+
+client:
+  mount_point: /blue

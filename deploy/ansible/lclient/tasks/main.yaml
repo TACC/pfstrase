@@ -1,0 +1,22 @@
+---
+- set_fact: abort=true
+
+- name: Mount Lustre File System
+  mount:
+    path: "{{ hostvars.mds0.client.mount_point }}"
+    src: "{{hostvars.mds0.server.mount_addr }}@{{ hostvars.mds0.server.mount_type }}:/{{ hostvars.mds0.server.fs_name }}"
+    fstype: lustre
+    opts: rw
+    state: mounted
+  when:
+    - abort is undefined
+  tags: mount_lustre_client
+
+- name: Unmount Lustre File System
+  mount:
+    path: "{{ hostvars.mds0.client.mount_point }}"
+    fstype: lustre
+    state: unmounted
+  when:
+    - abort is undefined
+  tags: unmount_lustre_client
