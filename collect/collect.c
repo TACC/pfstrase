@@ -20,59 +20,35 @@ void collect_devices(char **buffer)
     fprintf(stderr, "cannot clock_gettime(): %m\n");
   }
 
-  asprintf(buffer, "\"hostname\": \"%s\", \"nid\": \"%s\", \"jid\": \"%s\", \"user\": \"%s\", \"time\": %llu.%llu, \"stat\
-s\": [", info->hostname, info->nid, info->jid, info->user, info->time.tv_sec, info->time.tv_nsec);
+  if (asprintf(buffer, "\"host\": \"%s\", \"nid\": \"%s\", \"jid\": \"%s\", \"user\": \"%s\", \"time\": %llu.%llu, \"stats\": {", info->hostname, info->nid, info->jid, info->user, info->time.tv_sec, info->time.tv_nsec) < 0) {
+    fprintf(stderr, "Write to buffer failed for device info");
+  }
   
   // Exports
-  if (info->class == MDS || info->class == OSS) {
-    if (collect_exports(info, buffer) == 0) {
-      char *tmp = *buffer;
-      asprintf(buffer, "%s},", *buffer);
-      if (tmp != NULL) free(tmp);
-    }
-    else
+  if (info->class == MDS || info->class == OSS)
+    if (collect_exports(info, buffer) < 0)
       fprintf(stderr, "export collection failed\n");
-  }
+  
   // LOD
-  if (info->class == MDS) {
-    if (collect_lod(info, buffer) == 0) {
-      char *tmp = *buffer;
-      asprintf(buffer, "%s},", *buffer);
-      if (tmp != NULL) free(tmp);
-    }
-    else
+  if (info->class == MDS)
+    if (collect_lod(info, buffer) < 0)
       fprintf(stderr, "lod collection failed\n");
-  }
+
   if (info->class == OSC) {
     // LLITE
-    if (collect_llite(info, buffer) == 0) {
-      char *tmp = *buffer;
-      asprintf(buffer, "%s},", *buffer);
-      if (tmp != NULL) free(tmp);
-    }
-    else
+    if (collect_llite(info, buffer) < 0)
       fprintf(stderr, "llite collection failed\n");
     // OSC
-    if (collect_osc(info, buffer) == 0) {
-      char *tmp = *buffer;
-      asprintf(buffer, "%s},", *buffer);
-      if (tmp != NULL) free(tmp);
-    }
-    else
+    if (collect_osc(info, buffer) < 0)
       fprintf(stderr, "osc collection failed\n");
   }
-  // SYSINFO
-  if (collect_sysinfo(info, buffer) == 0) {
-    char *tmp = *buffer;
-    asprintf(buffer, "%s},", *buffer);
-    if (tmp != NULL) free(tmp);
-  }
-  else
-    fprintf(stderr, "sysinfo collection failed\n");
 
-  char *p = *buffer;
-  p = *buffer + strlen(*buffer) - 1;
-  *p = ']';
+  // SYSINFO  
+  if (collect_sysinfo(info, buffer) < 0)
+    fprintf(stderr, "sysinfo collection failed\n");
+  
+  char *p = *buffer + strlen(*buffer);
+  *p = '}';
 }
 
 int collect_stats(const char *path, char **buffer)
@@ -107,7 +83,7 @@ int collect_stats(const char *path, char **buffer)
     if (n == 2)
       val = sum;
     char *tmp = *buffer;
-    if (asprintf(buffer, "%s, \"%s\": %llu", *buffer, key, val) < 0) {
+    if (asprintf(buffer, "%s\"%s\": %llu,", *buffer, key, val) < 0) {
       rc = -1;
       fprintf(stderr, "Write to buffer failed for %s `%s\n'", path, key);
     }               
@@ -115,7 +91,10 @@ int collect_stats(const char *path, char **buffer)
   }
   if (line_buf != NULL) 
     free(line_buf);
-  
+
+  char *p = *buffer + strlen(*buffer) - 1;
+  if (*p == ',') *p = '\0';
+
  statpath_err:
   if (fd != NULL)
     fclose(fd);  	

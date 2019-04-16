@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
   ev_io sock_watcher;  
 
   amqp_fd = amqp_setup_connection(port, host);
-  ev_timer_init(&timer, amqp_timer_cb, 0.0, 10);   
+  ev_timer_init(&timer, amqp_timer_cb, 0.0, 300);   
   ev_io_init(&amqp_watcher, amqp_rpc_cb, amqp_fd, EV_READ);
 
   sock_fd = sock_setup_connection("8888");  

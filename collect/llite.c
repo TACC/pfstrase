@@ -49,7 +49,7 @@ int collect_llite(struct device_info *info, char **buffer)
   }
 
   char *tmp = *buffer;
-  asprintf(buffer, "%s{\"type\": \"llite\", \"dev\": [", *buffer);       
+  asprintf(buffer, "%s{\"stat\": \"llite\", \"devices\": [", *buffer);       
   if (tmp != NULL) free(tmp);
 
   struct dirent *typede;

@@ -30,7 +30,7 @@ int collect_exports(struct device_info *info, char **buffer)
   }
 
   char *tmp = *buffer;
-  asprintf(buffer, "%s{\"type\": \"%s\", \"dev\": [", *buffer, type);       
+  asprintf(buffer, "%s\"%s\": {", *buffer, type);       
   if (tmp != NULL) free(tmp);
 
   struct dirent *typede;
@@ -44,7 +44,7 @@ int collect_exports(struct device_info *info, char **buffer)
 	     "%s/%s/exports", typepath, typede->d_name);
    
     tmp = *buffer;
-    asprintf(buffer, "%s{\"idx\": \"%s\", \"exports\": [", *buffer, typede->d_name);
+    asprintf(buffer, "%s\"%s\": {\"exports\": {", *buffer, typede->d_name);
     if (tmp != NULL) free(tmp);
 
     exportdir = opendir(exportpath); 
@@ -63,7 +63,7 @@ int collect_exports(struct device_info *info, char **buffer)
 	       exportpath, nidde->d_name);
 
       tmp = *buffer;
-      asprintf(buffer, "%s{\"nid\": \"%s\"", *buffer, nidde->d_name);
+      asprintf(buffer, "%s\"%s\": {", *buffer, nidde->d_name);
       if (tmp != NULL) free(tmp);
 	
       if (collect_stats(statspath, buffer) < 0)
@@ -73,10 +73,9 @@ int collect_exports(struct device_info *info, char **buffer)
       asprintf(buffer, "%s},", *buffer);
       if (tmp != NULL) free(tmp);
     }
-            
-    char *p = *buffer;
-    p = *buffer + strlen(*buffer) - 1;
-    *p = ']';
+
+    char *p = *buffer + strlen(*buffer) - 1;
+    if (*p == ',') *p = '}';
 
   exportdir_err:
     if (exportdir != NULL)
@@ -84,13 +83,16 @@ int collect_exports(struct device_info *info, char **buffer)
       tmp = *buffer;
       asprintf(buffer, "%s},", *buffer);
       if (tmp != NULL) free(tmp);
-    }
-            
-    char *p = *buffer;
-    p = *buffer + strlen(*buffer) - 1;
-    *p = ']';
-    rc = 0;  
-   
+  }
+
+  char *p = *buffer + strlen(*buffer) - 1;
+  if (*p == ',') *p = '\0';
+  tmp = *buffer;
+  asprintf(buffer, "%s},", *buffer);
+  if (tmp != NULL) free(tmp);
+
+  rc = 0;  
+  
  typedir_err:
   if (typedir != NULL)
     closedir(typedir);   

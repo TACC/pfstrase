@@ -37,7 +37,7 @@ int collect_lod(struct device_info *info, char **buffer)
   }
 
   char *tmp = *buffer;
-  asprintf(buffer, "%s{\"type\": \"lod\", \"dev\": [", *buffer);       
+  asprintf(buffer, "%s{\"stat\": \"lod\", \"devices\": [", *buffer);       
   if (tmp != NULL) free(tmp);
 
   struct dirent *typede;

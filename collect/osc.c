@@ -28,7 +28,7 @@ int collect_osc(struct device_info *info, char **buffer)
   }
 
   char *tmp = *buffer;
-  asprintf(buffer, "%s{\"type\": \"osc\", \"osts\": [", *buffer);       
+  asprintf(buffer, "%s{\"stat\": \"osc\", \"osts\": [", *buffer);       
   if (tmp != NULL) free(tmp);
 
   struct dirent *typede;
