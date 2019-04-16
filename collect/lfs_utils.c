@@ -65,17 +65,17 @@ static void devices_discover(void) {
 
     if (strcmp(type, "mdt") == 0) {
       info.class = MDS;      
-      snprintf(info.type, sizeof(info.type), "mds");
+      snprintf(info.class_str, sizeof(info.class_str), "mds");
       break;
     }
     if (strcmp(type, "obdfilter") == 0) {
       info.class = OSS;
-      snprintf(info.type, sizeof(info.type), "oss");
+      snprintf(info.class_str, sizeof(info.class_str), "oss");
       break;
     }
     if (strcmp(type, "osc") == 0) {
       info.class = OSC;
-      snprintf(info.type, sizeof(info.type), "osc");
+      snprintf(info.class_str, sizeof(info.class_str), "osc");
       break;
     }
   }
@@ -125,7 +125,7 @@ static void devices_discover(void) {
   if (line_buf != NULL) 
     free(line_buf);
   fprintf(stdout, "device type/class/nid: %s/%d/%s\n",
-	  info.type, info.class, info.nid);
+	  info.class_str, info.class, info.nid);
   
   size_t i = 0;
   char *n;
