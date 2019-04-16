@@ -20,7 +20,7 @@ void collect_devices(char **buffer)
     fprintf(stderr, "cannot clock_gettime(): %m\n");
   }
 
-  if (asprintf(buffer, "\"host\": \"%s\", \"class\": \"%s\", \"nid\": \"%s\", \"jid\": \"%s\", \"user\": \"%s\", \"time\": %llu.%llu, \"stats\": {", info->hostname, info->class_str, info->nid, info->jid, info->user, info->time.tv_sec, info->time.tv_nsec) < 0) {
+  if (asprintf(buffer, "\"host\": \"%s\", \"obdclass\": \"%s\", \"nid\": \"%s\", \"jid\": \"%s\", \"user\": \"%s\", \"time\": %llu.%llu, \"stats\": {", info->hostname, info->class_str, info->nid, info->jid, info->user, info->time.tv_sec, info->time.tv_nsec) < 0) {
     fprintf(stderr, "Write to buffer failed for device info");
   }
   
