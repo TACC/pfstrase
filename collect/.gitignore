@@ -1,7 +1,7 @@
 *~
 *.o
 *.lock
-serverd
+pfstrased
 .deps
 Makefile
 

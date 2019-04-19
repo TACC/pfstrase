@@ -1,8 +1,8 @@
-bin_PROGRAMS = serverd
+bin_PROGRAMS = pfstrased
 
-serverd_CPPFLAGS = -D_GNU_SOURCE
+pfstrased_CPPFLAGS = -D_GNU_SOURCE
 
-serverd_SOURCES = 	 \
+pfstrased_SOURCES = 	 \
 	dict.h		\
 	dict.c		\
 	pidfile_create.h \
