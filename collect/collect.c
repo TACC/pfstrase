@@ -33,7 +33,7 @@ void collect_devices(char **buffer)
   if (info->class == MDS)
     if (collect_lod(info, buffer) < 0)
       fprintf(stderr, "lod collection failed\n");
-
+  
   if (info->class == OSC) {
     // LLITE
     if (collect_llite(info, buffer) < 0)

@@ -37,7 +37,7 @@ int collect_lod(struct device_info *info, char **buffer)
   }
 
   char *tmp = *buffer;
-  asprintf(buffer, "%s{\"stat\": \"lod\", \"devices\": [", *buffer);       
+  asprintf(buffer, "%s\"lod\": {", *buffer);       
   if (tmp != NULL) free(tmp);
 
   struct dirent *typede;
@@ -48,7 +48,7 @@ int collect_lod(struct device_info *info, char **buffer)
     char devpath[256];
     snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);
     char *tmp = *buffer;
-    asprintf(buffer, "%s{\"idx\": \"%s\"", *buffer, typede->d_name);       
+    asprintf(buffer, "%s\"%s\": {", *buffer, typede->d_name);       
     if (tmp != NULL) free(tmp);
 
 #define X(k,r...)						           \
@@ -61,13 +61,14 @@ int collect_lod(struct device_info *info, char **buffer)
     SINGLE;
 #undef X
 
+    char *p = *buffer;
+    p = *buffer + strlen(*buffer) - 1;
+    if (*p == ',') *p = '}';
+
     tmp = *buffer;
     asprintf(buffer, "%s},", *buffer);
     if (tmp != NULL) free(tmp);
   }
-  char *p = *buffer;
-  p = *buffer + strlen(*buffer) - 1;
-  *p = ']';
 
   rc = 0;  
  typedir_err:
