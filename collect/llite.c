@@ -49,7 +49,7 @@ int collect_llite(struct device_info *info, char **buffer)
   }
 
   char *tmp = *buffer;
-  asprintf(buffer, "%s{\"stat\": \"llite\", \"devices\": [", *buffer);       
+  asprintf(buffer, "%s\"llite\": {", *buffer);       
   if (tmp != NULL) free(tmp);
 
   struct dirent *typede;
@@ -68,7 +68,7 @@ int collect_llite(struct device_info *info, char **buffer)
     *p = '\0'; 
    
     char *tmp = *buffer;
-    asprintf(buffer, "%s{\"filesystem\": \"%s\"", *buffer, typede->d_name);       
+    asprintf(buffer, "%s\"%s\": {", *buffer, typede->d_name);       
     if (tmp != NULL) free(tmp);
     
 #define X(k,r...)							\
@@ -77,6 +77,9 @@ int collect_llite(struct device_info *info, char **buffer)
       snprintf(filepath, sizeof(filepath), "%s/%s", devpath, #k); \
       if (collect_stats(filepath, buffer) < 0)				\
 	fprintf(stderr, "cannot read `%s' from `%s': %m\n", #k, filepath); \
+      tmp = *buffer;							\
+      asprintf(buffer, "%s,", *buffer);					\
+      if (tmp != NULL) free(tmp);					\
     })
     STATS;
 #undef X
@@ -91,16 +94,21 @@ int collect_llite(struct device_info *info, char **buffer)
     SINGLE;
 #undef X
     */
+    p = *buffer + strlen(*buffer) - 1;
+    if (*p == ',') *p = '}';
 
     tmp = *buffer;
     asprintf(buffer, "%s},", *buffer);
     if (tmp != NULL) free(tmp);
   }  
-  char *p = *buffer;
-  p = *buffer + strlen(*buffer) - 1;
-  *p = ']';
+  /*
+  char *p = *buffer + strlen(*buffer) - 1;
+  if (*p == ',') *p = '}';
 
-
+  tmp = *buffer;
+  asprintf(buffer, "%s},", *buffer);
+  if (tmp != NULL) free(tmp);
+  */
   rc = 0;
  typedir_err:
   if (typedir != NULL)

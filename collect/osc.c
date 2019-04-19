@@ -28,7 +28,7 @@ int collect_osc(struct device_info *info, char **buffer)
   }
 
   char *tmp = *buffer;
-  asprintf(buffer, "%s{\"stat\": \"osc\", \"osts\": [", *buffer);       
+  asprintf(buffer, "%s\"osc\": {", *buffer);       
   if (tmp != NULL) free(tmp);
 
   struct dirent *typede;
@@ -50,7 +50,7 @@ int collect_osc(struct device_info *info, char **buffer)
     *p = '\0'; 
     
     tmp = *buffer;
-    asprintf(buffer, "%s{\"idx\": \"%s\"", *buffer, typede->d_name);
+    asprintf(buffer, "%s\"%s\": {", *buffer, typede->d_name);
     if (tmp != NULL) free(tmp);
 
     if (collect_string(osspath, buffer, "oss") < 0)			       
@@ -62,19 +62,29 @@ int collect_osc(struct device_info *info, char **buffer)
       snprintf(filepath, sizeof(filepath), "%s/%s", devpath, #k);	\
       if (collect_stats(filepath, buffer) < 0)				\
 	fprintf(stderr, "cannot read `%s' from `%s': %m\n", #k, filepath); \
+      tmp = *buffer;							\
+      asprintf(buffer, "%s,", *buffer);					\
+      if (tmp != NULL) free(tmp);					\
     })
     STATS;
 #undef X
+
+    p = *buffer + strlen(*buffer) - 1;
+    if (*p == ',') *p = '}';
     
     tmp = *buffer;
-    asprintf(buffer, "%s},", *buffer);
-    if (tmp != NULL) free(tmp);    
+    asprintf(buffer, "%s,", *buffer);
+    if (tmp != NULL) free(tmp);        
+    
   }
 
-  char *p = *buffer;
-  p = *buffer + strlen(*buffer) - 1;
-  *p = ']';
+  char *p = *buffer + strlen(*buffer) - 1;
+  if (*p == ',') *p = '}';
 
+  tmp = *buffer;
+  asprintf(buffer, "%s,", *buffer);
+  if (tmp != NULL) free(tmp);
+  
   rc = 0;
  typedir_err:
   if (typedir != NULL)

@@ -70,7 +70,7 @@ int collect_stats(const char *path, char **buffer)
   unsigned long long count = 0, sum = 0, val = 0;
   while(getline(&line_buf, &line_buf_size, fd) >= 0) {
     char *line = line_buf;
-    char *key = strsep(&line, " \t\n\v\f\r");	
+    char *key = strsep(&line, " :\t\n\v\f\r");	
     if (key == NULL || line == NULL)
       continue;
     if (strcmp(key, "snapshot_time") == 0) {
@@ -121,7 +121,7 @@ int collect_single(const char *filepath, char **buffer, char *key)
     goto devde_err;
   }      
   char *tmp = *buffer;
-  if (asprintf(buffer, "%s, \"%s\": %llu", *buffer, key, val) < 0 ) {
+  if (asprintf(buffer, "%s\"%s\": %llu,", *buffer, key, val) < 0 ) {
     rc = -1;
     fprintf(stderr, "Write to buffer failed for `%s\n'", key);
   }
@@ -152,7 +152,7 @@ int collect_string(const char *filepath, char **buffer, char *key)
     goto devde_err;
   }      
   char *tmp = *buffer;
-  if (asprintf(buffer, "%s, \"%s\": \"%s\"", *buffer, key, val) < 0 ) {
+  if (asprintf(buffer, "%s\"%s\": \"%s\",", *buffer, key, val) < 0 ) {
     rc = -1;
     fprintf(stderr, "Write to buffer failed for `%s\n'", key);
   }
