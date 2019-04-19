@@ -46,9 +46,10 @@ void collect_devices(char **buffer)
   // SYSINFO  
   if (collect_sysinfo(info, buffer) < 0)
     fprintf(stderr, "sysinfo collection failed\n");
-  
-  char *p = *buffer + strlen(*buffer);
-  *p = '}';
+
+  char *tmp = *buffer;
+  asprintf(buffer, "%s}", *buffer);
+  if (tmp != NULL) free(tmp);
 }
 
 int collect_stats(const char *path, char **buffer)
