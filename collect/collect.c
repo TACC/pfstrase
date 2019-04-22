@@ -7,11 +7,11 @@
 #include "osc.h"
 #include "llite.h"
 #include "sysinfo.h"
-
+#include "collect.h"
 
 #define PROCFS_BUF_SIZE 4096
 
-void collect_devices(char **buffer)
+void collect_devices(json_object *jobj)
 {
   struct device_info *info = get_dev_data();
 
@@ -19,44 +19,43 @@ void collect_devices(char **buffer)
   if (clock_gettime(CLOCK_REALTIME, &info->time) != 0) {
     fprintf(stderr, "cannot clock_gettime(): %m\n");
   }
+  info->jobj = json_object_new_object();
 
-  if (asprintf(buffer, "\"host\": \"%s\", \"obdclass\": \"%s\", \"nid\": \"%s\", \"jid\": \"%s\", \"user\": \"%s\", \"time\": %llu.%llu, \"stats\": {", info->hostname, info->class_str, info->nid, info->jid, info->user, info->time.tv_sec, info->time.tv_nsec) < 0) {
-    fprintf(stderr, "Write to buffer failed for device info");
-  }
+  json_object_object_add(info->jobj, "host", json_object_new_string(info->hostname));
+  json_object_object_add(info->jobj, "obdclass", json_object_new_string(info->class_str));
+  json_object_object_add(info->jobj, "nid", json_object_new_string(info->nid));
+  json_object_object_add(info->jobj, "jid", json_object_new_string(info->jid));
+  json_object_object_add(info->jobj, "time", json_object_new_double(info->time.tv_sec + 1e-9*info->time.tv_nsec));
   
   // Exports
   if (info->class == MDS || info->class == OSS)
-    if (collect_exports(info, buffer) < 0)
+    if (collect_exports(info) < 0)
       fprintf(stderr, "export collection failed\n");
   
   // LOD
   if (info->class == MDS)
-    if (collect_lod(info, buffer) < 0)
+    if (collect_lod(info) < 0)
       fprintf(stderr, "lod collection failed\n");
   
   if (info->class == OSC) {
     // LLITE
-    if (collect_llite(info, buffer) < 0)
+    if (collect_llite(info) < 0)
       fprintf(stderr, "llite collection failed\n");
     // OSC
-    if (collect_osc(info, buffer) < 0)
+    if (collect_osc(info) < 0)
       fprintf(stderr, "osc collection failed\n");
   }
-
+ 
   // SYSINFO  
-  if (collect_sysinfo(info, buffer) < 0)
+  if (collect_sysinfo(info) < 0)
     fprintf(stderr, "sysinfo collection failed\n");
-
-  char *tmp = *buffer;
-  asprintf(buffer, "%s}", *buffer);
-  if (tmp != NULL) free(tmp);
 }
 
-int collect_stats(const char *path, char **buffer)
+int collect_stats(const char *path, json_object *stats)
 {
   int rc = 0;
-
   FILE *fd = NULL;
+
   fd = fopen(path, "r");
   if (fd == NULL) {
     fprintf(stderr, "cannot open %s: %m\n", path);
@@ -83,18 +82,10 @@ int collect_stats(const char *path, char **buffer)
       val = count;
     if (n == 2)
       val = sum;
-    char *tmp = *buffer;
-    if (asprintf(buffer, "%s\"%s\": %llu,", *buffer, key, val) < 0) {
-      rc = -1;
-      fprintf(stderr, "Write to buffer failed for %s `%s\n'", path, key);
-    }               
-    if (tmp != NULL) free(tmp);
+    json_object_object_add(stats, key, json_object_new_int(val)); 
   }
   if (line_buf != NULL) 
     free(line_buf);
-
-  char *p = *buffer + strlen(*buffer) - 1;
-  if (*p == ',') *p = '\0';
 
  statpath_err:
   if (fd != NULL)
@@ -102,7 +93,7 @@ int collect_stats(const char *path, char **buffer)
   return rc;
 }      
 
-int collect_single(const char *filepath, char **buffer, char *key)
+int collect_single(const char *filepath, json_object *stats, char *key)
 {
   int rc = 0;
 
@@ -121,19 +112,14 @@ int collect_single(const char *filepath, char **buffer, char *key)
     rc = -1;
     goto devde_err;
   }      
-  char *tmp = *buffer;
-  if (asprintf(buffer, "%s\"%s\": %llu,", *buffer, key, val) < 0 ) {
-    rc = -1;
-    fprintf(stderr, "Write to buffer failed for `%s\n'", key);
-  }
-  if (tmp != NULL) free(tmp);
+  json_object_object_add(stats, key, json_object_new_int(val));
  devde_err:
   if (fd != NULL)
     fclose(fd);  	  
   return rc;
 }
 
-int collect_string(const char *filepath, char **buffer, char *key)
+int collect_string(const char *filepath, json_object *stats, char *key)
 {
   int rc = 0;
 
@@ -152,12 +138,7 @@ int collect_string(const char *filepath, char **buffer, char *key)
     rc = -1;
     goto devde_err;
   }      
-  char *tmp = *buffer;
-  if (asprintf(buffer, "%s\"%s\": \"%s\",", *buffer, key, val) < 0 ) {
-    rc = -1;
-    fprintf(stderr, "Write to buffer failed for `%s\n'", key);
-  }
-  if (tmp != NULL) free(tmp);
+  json_object_object_add(stats, key, json_object_new_string(val));
  devde_err:
   if (fd != NULL)
     fclose(fd);  	  

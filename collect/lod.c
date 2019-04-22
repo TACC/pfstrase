@@ -25,7 +25,7 @@
     X(stripesize),     \
     X(stripetype)
 
-int collect_lod(struct device_info *info, char **buffer)
+int collect_lod(struct device_info *info)
 {
   int rc = -1;
 
@@ -36,9 +36,7 @@ int collect_lod(struct device_info *info, char **buffer)
     goto typedir_err;
   }
 
-  char *tmp = *buffer;
-  asprintf(buffer, "%s\"lod\": {", *buffer);       
-  if (tmp != NULL) free(tmp);
+  json_object *mdt = json_object_new_object();
 
   struct dirent *typede;
   while ((typede = readdir(typedir)) != NULL) {  
@@ -47,28 +45,20 @@ int collect_lod(struct device_info *info, char **buffer)
 
     char devpath[256];
     snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);
-    char *tmp = *buffer;
-    asprintf(buffer, "%s\"%s\": {", *buffer, typede->d_name);       
-    if (tmp != NULL) free(tmp);
 
+    json_object *stats_json = json_object_new_object();
 #define X(k,r...)						           \
     ({								           \
       char filepath[256];						   \
       snprintf(filepath, sizeof(filepath), "%s/%s", devpath, #k);	   \
-      if (collect_single(filepath, buffer, #k) < 0)			   \
+      if (collect_single(filepath, stats_json, #k) < 0)			   \
 	fprintf(stderr, "cannot read `%s' from `%s': %m\n", #k, filepath); \
     })
     SINGLE;
 #undef X
-
-    char *p = *buffer;
-    p = *buffer + strlen(*buffer) - 1;
-    if (*p == ',') *p = '}';
-
-    tmp = *buffer;
-    asprintf(buffer, "%s},", *buffer);
-    if (tmp != NULL) free(tmp);
+    json_object_object_add(mdt, typede->d_name, stats_json);
   }
+  json_object_object_add(info->jobj, "lod", mdt);
 
   rc = 0;  
  typedir_err:

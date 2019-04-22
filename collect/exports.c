@@ -7,7 +7,7 @@
 #include "collect.h"
 #include "lfs_utils.h"
 
-int collect_exports(struct device_info *info, char **buffer)
+int collect_exports(struct device_info *info)
 {
   int rc = -1;
 
@@ -28,10 +28,7 @@ int collect_exports(struct device_info *info, char **buffer)
     fprintf(stderr, "cannot open `%s' : %m\n", typepath);
     goto typedir_err;
   }
-
-  char *tmp = *buffer;
-  asprintf(buffer, "%s\"%s\": {", *buffer, type);       
-  if (tmp != NULL) free(tmp);
+  json_object *type_json = json_object_new_object();
 
   struct dirent *typede;
   while ((typede = readdir(typedir)) != NULL) {      
@@ -43,16 +40,13 @@ int collect_exports(struct device_info *info, char **buffer)
     snprintf(exportpath, sizeof(exportpath), 
 	     "%s/%s/exports", typepath, typede->d_name);
    
-    tmp = *buffer;
-    asprintf(buffer, "%s\"%s\": {\"exports\": {", *buffer, typede->d_name);
-    if (tmp != NULL) free(tmp);
-
     exportdir = opendir(exportpath); 
     if(exportdir == NULL) {
       fprintf(stderr, "cannot open `%s' : %m\n", exportpath);
       goto exportdir_err;
     }
 
+    json_object *nid_json = json_object_new_object();
     struct dirent *nidde;
     while ((nidde = readdir(exportdir)) != NULL) {
       if (nidde->d_type != DT_DIR || nidde->d_name[0] == '.')
@@ -62,41 +56,25 @@ int collect_exports(struct device_info *info, char **buffer)
       snprintf(statspath, sizeof(statspath), "%s/%s/stats", 
 	       exportpath, nidde->d_name);
 
-      tmp = *buffer;
-      asprintf(buffer, "%s\"%s\": {", *buffer, nidde->d_name);
-      if (tmp != NULL) free(tmp);
-	
-      if (collect_stats(statspath, buffer) < 0)
+      json_object *stats_json = json_object_new_object();
+      if (collect_stats(statspath, stats_json) < 0)
 	fprintf(stderr, "cannot read `%s' from `%s': %m\n", nidde->d_name, statspath);
-      
-      tmp = *buffer;
-      asprintf(buffer, "%s},", *buffer);
-      if (tmp != NULL) free(tmp);
+      json_object_object_add(nid_json, nidde->d_name, stats_json);      
     }
-
-    char *p = *buffer + strlen(*buffer) - 1;
-    if (*p == ',') *p = '}';
+    json_object_object_add(type_json, "exports", nid_json);
 
   exportdir_err:
     if (exportdir != NULL)
       closedir(exportdir);  
-      tmp = *buffer;
-      asprintf(buffer, "%s},", *buffer);
-      if (tmp != NULL) free(tmp);
+
   }
 
-  char *p = *buffer + strlen(*buffer) - 1;
-  if (*p == ',') *p = '\0';
-  tmp = *buffer;
-  asprintf(buffer, "%s},", *buffer);
-  if (tmp != NULL) free(tmp);
-
+  json_object_object_add(info->jobj, type, type_json);
   rc = 0;  
   
  typedir_err:
   if (typedir != NULL)
     closedir(typedir);   
   
-
   return rc;
 }

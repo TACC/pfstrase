@@ -14,7 +14,7 @@
 #define STATS		 \
     X(stats)
 
-int collect_osc(struct device_info *info, char **buffer)
+int collect_osc(struct device_info *info)
 {
   int rc = -1;
 
@@ -27,10 +27,7 @@ int collect_osc(struct device_info *info, char **buffer)
     goto typedir_err;
   }
 
-  char *tmp = *buffer;
-  asprintf(buffer, "%s\"osc\": {", *buffer);       
-  if (tmp != NULL) free(tmp);
-
+  json_object *osc_json = json_object_new_object();
   struct dirent *typede;
   while ((typede = readdir(typedir)) != NULL) {  
     if (typede->d_type != DT_DIR || typede->d_name[0] == '.')
@@ -49,41 +46,22 @@ int collect_osc(struct device_info *info, char **buffer)
     char *p = typede->d_name + strlen(typede->d_name) - 20 - 1;
     *p = '\0'; 
     
-    tmp = *buffer;
-    asprintf(buffer, "%s\"%s\": {", *buffer, typede->d_name);
-    if (tmp != NULL) free(tmp);
-
-    if (collect_string(osspath, buffer, "oss") < 0)			       
+    json_object *stats_json = json_object_new_object();
+    if (collect_string(osspath, stats_json, "oss") < 0)			       
       fprintf(stderr, "cannot read `%s' from `%s': %m\n", "ost_conn_uuid", osspath);
      
 #define X(k,r...)							\
     ({									\
       char filepath[256];						\
       snprintf(filepath, sizeof(filepath), "%s/%s", devpath, #k);	\
-      if (collect_stats(filepath, buffer) < 0)				\
+      if (collect_stats(filepath, stats_json) < 0)			\
 	fprintf(stderr, "cannot read `%s' from `%s': %m\n", #k, filepath); \
-      tmp = *buffer;							\
-      asprintf(buffer, "%s,", *buffer);					\
-      if (tmp != NULL) free(tmp);					\
     })
     STATS;
 #undef X
-
-    p = *buffer + strlen(*buffer) - 1;
-    if (*p == ',') *p = '}';
-    
-    tmp = *buffer;
-    asprintf(buffer, "%s,", *buffer);
-    if (tmp != NULL) free(tmp);        
-    
+    json_object_object_add(osc_json, "typede->d_name", stats_json);
   }
-
-  char *p = *buffer + strlen(*buffer) - 1;
-  if (*p == ',') *p = '}';
-
-  tmp = *buffer;
-  asprintf(buffer, "%s,", *buffer);
-  if (tmp != NULL) free(tmp);
+  json_object_object_add(info->jobj, "osc", osc_json);
   
   rc = 0;
  typedir_err:

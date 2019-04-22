@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <json/json.h>
 #include <amqp.h>
 #include <amqp_tcp_socket.h>
 
@@ -167,17 +168,14 @@ void amqp_rpc()
 // Collect and send data
 void amqp_send_data()      
 {  
-  char *buf = NULL;
-  collect_devices(&buf); 
-  if (buf) {
-    printf("%s\n", buf);
-    amqp_basic_publish(conn, 1,
-		       amqp_cstring_bytes(exchange),
-		       amqp_cstring_bytes("response"),
-		       0, 0, &props,
-		       amqp_cstring_bytes(buf));          
-    free(buf);
-  }
+  get_dev_data()->jobj = json_object_new_object();
+  collect_devices(get_dev_data()->jobj); 
+  printf ("The json object created: %s\n",json_object_to_json_string(get_dev_data()->jobj));
+  amqp_basic_publish(conn, 1,
+		     amqp_cstring_bytes(exchange),
+		     amqp_cstring_bytes("response"),
+		     0, 0, &props,
+		     amqp_cstring_bytes(json_object_to_json_string(get_dev_data()->jobj)));          
 }
 
 int sock_setup_connection(const char *port) 

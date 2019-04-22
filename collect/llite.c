@@ -35,7 +35,7 @@
     X(filestotal),		   \
     X(lazystatfs)                                                                  
                   
-int collect_llite(struct device_info *info, char **buffer)
+int collect_llite(struct device_info *info)
 {
   int rc = -1;
 
@@ -48,9 +48,7 @@ int collect_llite(struct device_info *info, char **buffer)
     goto typedir_err;
   }
 
-  char *tmp = *buffer;
-  asprintf(buffer, "%s\"llite\": {", *buffer);       
-  if (tmp != NULL) free(tmp);
+  json_object *fs_json = json_object_new_object();    
 
   struct dirent *typede;
   while ((typede = readdir(typedir)) != NULL) {  
@@ -66,20 +64,14 @@ int collect_llite(struct device_info *info, char **buffer)
     }
     char *p = typede->d_name + strlen(typede->d_name) - 16 - 1;
     *p = '\0'; 
-   
-    char *tmp = *buffer;
-    asprintf(buffer, "%s\"%s\": {", *buffer, typede->d_name);       
-    if (tmp != NULL) free(tmp);
-    
+       
+    json_object *stats_json = json_object_new_object();    
 #define X(k,r...)							\
     ({									\
       char filepath[256];						\
       snprintf(filepath, sizeof(filepath), "%s/%s", devpath, #k); \
-      if (collect_stats(filepath, buffer) < 0)				\
+      if (collect_stats(filepath, stats_json) < 0)				\
 	fprintf(stderr, "cannot read `%s' from `%s': %m\n", #k, filepath); \
-      tmp = *buffer;							\
-      asprintf(buffer, "%s,", *buffer);					\
-      if (tmp != NULL) free(tmp);					\
     })
     STATS;
 #undef X
@@ -88,27 +80,16 @@ int collect_llite(struct device_info *info, char **buffer)
     ({									\
       char filepath[256];						\
       snprintf(filepath, sizeof(filepath), "%s/%s", devpath, #k);	\
-      if (collect_single(filepath, buffer, #k) < 0)			\
+      if (collect_single(filepath, stats_json, #k) < 0)			\
 	fprintf(stderr, "cannot read `%s' from `%s': %m\n", #k, filepath); \
     })
     SINGLE;
 #undef X
     */
-    p = *buffer + strlen(*buffer) - 1;
-    if (*p == ',') *p = '}';
-
-    tmp = *buffer;
-    asprintf(buffer, "%s},", *buffer);
-    if (tmp != NULL) free(tmp);
+    json_object_object_add(fs_json, typede->d_name, stats_json);
   }  
-  /*
-  char *p = *buffer + strlen(*buffer) - 1;
-  if (*p == ',') *p = '}';
-
-  tmp = *buffer;
-  asprintf(buffer, "%s},", *buffer);
-  if (tmp != NULL) free(tmp);
-  */
+  json_object_object_add(info->jobj, "llite", fs_json);
+    
   rc = 0;
  typedir_err:
   if (typedir != NULL)

@@ -3,6 +3,7 @@
 
 #include <time.h>
 #include "dict.h"
+#include "json/json.h"
 
 enum device_class{MDS, OSS, OSC};
 
@@ -15,6 +16,7 @@ struct device_info
   char user[32];
   char typepath[64];
   char class_str[16];
+  json_object *jobj;
   enum device_class class;   
   struct dict nid_jid_dict;
 };
