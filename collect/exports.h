@@ -3,6 +3,6 @@
 #include "lfs_utils.h"
 #include "collect.h"
 
-int collect_exports(struct device_info *info);
+int collect_exports(json_object *json);
 
 #endif

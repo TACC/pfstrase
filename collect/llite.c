@@ -35,7 +35,7 @@
     X(filestotal),		   \
     X(lazystatfs)                                                                  
                   
-int collect_llite(struct device_info *info)
+int collect_llite(json_object *type_json)
 {
   int rc = -1;
 
@@ -87,9 +87,9 @@ int collect_llite(struct device_info *info)
 #undef X
     */
     json_object_object_add(fs_json, typede->d_name, stats_json);
-  }  
-  json_object_object_add(info->jobj, "llite", fs_json);
-    
+  }
+  json_object_object_add(type_json, "llite", fs_json);
+
   rc = 0;
  typedir_err:
   if (typedir != NULL)

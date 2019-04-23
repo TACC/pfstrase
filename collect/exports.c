@@ -7,17 +7,17 @@
 #include "collect.h"
 #include "lfs_utils.h"
 
-int collect_exports(struct device_info *info)
+int collect_exports(json_object *type_json)
 {
   int rc = -1;
 
   char *type;
   char *typepath;
-  if (info->class == MDS) {
+  if (get_dev_data()->class == MDS) {
     typepath = "/proc/fs/lustre/mdt";
     type = "mdt";
   }
-  if (info->class == OSS) {
+  if (get_dev_data()->class == OSS) {
     typepath = "/proc/fs/lustre/obdfilter";
     type = "obdfilter";
   }
@@ -28,8 +28,8 @@ int collect_exports(struct device_info *info)
     fprintf(stderr, "cannot open `%s' : %m\n", typepath);
     goto typedir_err;
   }
-  json_object *type_json = json_object_new_object();
 
+  json_object *exports_json = json_object_new_object();
   struct dirent *typede;
   while ((typede = readdir(typedir)) != NULL) {      
     if (typede->d_type != DT_DIR || typede->d_name[0] == '.')
@@ -61,20 +61,20 @@ int collect_exports(struct device_info *info)
 	fprintf(stderr, "cannot read `%s' from `%s': %m\n", nidde->d_name, statspath);
       json_object_object_add(nid_json, nidde->d_name, stats_json);      
     }
-    json_object_object_add(type_json, "exports", nid_json);
+    json_object_object_add(exports_json, "exports", nid_json);
 
   exportdir_err:
     if (exportdir != NULL)
       closedir(exportdir);  
-
   }
 
-  json_object_object_add(info->jobj, type, type_json);
+  json_object_object_add(type_json, type, exports_json);
+
   rc = 0;  
   
  typedir_err:
   if (typedir != NULL)
     closedir(typedir);   
-  
+
   return rc;
 }

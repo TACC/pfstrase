@@ -14,7 +14,7 @@
 #define STATS		 \
     X(stats)
 
-int collect_osc(struct device_info *info)
+int collect_osc(json_object *type_json)
 {
   int rc = -1;
 
@@ -27,7 +27,7 @@ int collect_osc(struct device_info *info)
     goto typedir_err;
   }
 
-  json_object *osc_json = json_object_new_object();
+  json_object *ost_json = json_object_new_object();
   struct dirent *typede;
   while ((typede = readdir(typedir)) != NULL) {  
     if (typede->d_type != DT_DIR || typede->d_name[0] == '.')
@@ -59,10 +59,10 @@ int collect_osc(struct device_info *info)
     })
     STATS;
 #undef X
-    json_object_object_add(osc_json, "typede->d_name", stats_json);
+    json_object_object_add(ost_json, "typede->d_name", stats_json);
   }
-  json_object_object_add(info->jobj, "osc", osc_json);
-  
+  json_object_object_add(type_json, "osc", ost_json);
+
   rc = 0;
  typedir_err:
   if (typedir != NULL)

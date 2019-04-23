@@ -168,8 +168,7 @@ void amqp_rpc()
 // Collect and send data
 void amqp_send_data()      
 {  
-  get_dev_data()->jobj = json_object_new_object();
-  collect_devices(get_dev_data()->jobj); 
+  collect_devices(); 
   printf ("The json object created: %s\n",json_object_to_json_string(get_dev_data()->jobj));
   amqp_basic_publish(conn, 1,
 		     amqp_cstring_bytes(exchange),

@@ -11,7 +11,7 @@
 
 #define PROCFS_BUF_SIZE 4096
 
-void collect_devices(json_object *jobj)
+void collect_devices()
 {
   struct device_info *info = get_dev_data();
 
@@ -26,29 +26,33 @@ void collect_devices(json_object *jobj)
   json_object_object_add(info->jobj, "nid", json_object_new_string(info->nid));
   json_object_object_add(info->jobj, "jid", json_object_new_string(info->jid));
   json_object_object_add(info->jobj, "time", json_object_new_double(info->time.tv_sec + 1e-9*info->time.tv_nsec));
-  
+
+  json_object *type_json = json_object_new_object();
   // Exports
   if (info->class == MDS || info->class == OSS)
-    if (collect_exports(info) < 0)
+    if (collect_exports(type_json) < 0)
       fprintf(stderr, "export collection failed\n");
-  
+
   // LOD
   if (info->class == MDS)
-    if (collect_lod(info) < 0)
+    if (collect_lod(type_json) < 0)
       fprintf(stderr, "lod collection failed\n");
+
   
   if (info->class == OSC) {
     // LLITE
-    if (collect_llite(info) < 0)
+    if (collect_llite(type_json) < 0)
       fprintf(stderr, "llite collection failed\n");
     // OSC
-    if (collect_osc(info) < 0)
+    if (collect_osc(type_json) < 0)
       fprintf(stderr, "osc collection failed\n");
   }
  
   // SYSINFO  
-  if (collect_sysinfo(info) < 0)
+  if (collect_sysinfo(type_json) < 0)
     fprintf(stderr, "sysinfo collection failed\n");
+
+  json_object_object_add(info->jobj, "stats", type_json);
 }
 
 int collect_stats(const char *path, json_object *stats)

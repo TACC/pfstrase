@@ -3,6 +3,6 @@
 #include "lfs_utils.h"
 #include "collect.h"
 
-int collect_sysinfo(struct device_info *info);
+int collect_sysinfo(json_object *json);
 
 #endif

@@ -25,7 +25,7 @@
     X(stripesize),     \
     X(stripetype)
 
-int collect_lod(struct device_info *info)
+int collect_lod(json_object *type_json)
 {
   int rc = -1;
 
@@ -58,7 +58,7 @@ int collect_lod(struct device_info *info)
 #undef X
     json_object_object_add(mdt, typede->d_name, stats_json);
   }
-  json_object_object_add(info->jobj, "lod", mdt);
+  json_object_object_add(type_json, "lod", mdt);
 
   rc = 0;  
  typedir_err:

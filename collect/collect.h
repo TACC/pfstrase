@@ -3,7 +3,7 @@
 #include "lfs_utils.h"
 #include "json/json.h"
 
-void collect_devices(json_object *jobj);
+void collect_devices();
 int collect_stats(const char *path, json_object *stats);
 int collect_single(const char *path, json_object *stats, char *key);
 int collect_string(const char *path, json_object *stats, char *key);
