@@ -101,34 +101,15 @@ static void process_rpc(char *rpc)
 {
   printf("RPC %s\n", rpc);
     
-  if (strstr(rpc, "jobid") != NULL || strstr(rpc, "user") != NULL) {
-    while(1) {
-      if (rpc == NULL) break;
-      if (rpc[0] == '{') rpc++;
-      char *kv = strsep(&rpc, ",");      
+  json_object *rpc_json = json_tokener_parse(rpc);  
+  if (rpc_json == NULL) return;
 
-      char *key = strsep(&kv, ":");
-      while(key[0] == ' ') key++;
-      while(key[0] == '"') key++;
-      key = strsep(&key, "\"");
-
-      char *val = strsep(&kv, "}");
-      while(val[0] == ' ') val++;
-      while(val[0] == '"') val++;
-      val = strsep(&val, "\"");
-
-      if (strcmp("jobid", key) == 0) 
-	snprintf(get_dev_data()->jid, sizeof(get_dev_data()->jid), val);
-      if (strcmp("user", key) == 0) 
-	snprintf(get_dev_data()->user, sizeof(get_dev_data()->user), val);
-      printf("key: val %s: %s\n", key, val);
-    
-      printf("jobid=%s nid=%s hostname=%s user=%s\n", get_dev_data()->jid, 
-	     get_dev_data()->nid, get_dev_data()->hostname, get_dev_data()->user);
-    }
-    //dict_add(&get_dev_data()->nid_jid_dict, get_dev_data()->nid, get_dev_data()->jid);
+  json_object_object_foreach(rpc_json, key, val) {
+    if (strcmp(key, "jid") == 0)
+      snprintf(get_dev_data()->jid, sizeof(get_dev_data()->jid), json_object_get_string(val));
+    if (strcmp(key, "user") == 0)
+      snprintf(get_dev_data()->user, sizeof(get_dev_data()->user), json_object_get_string(val));
   }
-
 }
 
 // Receive and process rpc
@@ -160,7 +141,7 @@ void amqp_rpc()
   *p = '\0';
   char *rpc = (char *)envelope.message.body.bytes;
   process_rpc(rpc);
-
+  
   amqp_destroy_envelope(&envelope);  
   amqp_send_data(conn);
 }

@@ -25,6 +25,7 @@ void collect_devices()
   json_object_object_add(info->jobj, "obdclass", json_object_new_string(info->class_str));
   json_object_object_add(info->jobj, "nid", json_object_new_string(info->nid));
   json_object_object_add(info->jobj, "jid", json_object_new_string(info->jid));
+  json_object_object_add(info->jobj, "user", json_object_new_string(info->user));
   json_object_object_add(info->jobj, "time", json_object_new_double(info->time.tv_sec + 1e-9*info->time.tv_nsec));
 
   json_object *type_json = json_object_new_object();

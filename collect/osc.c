@@ -59,7 +59,7 @@ int collect_osc(json_object *type_json)
     })
     STATS;
 #undef X
-    json_object_object_add(ost_json, "typede->d_name", stats_json);
+    json_object_object_add(ost_json, typede->d_name, stats_json);
   }
   json_object_object_add(type_json, "osc", ost_json);
 
