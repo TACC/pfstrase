@@ -61,7 +61,7 @@ int collect_exports(json_object *type_json)
 	fprintf(stderr, "cannot read `%s' from `%s': %m\n", nidde->d_name, statspath);
       json_object_object_add(nid_json, nidde->d_name, stats_json);      
     }
-    json_object_object_add(exports_json, "exports", nid_json);
+    json_object_object_add(exports_json, typede->d_name, nid_json);
 
   exportdir_err:
     if (exportdir != NULL)
