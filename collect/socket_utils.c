@@ -81,7 +81,10 @@ int amqp_setup_connection(const char *port, const char *hostname)
   amqp_basic_consume(conn, 1, request_queue, amqp_empty_bytes, 0, 1, 0,
                      amqp_empty_table);
   die_on_amqp_error(amqp_get_rpc_reply(conn), "Consuming");
-  
+
+  amqp_bytes_free(request_queue);
+  amqp_bytes_free(response_queue);
+
   return amqp_socket_get_sockfd(socket);
 }
 
@@ -149,13 +152,15 @@ void amqp_rpc()
 // Collect and send data
 void amqp_send_data()      
 {  
-  collect_devices(); 
-  printf ("The json object created: %s\n",json_object_to_json_string(get_dev_data()->jobj));
+  json_object *message_json = json_object_new_object();
+  collect_devices(message_json);
+  printf ("The json object created: %s\n",json_object_to_json_string(message_json));
   amqp_basic_publish(conn, 1,
 		     amqp_cstring_bytes(exchange),
 		     amqp_cstring_bytes("response"),
 		     0, 0, &props,
-		     amqp_cstring_bytes(json_object_to_json_string(get_dev_data()->jobj)));          
+		     amqp_cstring_bytes(json_object_to_json_string(message_json)));
+  json_object_put(message_json);
 }
 
 int sock_setup_connection(const char *port) 

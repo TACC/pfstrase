@@ -17,7 +17,6 @@ int collect_sysinfo(json_object *type_json)
     goto _err;
   }
 
-  json_object *stats = json_object_new_object();
   json_object *si = json_object_new_object();
   json_object_object_add(si, "loadavg1m", json_object_new_double(f_load*sinfo.loads[0]));
   json_object_object_add(si, "loadavg5m", json_object_new_double(f_load*sinfo.loads[1]));

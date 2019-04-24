@@ -11,7 +11,7 @@
 
 #define PROCFS_BUF_SIZE 4096
 
-void collect_devices()
+void collect_devices(json_object *jobj)
 {
   struct device_info *info = get_dev_data();
 
@@ -19,14 +19,13 @@ void collect_devices()
   if (clock_gettime(CLOCK_REALTIME, &info->time) != 0) {
     fprintf(stderr, "cannot clock_gettime(): %m\n");
   }
-  info->jobj = json_object_new_object();
-
-  json_object_object_add(info->jobj, "host", json_object_new_string(info->hostname));
-  json_object_object_add(info->jobj, "obdclass", json_object_new_string(info->class_str));
-  json_object_object_add(info->jobj, "nid", json_object_new_string(info->nid));
-  json_object_object_add(info->jobj, "jid", json_object_new_string(info->jid));
-  json_object_object_add(info->jobj, "user", json_object_new_string(info->user));
-  json_object_object_add(info->jobj, "time", json_object_new_double(info->time.tv_sec + 1e-9*info->time.tv_nsec));
+ 
+  json_object_object_add(jobj, "host", json_object_new_string(info->hostname));
+  json_object_object_add(jobj, "obdclass", json_object_new_string(info->class_str));
+  json_object_object_add(jobj, "nid", json_object_new_string(info->nid));
+  json_object_object_add(jobj, "jid", json_object_new_string(info->jid));
+  json_object_object_add(jobj, "user", json_object_new_string(info->user));
+  json_object_object_add(jobj, "time", json_object_new_double(info->time.tv_sec + 1e-9*info->time.tv_nsec));
 
   json_object *type_json = json_object_new_object();
   // Exports
@@ -53,7 +52,7 @@ void collect_devices()
   if (collect_sysinfo(type_json) < 0)
     fprintf(stderr, "sysinfo collection failed\n");
 
-  json_object_object_add(info->jobj, "stats", type_json);
+  json_object_object_add(jobj, "stats", type_json);
 }
 
 int collect_stats(const char *path, json_object *stats)
