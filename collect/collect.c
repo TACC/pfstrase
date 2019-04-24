@@ -86,7 +86,7 @@ int collect_stats(const char *path, json_object *stats)
       val = count;
     if (n == 2)
       val = sum;
-    json_object_object_add(stats, key, json_object_new_int(val)); 
+    json_object_object_add(stats, key, json_object_new_int64(val)); 
   }
   if (line_buf != NULL) 
     free(line_buf);
@@ -116,7 +116,7 @@ int collect_single(const char *filepath, json_object *stats, char *key)
     rc = -1;
     goto devde_err;
   }      
-  json_object_object_add(stats, key, json_object_new_int(val));
+  json_object_object_add(stats, key, json_object_new_int64(val));
  devde_err:
   if (fd != NULL)
     fclose(fd);  	  

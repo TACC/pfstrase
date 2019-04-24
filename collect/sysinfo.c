@@ -22,9 +22,9 @@ int collect_sysinfo(json_object *type_json)
   json_object_object_add(si, "loadavg5m", json_object_new_double(f_load*sinfo.loads[1]));
   json_object_object_add(si, "loadavg15m", json_object_new_double(f_load*sinfo.loads[2]));
   json_object_object_add(si, "loadavg15m", json_object_new_double(f_load*sinfo.loads[2]));
-  json_object_object_add(si, "freeram", json_object_new_double(sinfo.mem_unit*sinfo.freeram));
-  json_object_object_add(si, "bufferram", json_object_new_double(sinfo.mem_unit*sinfo.bufferram));
-  json_object_object_add(si, "totalram", json_object_new_double(sinfo.mem_unit*sinfo.totalram));
+  json_object_object_add(si, "freeram", json_object_new_int64(sinfo.mem_unit*sinfo.freeram));
+  json_object_object_add(si, "bufferram", json_object_new_int64(sinfo.mem_unit*sinfo.bufferram));
+  json_object_object_add(si, "totalram", json_object_new_int64(sinfo.mem_unit*sinfo.totalram));
 
   json_object_object_add(type_json, "sysinfo", si);
 

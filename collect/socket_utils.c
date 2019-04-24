@@ -7,11 +7,11 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include <json/json.h>
 #include <amqp.h>
 #include <amqp_tcp_socket.h>
 
 #include "utils.h"
+#include "collect.h"
 #include "lfs_utils.h"
 #include "socket_utils.h"
 
@@ -225,11 +225,9 @@ void sock_rpc()
 
 void sock_send_data()
 {
-  char *buf = NULL;
-  collect_devices(&buf); 
-  if (buf) {
-    printf("%s\n", buf);
-    int rv = send(sockfd, buf, strlen(buf), 0);
-    free(buf);
-  }
+  json_object *message_json = json_object_new_object();
+  collect_devices(message_json);
+  printf("The json object created: %s\n",json_object_to_json_string(message_json));
+  int rv = send(sockfd, json_object_to_json_string(message_json), strlen(json_object_to_json_string(message_json)), 0);
+  json_object_put(message_json);
 }
