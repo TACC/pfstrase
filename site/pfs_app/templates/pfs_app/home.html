@@ -1,0 +1,80 @@
+{% extends "pfstrase/base.html" %}
+{% block content %}
+{% load tz %}
+
+<H2>MDS Data</H2> 
+<table class="table table-condensed table-bordered">
+  <thead>
+    <tr><th>Time</th><th>Host</th><th>NID</th><th>1m 5m 15m Load</th><th>%RAM Used</th><th>IOPS</th><th>MDTs</th> <th>Jobs / IOPS</th> <th>Users / IOPS</th> </tr>  
+  </thead>
+  <tbody>
+    {% for o, ops, mdt_ops, jid_ops, user_ops in mds %}
+    <tr> <td>{% localtime on %}{{ o.time }}{% endlocaltime %}<td>{{ o.host }}</td><td>{{ o.nid }}</td><td>{{ o.stats.sysinfo.loadavg1m }} {{ o.stats.sysinfo.loadavg5m }} {{ o.stats.sysinfo.loadavg15m }}</td><td>{{ o.percentram }}</td><td>{{ ops }}</td>
+      <td>
+	{% for mdt, val in mdt_ops.items %}
+	{{ mdt }} / {{ val }}
+	{% endfor %}
+      </td>
+      <td>
+	{% for jid, val in jid_ops.items %}
+	{{ jid }} / {{ val }}
+	{% endfor %}
+      </td>
+      <td>
+	{% for user, val in user_ops.items %}
+	{{ user }} / {{ val }}
+	{% endfor %}
+      </td>
+    </tr>
+      {% endfor %}
+  </tbody>
+</table>
+
+<H2>OSS Data</H2> 
+<table class="table table-condensed table-bordered">
+  <thead>
+    <tr><th>Time</th><th>Host</th><th>NID</th><th>1m 5m 15m Load</th><th>%RAM Used</th><th>R/W [MB]</th><th>OSTs / BW</th> <th>Jobs / BW</th> <th>Users / BW</th> </tr> 
+  </thead>
+  <tbody>
+
+    {% for o, ops, ost_ops, jid_ops, user_ops in oss %}
+    <tr> <td>{% localtime on %}{{ o.time }}{% endlocaltime %}<td>{{ o.host }}</td><td>{{ o.nid }}</td><td>{{ o.stats.sysinfo.loadavg1m }} {{ o.stats.sysinfo.loadavg5m }} {{ o.stats.sysinfo.loadavg15m }}</td><td>{{ o.percentram }}</td><td> {{ ops }} </td>      
+      <td>
+	{% for ost, val in ost_ops.items %}
+	{{ ost }} / {{ val }}
+	{% endfor %}
+      </td>
+      <td>
+	{% for jid, val in jid_ops.items %}
+	{{ jid }} / {{ val }}
+	{% endfor %}
+      </td>
+      <td>
+	{% for user, val in user_ops.items %}
+	{{ user }} / {{ val }}
+	{% endfor %}
+      </td>
+
+    </tr>
+    {% endfor %}
+
+  </tbody>
+</table>
+<!----
+<H2>Active Jobs and Users</H2> 
+<table class="table table-condensed table-bordered">
+  <thead>
+    <tr><th>Jobs</th><th>Users</th><th>Host</th></tr> 
+  </thead>
+  <tbody>
+    {% for o in jids %}
+    <tr> <td>{% localtime on %}{{ o.jid }}{% endlocaltime %}<td>{{ o.user }}</td><td>{{ o.host }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+---->
+
+{{ div|safe }}
+{{ script|safe }}
+
+{% endblock %}
