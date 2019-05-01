@@ -8,7 +8,7 @@
       - libev-devel
       - librabbitmq-devel
       - pdsh
-
+      
 - name: Server Packages
   yum:
     name: "{{ pkg_list }}"

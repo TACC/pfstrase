@@ -131,7 +131,8 @@ int main(int argc, char *argv[])
   ev_io amqp_watcher;
   ev_io sock_watcher;  
 
-  amqp_fd = amqp_setup_connection(port, server);
+  while (amqp_fd = amqp_setup_connection(port, server) < 0) sleep(60);
+
   ev_timer_init(&timer, amqp_timer_cb, 0.0, freq);   
   ev_io_init(&amqp_watcher, amqp_rpc_cb, amqp_fd, EV_READ);
 

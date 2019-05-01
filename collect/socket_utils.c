@@ -18,30 +18,40 @@
 char const *exchange = "amq.direct";
 amqp_basic_properties_t props; 
 amqp_connection_state_t conn;
+static char *port;
+static char *hostname;
+
 int sockfd;
 
 // Setup connection to RabbitMQ Server
-int amqp_setup_connection(const char *port, const char *hostname)
+int amqp_setup_connection(char *iport, char *ihostname)
 {
   amqp_socket_t *socket = NULL;
   amqp_bytes_t request_queue;
   amqp_bytes_t response_queue;
   int status = -1;
 
+  port = iport;
+  hostname = ihostname;
+
   props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG | AMQP_BASIC_DELIVERY_MODE_FLAG;
   props.content_type = amqp_cstring_bytes("text/plain");
   props.delivery_mode = 2; /* persistent delivery mode */
+
+  fprintf(stderr, "Connection to RMQ server %s:%s Attempting\n", hostname, port);
 
   conn = amqp_new_connection();
 
   socket = amqp_tcp_socket_new(conn);
   if (!socket) {
-    die("creating TCP socket");
+    fprintf(stderr, "Connection to RMQ server %s:%s Failed\n", hostname, port);
+    return -1;
   }
 
   status = amqp_socket_open(socket, hostname, atoi(port));
   if (status) {
-    die("opening TCP socket");
+    fprintf(stderr, "Connection to RMQ server %s:%s Failed\n", hostname, port);
+    return -1;
   }
 
   die_on_amqp_error(amqp_login(conn, "/", 0, 131072, 0, AMQP_SASL_METHOD_PLAIN,
@@ -84,19 +94,13 @@ int amqp_setup_connection(const char *port, const char *hostname)
 
   amqp_bytes_free(request_queue);
   amqp_bytes_free(response_queue);
-
+  fprintf(stderr, "Connection to RMQ server %s:%s Established\n", hostname, port);
   return amqp_socket_get_sockfd(socket);
 }
 
 void amqp_kill_connection()
 {
-  if (conn) {
-    die_on_amqp_error(amqp_channel_close(conn, 1, AMQP_REPLY_SUCCESS),
-		      "Closing channel");
-    die_on_amqp_error(amqp_connection_close(conn, AMQP_REPLY_SUCCESS),
-		      "Closing connection");
     die_on_error(amqp_destroy_connection(conn), "Ending connection");
-  }
 }
 
 // Process RPC
@@ -120,33 +124,20 @@ void amqp_rpc()
 {
   amqp_rpc_reply_t res;
   amqp_envelope_t envelope;
-  
+
   amqp_maybe_release_buffers(conn);
   res = amqp_consume_message(conn, &envelope, NULL, 0);
-  
   if (AMQP_RESPONSE_NORMAL != res.reply_type) {
     return;
   }
   
-  printf("Delivery %u, exchange %.*s routingkey %.*s\n",
-	 (unsigned)envelope.delivery_tag, (int)envelope.exchange.len,
-	 (char *)envelope.exchange.bytes, (int)envelope.routing_key.len,
-	 (char *)envelope.routing_key.bytes);
-  
-  if (envelope.message.properties._flags & AMQP_BASIC_CONTENT_TYPE_FLAG) {
-    printf("Content-type: %.*s\n",
-	   (int)envelope.message.properties.content_type.len,
-	   (char *)envelope.message.properties.content_type.bytes);
-  }
-  printf("----\n");
-  //amqp_dump(envelope.message.body.bytes, envelope.message.body.len);    
   char *p = (char*)(envelope.message.body.bytes + envelope.message.body.len);
   *p = '\0';
   char *rpc = (char *)envelope.message.body.bytes;
   process_rpc(rpc);
   
-  amqp_destroy_envelope(&envelope);  
-  amqp_send_data(conn);
+  amqp_destroy_envelope(&envelope);
+  amqp_send_data();
 }
 
 // Collect and send data
@@ -155,11 +146,14 @@ void amqp_send_data()
   json_object *message_json = json_object_new_object();
   collect_devices(message_json);
   printf ("The json object created: %s\n",json_object_to_json_string(message_json));
-  amqp_basic_publish(conn, 1,
-		     amqp_cstring_bytes(exchange),
-		     amqp_cstring_bytes("response"),
-		     0, 0, &props,
-		     amqp_cstring_bytes(json_object_to_json_string(message_json)));
+  if (amqp_basic_publish(conn, 1,
+			 amqp_cstring_bytes(exchange),
+			 amqp_cstring_bytes("response"),
+			 0, 0, &props,
+			 amqp_cstring_bytes(json_object_to_json_string(message_json))) < 0) {
+    amqp_destroy_connection(conn);
+    amqp_setup_connection(port, hostname);
+  }
   json_object_put(message_json);
 }
 
@@ -210,17 +204,17 @@ void sock_rpc()
   char request[SOCKET_BUFFERSIZE];
   memset(request, 0, sizeof(request));
   ssize_t bytes_recvd = recv(fd, request, sizeof(request), 0);
+  close(fd);
+
   if (bytes_recvd < 0) {
     fprintf(stderr, "cannot recv: %s\n", strerror(errno));
-    goto err;
+    return;
   }
+
   char *p = request + strlen(request) - 1;
   *p = '\0';
   process_rpc(request);
   amqp_send_data();
-
- err:
-  close(fd);
 }
 
 void sock_send_data()

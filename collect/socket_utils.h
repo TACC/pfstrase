@@ -3,7 +3,7 @@
 
 #define SOCKET_BUFFERSIZE 655336
 
-int amqp_setup_connection(const char *port, const char *hostname);
+int amqp_setup_connection(char *port, char *hostname);
 void amqp_kill_connection();
 void amqp_rpc();
 void amqp_send_data();
