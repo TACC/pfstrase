@@ -3,10 +3,10 @@ bin_PROGRAMS = pfstrased
 pfstrased_CPPFLAGS = -D_GNU_SOURCE
 
 pfstrased_SOURCES = 	 \
+	daemonize.h	 \
+	daemonize.c	 \
 	dict.h		\
 	dict.c		\
-	pidfile_create.h \
-	pidfile_create.c \
 	utils.h 	\
 	utils.c		\
 	collect.h 	\

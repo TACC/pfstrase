@@ -61,7 +61,7 @@ int amqp_setup_connection(char *iport, char *ihostname)
   
   {
     amqp_queue_declare_ok_t *r = amqp_queue_declare(conn, 1, amqp_cstring_bytes(get_dev_data()->hostname), 
-						    0, 0, 1, 1, amqp_empty_table);
+						    0, 0, 0, 1, amqp_empty_table);
     die_on_amqp_error(amqp_get_rpc_reply(conn), "Declaring request queue");
     request_queue = amqp_bytes_malloc_dup(r->queue);
     if (request_queue.bytes == NULL) {
@@ -103,20 +103,50 @@ void amqp_kill_connection()
     die_on_error(amqp_destroy_connection(conn), "Ending connection");
 }
 
-// Process RPC
-static void process_rpc(char *rpc)
+/* Process RPC */
+static int process_rpc(char *rpc)
 {
-  printf("RPC %s\n", rpc);
-    
-  json_object *rpc_json = json_tokener_parse(rpc);  
-  if (rpc_json == NULL) return;
+  int rc = -1;
 
+  fprintf(stderr, "RPC %s\n", rpc);
+  if (rpc[0] != '{') {
+    fprintf(stderr, "RPC `%s': json must start with `{'\n", rpc);
+    goto out;
+  }
+
+  enum json_tokener_error error = json_tokener_success;
+  json_object *rpc_json = json_tokener_parse_verbose(rpc, &error);  
+
+  if (error != json_tokener_success) {
+    fprintf(stderr, "RPC `%s': %s\n", rpc, json_tokener_error_desc(error));
+    goto out;
+  }
   json_object_object_foreach(rpc_json, key, val) {
     if (strcmp(key, "jid") == 0)
       snprintf(get_dev_data()->jid, sizeof(get_dev_data()->jid), json_object_get_string(val));
     if (strcmp(key, "user") == 0)
       snprintf(get_dev_data()->user, sizeof(get_dev_data()->user), json_object_get_string(val));
   }
+  rc = 1;
+ out:
+  return rc;
+}
+
+// Collect and send data
+void amqp_send_data()      
+{  
+  json_object *message_json = json_object_new_object();
+  collect_devices(message_json);
+  fprintf (stderr, "The json object created: %s\n",json_object_to_json_string(message_json));
+  if (amqp_basic_publish(conn, 1,
+			 amqp_cstring_bytes(exchange),
+			 amqp_cstring_bytes("response"),
+			 0, 0, &props,
+			 amqp_cstring_bytes(json_object_to_json_string(message_json))) < 0) {
+    amqp_destroy_connection(conn);
+    amqp_setup_connection(port, hostname);
+  }
+  json_object_put(message_json);
 }
 
 // Receive and process rpc
@@ -134,27 +164,10 @@ void amqp_rpc()
   char *p = (char*)(envelope.message.body.bytes + envelope.message.body.len);
   *p = '\0';
   char *rpc = (char *)envelope.message.body.bytes;
-  process_rpc(rpc);
-  
-  amqp_destroy_envelope(&envelope);
-  amqp_send_data();
-}
 
-// Collect and send data
-void amqp_send_data()      
-{  
-  json_object *message_json = json_object_new_object();
-  collect_devices(message_json);
-  printf ("The json object created: %s\n",json_object_to_json_string(message_json));
-  if (amqp_basic_publish(conn, 1,
-			 amqp_cstring_bytes(exchange),
-			 amqp_cstring_bytes("response"),
-			 0, 0, &props,
-			 amqp_cstring_bytes(json_object_to_json_string(message_json))) < 0) {
-    amqp_destroy_connection(conn);
-    amqp_setup_connection(port, hostname);
-  }
-  json_object_put(message_json);
+  if (process_rpc(rpc) > 0)
+    amqp_send_data();  
+  amqp_destroy_envelope(&envelope);
 }
 
 int sock_setup_connection(const char *port) 
@@ -213,15 +226,16 @@ void sock_rpc()
 
   char *p = request + strlen(request) - 1;
   *p = '\0';
-  process_rpc(request);
-  amqp_send_data();
+
+  if (process_rpc(request) > 0)
+    amqp_send_data();
 }
 
 void sock_send_data()
 {
   json_object *message_json = json_object_new_object();
   collect_devices(message_json);
-  printf("The json object created: %s\n",json_object_to_json_string(message_json));
+  fprintf(stderr, "The json object created: %s\n",json_object_to_json_string(message_json));
   int rv = send(sockfd, json_object_to_json_string(message_json), strlen(json_object_to_json_string(message_json)), 0);
   json_object_put(message_json);
 }

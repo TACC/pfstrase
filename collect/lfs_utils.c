@@ -6,14 +6,14 @@
 #include "lfs_utils.h"
 
 
-//#define devices_path "/sys/kernel/debug/lustre/devices"
-#define devices_path "/proc/fs/lustre/devices"
+#define devices_path "/sys/kernel/debug/lustre/devices"
+//#define devices_path "/proc/fs/lustre/devices"
 
-//define nid_path "/sys/kernel/debug/lnet/nis"
-#define nid_path "/proc/sys/lnet/nis"
+#define nid_path "/sys/kernel/debug/lnet/nis"
+//#define nid_path "/proc/sys/lnet/nis"
 
-//#define peers_path "/sys/kernel/debug/lnet/peers"
-#define peers_path "/proc/sys/lnet/peers"
+#define peers_path "/sys/kernel/debug/lnet/peers"
+//#define peers_path "/proc/sys/lnet/peers"
 
 #define PROCFS_BUF_SIZE 4096
 

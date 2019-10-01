@@ -4,9 +4,9 @@ Description=Parallel Filesystem Tracing and Analysis Service
 [Service]
 Type=forking
 User=root
-PIDFile=/run/pfstrase.pid
+#PIDFile=/run/pfstrase.pid
 WorkingDirectory=/run
-ExecStart=/run/pfstrased -s tacc-stats03.tacc.utexas.edu -f 100 -d
+ExecStart=/run/pfstrased -s tacc-stats03.tacc.utexas.edu -f 10 -d
 Restart=always
 RestartSec=10
 KillSignal=SIGKILL

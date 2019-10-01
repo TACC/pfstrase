@@ -7,9 +7,9 @@
 #include "collect.h"
 #include "osc.h"
 
-//#define TYPEPATH "/sys/fs/lustre/osc"
-#define TYPEPATH "/proc/fs/lustre/osc"
-//#define TYPEPATH "/sys/kernel/debug/lustre/osc"
+#define STATEPATH "/sys/fs/lustre/osc"
+//#define STATSPATH "/proc/fs/lustre/osc"
+#define STATSPATH "/sys/kernel/debug/lustre/osc"
 
 #define STATS		 \
     X(stats)
@@ -19,9 +19,9 @@ int collect_osc(json_object *type_json)
   int rc = -1;
 
   DIR *typedir = NULL;
-  typedir = opendir(TYPEPATH);
+  typedir = opendir(STATEPATH);
   if(typedir == NULL) {
-    fprintf(stderr, "cannot open `%s' : %m\n", TYPEPATH);
+    fprintf(stderr, "cannot open `%s' : %m\n", STATEPATH);
     goto typedir_err;
   }
 
@@ -32,10 +32,10 @@ int collect_osc(json_object *type_json)
       continue;
 
     char osspath[256];
-    snprintf(osspath, sizeof(osspath), "%s/%s/ost_conn_uuid", TYPEPATH, typede->d_name);    
+    snprintf(osspath, sizeof(osspath), "%s/%s/ost_conn_uuid", STATEPATH, typede->d_name);    
 
     char devpath[256];
-    snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);    
+    snprintf(devpath, sizeof(devpath), "%s/%s", STATSPATH, typede->d_name);    
 
     if (strlen(typede->d_name) < 16) {
       fprintf(stderr, "invalid obd name `%s'\n", typede->d_name);
