@@ -1,0 +1,17 @@
+---
+- hosts: mds0, oss1, c0, c1
+  remote_user: root
+
+  tasks:
+
+  - name: stop pfstrase
+    service:
+        name: pfstrase
+        state: stopped
+
+  - name: remove pfstrase
+    yum:
+        name: pfstrased-0.0.1-1.el7.x86_64
+        state: absent
+        update_cache: yes
+

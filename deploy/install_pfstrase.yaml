@@ -12,6 +12,7 @@
     yum:
         name: /tmp/pfstrased-0.0.1-1.el7.x86_64.rpm
         state: latest
+        update_cache: yes
 
   - name: restart pfstrase
     service:
