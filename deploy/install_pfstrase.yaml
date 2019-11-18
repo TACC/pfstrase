@@ -1,0 +1,19 @@
+---
+- hosts: mds0, oss1, c0, c1
+  remote_user: root
+
+  tasks:
+  - name: Copying pfstrased rpm
+    copy:
+        src: /root/rpmbuild/RPMS/x86_64/pfstrased-0.0.1-1.el7.x86_64.rpm
+        dest: /tmp/pfstrased-0.0.1-1.el7.x86_64.rpm
+
+  - name: install pfstrase
+    yum:
+        name: /tmp/pfstrased-0.0.1-1.el7.x86_64.rpm
+        state: latest
+
+  - name: restart pfstrase
+    service:
+        name: pfstrase
+        state: restarted
