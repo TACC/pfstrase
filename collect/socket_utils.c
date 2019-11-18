@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <syslog.h>
 #include <amqp.h>
 #include <amqp_tcp_socket.h>
 
@@ -18,16 +19,16 @@
 char const *exchange = "amq.direct";
 amqp_basic_properties_t props; 
 amqp_connection_state_t conn;
-static char *port;
+static int port;
 static char *hostname;
 
 int sockfd;
 
 // Setup connection to RabbitMQ Server
-int amqp_setup_connection(char *iport, char *ihostname)
+int amqp_setup_connection(int iport, char *ihostname)
 {
   amqp_socket_t *socket = NULL;
-  amqp_bytes_t request_queue;
+  amqp_bytes_t rpc_queue;
   amqp_bytes_t response_queue;
   int status = -1;
 
@@ -38,39 +39,53 @@ int amqp_setup_connection(char *iport, char *ihostname)
   props.content_type = amqp_cstring_bytes("text/plain");
   props.delivery_mode = 2; /* persistent delivery mode */
 
-  fprintf(stderr, "Connection to RMQ server %s:%s Attempting\n", hostname, port);
+  //fprintf(stderr, "Connection to RMQ server %s:%s Attempting\n", hostname, port);
+  syslog(LOG_INFO, "Connecting to RMQ server %s:%d\n", hostname, port);
 
   conn = amqp_new_connection();
 
   socket = amqp_tcp_socket_new(conn);
   if (!socket) {
-    fprintf(stderr, "Connection to RMQ server %s:%s Failed\n", hostname, port);
+    fprintf(stderr, "Connection to RMQ server %s:%d failed\n", hostname, port);
     return -1;
   }
 
-  status = amqp_socket_open(socket, hostname, atoi(port));
+  status = amqp_socket_open(socket, hostname, port);
   if (status) {
-    fprintf(stderr, "Connection to RMQ server %s:%s Failed\n", hostname, port);
+    fprintf(stderr, "Connection to RMQ server %s:%d Failed\n", hostname, port);
     return -1;
   }
 
   die_on_amqp_error(amqp_login(conn, "/", 0, 131072, 0, AMQP_SASL_METHOD_PLAIN,
 			       "guest", "guest"), "Logging in");
+  syslog(LOG_INFO, "Established connection to RMQ server %s:%d\n", hostname, port);
+  /*
   amqp_channel_open(conn, 1);
-  die_on_amqp_error(amqp_get_rpc_reply(conn), "Opening channel");
+  die_on_amqp_error(amqp_get_rpc_reply(conn), "Opening RPC channel");
   
   {
     amqp_queue_declare_ok_t *r = amqp_queue_declare(conn, 1, amqp_cstring_bytes(get_dev_data()->hostname), 
 						    0, 0, 0, 1, amqp_empty_table);
-    die_on_amqp_error(amqp_get_rpc_reply(conn), "Declaring request queue");
-    request_queue = amqp_bytes_malloc_dup(r->queue);
-    if (request_queue.bytes == NULL) {
+    die_on_amqp_error(amqp_get_rpc_reply(conn), "Declaring RPC queue");
+    rpc_queue = amqp_bytes_malloc_dup(r->queue);
+    if (rpc_queue.bytes == NULL) {
       fprintf(stderr, "Out of memory while copying queue name");
       return -1;
     }
   }
+  amqp_queue_bind(conn, 1, rpc_queue, amqp_cstring_bytes(exchange),
+                  amqp_cstring_bytes(get_dev_data()->hostname), amqp_empty_table);
+  die_on_amqp_error(amqp_get_rpc_reply(conn), "Binding RPC queue");
+  amqp_basic_consume(conn, 1, rpc_queue, amqp_empty_bytes, 0, 1, 0,
+                     amqp_empty_table);
+  die_on_amqp_error(amqp_get_rpc_reply(conn), "Consuming on RPC queue");
+  amqp_bytes_free(rpc_queue);
+  */
+
+  amqp_channel_open(conn, 2);
+  die_on_amqp_error(amqp_get_rpc_reply(conn), "Opening Send channel");
   {
-    amqp_queue_declare_ok_t *r = amqp_queue_declare(conn, 1, amqp_cstring_bytes("response"), 
+    amqp_queue_declare_ok_t *r = amqp_queue_declare(conn, 2, amqp_cstring_bytes("response"), 
 						    0, 1, 0, 0, amqp_empty_table);
     die_on_amqp_error(amqp_get_rpc_reply(conn), "Declaring response queue");
     response_queue = amqp_bytes_malloc_dup(r->queue);
@@ -78,23 +93,13 @@ int amqp_setup_connection(char *iport, char *ihostname)
       fprintf(stderr, "Out of memory while copying queue name");
       return -1;
     }
-  }
-  
-  amqp_queue_bind(conn, 1, request_queue, amqp_cstring_bytes(exchange),
-                  amqp_cstring_bytes("request"), amqp_empty_table);
-  die_on_amqp_error(amqp_get_rpc_reply(conn), "Binding queue");
-
-  amqp_queue_bind(conn, 1, response_queue, amqp_cstring_bytes(exchange),
+  }  
+  amqp_queue_bind(conn, 2, response_queue, amqp_cstring_bytes(exchange),
                   amqp_cstring_bytes("response"), amqp_empty_table);
-  die_on_amqp_error(amqp_get_rpc_reply(conn), "Binding queue");
+  die_on_amqp_error(amqp_get_rpc_reply(conn), "Binding  response queue");
 
-  amqp_basic_consume(conn, 1, request_queue, amqp_empty_bytes, 0, 1, 0,
-                     amqp_empty_table);
-  die_on_amqp_error(amqp_get_rpc_reply(conn), "Consuming");
-
-  amqp_bytes_free(request_queue);
   amqp_bytes_free(response_queue);
-  fprintf(stderr, "Connection to RMQ server %s:%s Established\n", hostname, port);
+
   return amqp_socket_get_sockfd(socket);
 }
 
@@ -138,11 +143,12 @@ void amqp_send_data()
   json_object *message_json = json_object_new_object();
   collect_devices(message_json);
   fprintf (stderr, "The json object created: %s\n",json_object_to_json_string(message_json));
-  if (amqp_basic_publish(conn, 1,
+  if (amqp_basic_publish(conn, 2,
 			 amqp_cstring_bytes(exchange),
 			 amqp_cstring_bytes("response"),
 			 0, 0, &props,
 			 amqp_cstring_bytes(json_object_to_json_string(message_json))) < 0) {
+    syslog(LOG_ERR, "Connection to response queue failed. Reconnect.\n");
     amqp_destroy_connection(conn);
     amqp_setup_connection(port, hostname);
   }
@@ -154,13 +160,16 @@ void amqp_rpc()
 {
   amqp_rpc_reply_t res;
   amqp_envelope_t envelope;
-
+  
   amqp_maybe_release_buffers(conn);
-  res = amqp_consume_message(conn, &envelope, NULL, 0);
+  struct timeval timeout;
+  timeout.tv_sec = 5;
+  timeout.tv_usec = 0;
+  res = amqp_consume_message(conn, &envelope, &timeout, 0);
   if (AMQP_RESPONSE_NORMAL != res.reply_type) {
     return;
   }
-  
+  syslog(LOG_ERR, "received rpc over amqp connection\n");
   char *p = (char*)(envelope.message.body.bytes + envelope.message.body.len);
   *p = '\0';
   char *rpc = (char *)envelope.message.body.bytes;
@@ -168,6 +177,7 @@ void amqp_rpc()
   if (process_rpc(rpc) > 0)
     amqp_send_data();  
   amqp_destroy_envelope(&envelope);
+
 }
 
 int sock_setup_connection(const char *port) 
@@ -181,9 +191,10 @@ int sock_setup_connection(const char *port)
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = INADDR_ANY;
   addr.sin_port = htons(atoi(port));
+  syslog(LOG_INFO, "Initializing listen on local port: %s", port);
 
   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {    
-    fprintf(stderr, "cannot initialize socket: %s\n", strerror(errno));
+    syslog(LOG_INFO, "cannot initialize socket: %s\n", strerror(errno));
     goto err;
   }
   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char *) &opt, sizeof(opt)) == -1) {
@@ -191,15 +202,16 @@ int sock_setup_connection(const char *port)
     goto err; 
   }
   if (bind(sockfd, (struct sockaddr *)&addr, addrlen) == -1) {
-    fprintf(stderr, "cannot bind: %s\n", strerror(errno));
+    syslog(LOG_INFO, "cannot bind: %s\n", strerror(errno));
     close(sockfd);
     goto err;
   }
   if (listen(sockfd, backlog) == -1) {
-    fprintf(stderr, "cannot listen: %s\n", strerror(errno));
+    syslog(LOG_INFO, "cannot listen: %s\n", strerror(errno));
     close(sockfd);
     goto err;
   }
+  syslog(LOG_INFO, "Established listen on local port: %s", port);
  err:
   return sockfd;
 }

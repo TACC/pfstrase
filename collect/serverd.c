@@ -20,13 +20,13 @@ static char *conf_file_name = NULL;
 static FILE *log_stream = NULL;
 
 static char *server = NULL;
-static char *port = "5672";
+static port = 5672;
 static double freq = 300;
 
 static ev_timer timer;
 
 /* Read conf file in to set server, port, and frequency of collection*/
-int read_conf_file(int reload)
+int read_conf_file()
 {
   FILE *conf_file_fd = NULL;
   int ret = -1;
@@ -51,19 +51,19 @@ int read_conf_file(int reload)
     if (strcmp(key, "server") == 0) { 
       line[strlen(line) - 1] = '\0';
       server = strdup(line);
-      fprintf(log_stream, "%s: Setting server to %s based on file %s\n",
+      syslog(LOG_ERR, "%s: Setting server to %s based on file %s\n",
 	      app_name, server, conf_file_name);
     }
     if (strcmp(key, "port") == 0) {
       line[strlen(line) - 1] = '\0';
-      port = strdup(line);
-      fprintf(log_stream, "%s: Setting server port to %s based on file %s\n",
+      port = atoi(line);
+      syslog(LOG_ERR, "%s: Setting server port to %d based on file %s\n",
 	      app_name, port, conf_file_name);
     }
     if (strcmp(key, "frequency") == 0) {  
       if (sscanf(line, "%lf", &freq) == 1)
-	fprintf(log_stream, "%s: Setting frequency to %f based on file %s\n",
-		app_name, freq, conf_file_name);
+	syslog(LOG_ERR, "%s: Setting frequency to %f based on file %s\n",
+	       app_name, freq, conf_file_name);
     }
   }
 
@@ -75,19 +75,21 @@ int read_conf_file(int reload)
 /* using bare sockets */
 static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
 {
-  fprintf(log_stream, "collect and send data based on sock rpc\n");
+  //fprintf(log_stream, "collect and send data based on sock rpc\n");
+  syslog(LOG_INFO, "collect and send data based on socket rpc\n");
   sock_rpc();
 }
 static void sock_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
 {
-  fprintf(log_stream, "collect and send data based on sock timer\n");
+  fprintf(log_stream, "collect and send data based on socket timer\n");
   sock_send_data();
 }
 
 /* using amqp sockets */
 static void amqp_rpc_cb(EV_P_ ev_io *w, int revents)
 {
-  fprintf(log_stream, "collect and send data based on amqp rpc\n");
+  //fprintf(log_stream, "collect and send data based on amqp rpc\n");
+  syslog(LOG_INFO, "collect and send data based on amqp rpc\n");
   amqp_rpc();
 }
 static void amqp_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
@@ -111,7 +113,7 @@ static void signal_cb_int(EV_P_ ev_signal *sig, int revents)
 static void signal_cb_hup(EV_P_ ev_signal *sig, int revents) 
 {
   fprintf(log_stream, "Reloading pfstrase config file\n");
-  read_conf_file(1);    
+  read_conf_file();    
   timer.repeat = freq; 
   ev_timer_again(EV_DEFAULT, &timer);
 }
@@ -195,11 +197,15 @@ int main(int argc, char *argv[])
   static struct ev_signal sigint;
   ev_signal_init(&sigint, signal_cb_int, SIGINT);
   ev_signal_start(EV_DEFAULT, &sigint);
+  //static struct ev_signal sigterm;
+  //ev_signal_init(&sigint, signal_cb_int, SIGTERM);
+  //ev_signal_start(EV_DEFAULT, &sigterm);
   static struct ev_signal sighup;
   ev_signal_init(&sighup, signal_cb_hup, SIGHUP);
   ev_signal_start(EV_DEFAULT, &sighup);
-
+  log_stream = stderr;
   /* Try to open log file to this daemon */
+  /*
   if (log_file_name != NULL) {
     log_stream = fopen(log_file_name, "a+");
     if (log_stream == NULL) {
@@ -221,7 +227,7 @@ int main(int argc, char *argv[])
     syslog(LOG_ERR, "Can not fflush() log stream: %s, error: %s",
 	   (log_stream == stderr) ? "stderr" : log_file_name, strerror(errno));
   }
-
+  */
   /* Read configuration from config file */
   read_conf_file(0);
   
@@ -235,31 +241,25 @@ int main(int argc, char *argv[])
   int amqp_fd;
   int sock_fd;
 
-  ev_io amqp_watcher;
+  //ev_io amqp_watcher;
   ev_io sock_watcher;  
 
   /*  Setup persistent AMQP connection to RMQ server */
   while (amqp_fd = amqp_setup_connection(port, server) < 0) sleep(60);
+  /* Setup persistent local listener to accept RPCs to socket */
+  sock_fd = sock_setup_connection("8888");  
 
   /* Initialize timer routine to collect and send data */
   ev_timer_init(&timer, amqp_timer_cb, 0.0, freq);   
   /* Initialize callback to respond to RPCs sent through RMQ connections */
-  ev_io_init(&amqp_watcher, amqp_rpc_cb, amqp_fd, EV_READ);
-
-  /* Setup persistent local listener to accept RPCs to socket */
-  sock_fd = sock_setup_connection("8888");  
+  //ev_io_init(&amqp_watcher, amqp_rpc_cb, amqp_fd, EV_READ);
   /* Initialize callback to respond to RPCs send to socekt */
   ev_io_init(&sock_watcher, sock_rpc_cb, sock_fd, EV_READ);
 
   ev_timer_start(EV_DEFAULT, &timer);
-  fprintf(log_stream,"Starting pfstrased with collection frequency %fs\n", freq);
-
-  ev_io_start(EV_DEFAULT, &amqp_watcher);    
-  fprintf(log_stream, "AMQP RCP listening on tcp port %d\n", port);
-
+  //ev_io_start(EV_DEFAULT, &amqp_watcher);    
   ev_io_start(EV_DEFAULT, &sock_watcher);    
-  fprintf(log_stream, "Socket RCP listening on tcp port %d\n", 8888);
-
+  syslog(LOG_ERR, "Starting pfstrased with collection frequency %fs\n", freq);
   ev_run(EV_DEFAULT, 0);
 
   /* Clean up sockets and connections */

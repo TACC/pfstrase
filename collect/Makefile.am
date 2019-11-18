@@ -1,5 +1,14 @@
 bin_PROGRAMS = pfstrased
 
+AM_DISTCHECK_CONFIGURE_FLAGS = \
+  --with-systemduserunitdir=$$dc_install_base/$(systemduserunitdir)
+
+if HAVE_SYSTEMD
+systemduserunit_DATA = \
+	pfstrase.service \
+	pfstrase.conf
+endif
+
 pfstrased_CPPFLAGS = -D_GNU_SOURCE
 
 pfstrased_SOURCES = 	 \
@@ -28,4 +37,4 @@ pfstrased_SOURCES = 	 \
 	serverd.c
 
 
-
+EXTRA_DIST = pfstrase.service pfstrase.conf 
