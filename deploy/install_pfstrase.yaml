@@ -1,5 +1,5 @@
 ---
-- hosts: mds0, oss1, c0, c1
+- hosts: mds0, oss1, c0, c1, oss0
   remote_user: root
 
   tasks:
@@ -7,6 +7,11 @@
     copy:
         src: /root/rpmbuild/RPMS/x86_64/pfstrased-0.0.1-1.el7.x86_64.rpm
         dest: /tmp/pfstrased-0.0.1-1.el7.x86_64.rpm
+
+  - name: remove pfstrase
+    yum:
+        name: pfstrased
+        state: absent
 
   - name: install pfstrase
     yum:

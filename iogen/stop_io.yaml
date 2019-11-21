@@ -1,0 +1,16 @@
+---
+- hosts: c0
+  remote_user: root
+  tasks:
+  - name: set job and user 1
+    shell: 'echo {\"jid\" : \"-\", \"user\" : \"-\"} | nc localhost 8888'
+  - name: start io workload 1
+    shell: pkill -9 -f dd
+
+- hosts: c1
+  remote_user: root
+  tasks:
+  - name: set job and user 2
+    shell: 'echo {\"jid\" : \"-\", \"user\" : \"-\"} | nc localhost 8888'
+  - name: start io workload 2
+    shell:  pkill -9 -f dd

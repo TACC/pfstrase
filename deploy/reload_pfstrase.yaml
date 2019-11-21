@@ -1,18 +1,18 @@
 ---
-- hosts: mds0, oss1, c0, c1
+- hosts: mds0, oss1, c0, c1, oss0
   remote_user: root
 
   tasks:
-  - name: reload pfstrase conf file
+  - name: modify pfstrase conf file
     lineinfile: 
       path: /etc/pfstrase/pfstrase.conf
-      regexp: '^frequency:'
-      line: 'frequency: 100'
+      regexp: '^frequency'
+      line: 'frequency 20'
       state: present
-    notify: restart pfstrase
+    notify: reload pfstrase
 
   handlers:
-  - name: restart pfstrase
-    service:
+  - name: reload pfstrase
+    systemd:
         name: pfstrase
-        state: restarted
+        state: reloaded

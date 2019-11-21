@@ -4,7 +4,7 @@ Description=Parallel Filesystem Tracing and Analysis Service
 [Service]
 Type=simple
 ExecStart=/usr/sbin/pfstrased -c CONFIGFILE
-ExecReload=/bin/pkill -HUP -f pfstrased
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
 KillSignal=SIGINT
