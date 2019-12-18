@@ -47,7 +47,11 @@
       {% endfor %}
   </tbody>
 </table>
-
+<center>
+{{ resources|safe }}
+{{ mds_div|safe }} 
+{{ mds_script|safe }}
+</center>
 <H2>OSS Data</H2> 
 <table class="table table-condensed table-bordered">
   <thead>
@@ -80,7 +84,7 @@
 </table>
 <center>
 {{ resources|safe }}
-{{ div|safe }} 
-{{ script|safe }}
+{{ oss_div|safe }} 
+{{ oss_script|safe }}
 </center>
 {% endblock %}
