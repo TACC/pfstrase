@@ -16,7 +16,7 @@ from bokeh.embed import components
 from bokeh.resources import CDN
 from bokeh.layouts import gridplot
 from bokeh.palettes import d3
-from bokeh.models import ColumnDataSource, Plot, Grid, DataRange1d, LinearAxis, DatetimeAxis
+from bokeh.models import ColumnDataSource, Plot, Grid, DataRange1d, Range1d, LinearAxis, DatetimeAxis
 from bokeh.models import HoverTool, PanTool, WheelZoomTool, BoxZoomTool, UndoTool, RedoTool, ResetTool
 from bokeh.models.glyphs import Step, Line
 
@@ -28,7 +28,6 @@ from .models import Tags, Stats
 tz = timezone.get_current_timezone()
 
 factor = 1.0/(1024*1024)
-colors = d3["Category20"][20]
 
 import psycopg2
 conn = psycopg2.connect("dbname=pfstrase_db user=postgres")
@@ -44,112 +43,112 @@ def add_axes(plot, label):
     plot.add_layout(Grid(dimension=1, ticker=yaxis.ticker))
     return plot
 
-def grouprateby_hostclient(bucket, interval, obd, event_tuple):
-    return read_sql(
+def groupstatby_hostevents(bucket, interval, obd, stats_type, event):
+    df = read_sql(
+        """select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, event_name, interpolate(avg(value)) as value from stats join tags on tags_id = id where time > now() - interval '{1}' + interval '15 minutes' and tags.obdclass = '{2}' and tags.stats_type = '{3}' and tags.event_name = '{4}' group by hostname, client_nid, stats_type, event_name, t;""".format(bucket, interval, obd, stats_type, event), conn)
+    return df.set_index("t").tz_convert(tz)
+
+def grouprateby_hostclient(bucket, interval, obd, stats_type, event_tuple):
+    df= read_sql(
         """select vals.t, vals.hostname, maps.hostname as client_hostname, client_nid, uid, jid, value from \
         (select t, hostname, client_nid, (case when sum(lastval)>=lag(sum(lastval)) over w then sum(lastval)-lag(sum(lastval)) over w when lag(sum(lastval)) over w is NULL then 0 else 0 end) as value from \
-        (select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, client_nid, interpolate(avg(value)) as lastval from stats join tags on tags_id = id where time > now() - interval '{1}' + interval '15 minutes' and tags.obdclass = '{2}' and tags.event_name in {3} group by hostname, client_nid, event_name, t) v \
+        (select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, client_nid, interpolate(avg(value)) as lastval from stats join tags on tags_id = id where time > now() - interval '{1}' + interval '15 minutes' and tags.obdclass = '{2}' and tags.stats_type = '{4}' and tags.event_name in {3} group by hostname, client_nid, event_name, t) v \
         group by hostname, client_nid, t window w as (order by hostname, client_nid, t)) vals join \
-        (select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, last(nid, time) as nid, last(uid, time) as uid, last(jid, time) as jid from stats join tags on tags_id = id where time > now() - interval '{1}' + interval '15 minutes' and tags.obdclass = 'osc' group by hostname, t) maps on vals.t = maps.t and vals.client_nid = maps.nid;""".format(bucket, interval, obd, event_tuple), conn)
+        (select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, last(nid, time) as nid, last(uid, time) as uid, last(jid, time) as jid from stats join tags on tags_id = id where time > now() - interval '{1}' + interval '15 minutes' and tags.obdclass = 'osc' group by hostname, t) maps on vals.t = maps.t and vals.client_nid = maps.nid;""".format(bucket, interval, obd, event_tuple, stats_type), conn)
+    return df.set_index("t").tz_convert(tz)
 
-"""
-def groupby_hostclient(bucket, interval, obd, event_tuple):
-    return read_sql("select t, hostname, client_nid, (case when sum(lastval)>=lag(sum(lastval)) over w then sum(lastval)-lag(sum(lastval)) over w when lag(sum(lastval)) over w is NULL then 0 else 0 end) as values from (select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, client_nid, interpolate(avg(value)) as lastval from stats join tags on tags_id = id where time > now() - interval '{1}' + interval '15 minutes' and tags.obdclass = '{2}' and tags.event_name in {3} group by hostname, client_nid, event_name, t) lv group by hostname, client_nid, t window w as (order by hostname, client_nid, t);".format(bucket, interval, obd, event_tuple), conn)
-
-def groupvalueby_hostclient(bucket, interval, obd, event_tuple):
-    return read_sql("select t, hostname, client_nid, sum(lastval) as values from (select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, client_nid, interpolate(avg(value)) as lastval from stats join tags on tags_id = id where time > now() - interval '{1}' and tags.obdclass = '{2}' and tags.event_name in {3} group by hostname, client_nid, event_name, t) lv group by hostname, client_nid, t;".format(bucket, interval, obd, event_tuple), conn)
-
-def bucket_client_tags(bucket, interval):
-    return read_sql("select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, last(nid, time) as nid, last(jid, time) as jid from stats join tags on tags_id = id where time > now() - interval '{1}' and tags.obdclass = 'osc' group by hostname, t;".format(bucket, interval), conn)
-"""
+def gethostnames(interval):
+    return read_sql("select distinct hostname from tags join stats on tags_id = id where time > now() - interval '{0}'".format(interval), conn)
 
 iops_tuples = { "mds" : ('open', 'close', 'statfs'), "oss" : ('setattr', 'create', 'statfs', 'set_info')}
 bw_tuples = { "oss" : ('read_bytes', 'write_bytes')}
 
-def byhost_plot(obdclass, events):
+class TimePlot():
+    def __init__(self, bucket, interval):
+        self.bucket = bucket
+        self.interval = interval
+        self.hostnames = gethostnames(interval)["hostname"]
+        self.hc = {}
+        colors = d3["Category20"][20]
+        for i, h in enumerate(self.hostnames):
+            self.hc[h] = colors[i%20]
 
-    bucket = "15 minutes"
-    interval = '24 hours'
-    event_tuple = events[obdclass]
+    def ploteventby_host(self, obdclass, stats_type, event, scale = 1.0):
+        df = groupstatby_hostevents(self.bucket, self.interval, obdclass, stats_type, event)    
+        hostnames = list(df.hostname.unique())
+        df = df[df.event_name == event]
+        hover = HoverTool(tooltips = [(event, "@values"), 
+                                      ("time", "@time{%Y-%m-%d %H:%M:%S}"), 
+                                      ("host", "@hostname")], 
+                          formatters = {"time" : "datetime"}, line_policy = "nearest")        
+        plot = Plot(plot_width=1200, plot_height=200, x_range = DataRange1d(), 
+                    y_range = Range1d(0, (1.1*scale*df["value"]).max()))
+        for h in hostnames:
+            selectby_hostname = df[df.hostname == h]
+            source = ColumnDataSource({"time" : selectby_hostname.index.tz_localize(None), 
+                                       "hostname": selectby_hostname["hostname"], 
+                                       "values" : scale*selectby_hostname["value"]})
+            print(h,self.hc[h])
+            plot.add_glyph(source, Line(x = "time", y = "values", line_color = self.hc[h], line_width=2))
+        plot.add_tools(hover, PanTool(), WheelZoomTool(), BoxZoomTool(), ResetTool())        
+        plot = add_axes(plot, event)
+        return plot 
 
-    if "statfs" in event_tuple:
-        label = "iops"
-        scale = 1.0
-    if "read_bytes" in event_tuple:
-        label = "MB/s"
-        scale = 1.0/(1024*1024)
-        
-    df = grouprateby_hostclient(bucket, interval, obdclass, event_tuple).set_index("t").tz_convert(tz)
-    print(df)
-    server_hostnames = list(df.hostname.unique())
-    client_hostnames = list(df.client_hostname.unique())
-    hc = {}
-    for i, h in enumerate(server_hostnames + client_hostnames):
-        hc[h] = colors[i%20]
+    def plotrateby_host(self, obdclass, stats_type, events):
 
-    groupby_hostname = df.groupby([df.index, "hostname"]).sum().reset_index(level = "hostname")
+        event_tuple = events[obdclass]
+        if "statfs" in event_tuple:
+            label = "iops"
+            scale = 1.0
+        if "read_bytes" in event_tuple:
+            label = "MB/s"
+            scale = 1.0/(1024*1024)
 
-    hover = HoverTool(tooltips = [("val", "@values"), ("jid", "@jid"), 
-                                  ("time", "@time{%Y-%m-%d %H:%M:%S}"), 
-                                  ("host", "@hostname")], 
-                      formatters = {"time" : "datetime"}, line_policy = "nearest")        
-    plots = []
-    for h in server_hostnames:
-        plot = Plot(plot_width=1200, plot_height=400, x_range = DataRange1d(), y_range = DataRange1d())
-        selectby_hostname = groupby_hostname[groupby_hostname.hostname == h]
-        source = ColumnDataSource({"time" : selectby_hostname.index.tz_localize(None), 
-                                   "jid" : ['-']*len(selectby_hostname.index), 
-                                   "hostname": [h]*len(selectby_hostname.index), 
-                                   "values" : scale*selectby_hostname["value"]})
-        plot.add_glyph(source, Line(x = "time", y = "values", line_color = hc[h]))
+        df = grouprateby_hostclient(self.bucket, self.interval, obdclass, stats_type, event_tuple)
+        server_hostnames = list(df.hostname.unique())
+        client_hostnames = list(df.client_hostname.unique())
 
-        for n in client_hostnames:
-            selectby_hostname_client = df.loc[(df.client_hostname == n) & (df.hostname == h)] 
-            source = ColumnDataSource({"time" : selectby_hostname_client.index.tz_localize(None),
-                                       "jid" : selectby_hostname_client["jid"], 
-                                       "hostname": selectby_hostname_client["client_hostname"], 
-                                       "values" : scale*selectby_hostname_client["value"]})
-            plot.add_glyph(source, Line(x = "time", y = "values", line_color = hc[n]))
-        plot.add_tools(hover, PanTool(), WheelZoomTool(), BoxZoomTool(), 
-                       UndoTool(), RedoTool(), ResetTool())
-        
-        plots += [add_axes(plot, h + " " + label)]
+        groupby_hostname = df.groupby([df.index, "hostname"]).sum().reset_index(level = "hostname")
 
-    return gridplot(plots, ncols = 1)
+        hover = HoverTool(tooltips = [("val", "@values"), ("jid", "@jid"), 
+                                      ("time", "@time{%Y-%m-%d %H:%M:%S}"), 
+                                      ("host", "@hostname")], 
+                          formatters = {"time" : "datetime"}, line_policy = "nearest")        
+        plots = []
+        for h in server_hostnames:
+            selectby_hostname = groupby_hostname[groupby_hostname.hostname == h]
+            plot = Plot(plot_width=1200, plot_height=200, x_range = DataRange1d(), 
+                        y_range = Range1d(0, (1.1*scale*selectby_hostname["value"].max())))
+            source = ColumnDataSource({"time" : selectby_hostname.index.tz_localize(None), 
+                                       "jid" : ['-']*len(selectby_hostname.index), 
+                                       "hostname": selectby_hostname["hostname"], 
+                                       "values" : scale*selectby_hostname["value"]})
+            plot.add_glyph(source, Line(x = "time", y = "values", line_color = self.hc[h], line_width = 2, line_alpha = 0.5))
+
+            for n in client_hostnames:
+                selectby_hostname_client = df.loc[(df.client_hostname == n) & (df.hostname == h)] 
+                source = ColumnDataSource({"time" : selectby_hostname_client.index.tz_localize(None),
+                                           "jid" : selectby_hostname_client["jid"], 
+                                           "hostname": selectby_hostname_client["client_hostname"], 
+                                           "values" : scale*selectby_hostname_client["value"]})
+                plot.add_glyph(source, Line(x = "time", y = "values", line_color = self.hc[n]))
+            plot.add_tools(hover, PanTool(), WheelZoomTool(), BoxZoomTool(), ResetTool())
+            plots += [add_axes(plot, h + " " + label)]
+
+        return gridplot(plots, ncols = 1)
 
 def home(request):
     field = {}
 
-    default_time = pytz.utc.localize(datetime.now() - timedelta(hours = 1))
-    stats = Stats.objects.filter(time__gt = default_time).order_by("-time")
+    bucket = "1 minutes"
+    interval = '12 hours'
 
-    sysinfo = stats.filter(tags__obdclass = "mds", tags__stats_type = "sysinfo")
-    mdt = stats.filter(tags__stats_type = "mdt")
-    osc = stats.filter(tags__stats_type = "osc")
-    
-
-    hostnames = Tags.objects.filter(obdclass = "mds").values_list("hostname", flat = True).distinct()
-    field["mds"] = []
-    for h in hostnames:
-        h_sysinfo = sysinfo.filter(tags__hostname = h)
-        time = h_sysinfo.filter(tags__event_name = "freeram").values_list("time", flat=True)
-
-        freeram = h_sysinfo.filter(tags__event_name = "freeram").values_list("value", flat=True)
-        totalram = h_sysinfo.filter(tags__event_name = "totalram").values_list("value", flat=True)
-        load1m = h_sysinfo.filter(tags__event_name = "loadavg1m").values_list("value", flat=True)
-        load5m = h_sysinfo.filter(tags__event_name = "loadavg5m").values_list("value", flat=True)
-        load15m = h_sysinfo.filter(tags__event_name = "loadavg15m").values_list("value", flat=True)
-        percentram = 100*(totalram[0]-freeram[0])/totalram[0]
-
-        h_mdt = mdt.filter(tags__hostname = h)
-        client_iops = h_mdt.filter(tags__event_name__in = ["open", "close"]).values("time", "tags__client_nid").annotate(iops = Sum("value"))
-
-        total_iops  = h_mdt.filter(tags__event_name__in = ["open", "close"]).values("time").annotate(iops = Sum("value"))
-        field["mds"] += [(time[0], h, load1m[0], load5m[0], load15m[0], percentram, total_iops[0]["iops"])]
-        
+    P = TimePlot(bucket, interval)
+    field["mds_freeram_script"], field["mds_freeram_div"] = components(P.ploteventby_host("mds", "sysinfo", "loadavg1m"))
+    field["oss_freeram_script"], field["oss_freeram_div"] = components(P.ploteventby_host("oss", "sysinfo", "loadavg1m"))
             
-    field["mds_script"], field["mds_div"] = components(byhost_plot("mds", iops_tuples))
-    field["oss_script"], field["oss_div"] = components(byhost_plot("oss", bw_tuples))
+    field["mds_script"], field["mds_div"] = components(P.plotrateby_host("mds", "mdt", iops_tuples))
+    field["oss_script"], field["oss_div"] = components(P.plotrateby_host("oss", "obdfilter", bw_tuples))
     field["resources"] = CDN.render()
 
     field["datetime"] = timezone.now()
