@@ -3,7 +3,7 @@
 {% load tz %}
 
 {{ datetime }}
-<H2>Active Users and Jobs</H2>
+<H2>Recent Filesystem Activity</H2>
 
 <table class="table table-condensed table-bordered">
   <thead>
@@ -53,6 +53,10 @@
 {{ mds_freeram_script|safe }}
 {{ mds_div|safe }} 
 {{ mds_script|safe }}
+{{ jid_mds_div|safe }} 
+{{ jid_mds_script|safe }}
+{{ uid_mds_div|safe }} 
+{{ uid_mds_script|safe }}
 </center>
 <H2>OSS Data</H2> 
 <table class="table table-condensed table-bordered">
@@ -90,5 +94,13 @@
 {{ oss_freeram_script|safe }}
 {{ oss_div|safe }} 
 {{ oss_script|safe }}
+{{ jid_oss_div|safe }} 
+{{ jid_oss_script|safe }}
+{{ uid_oss_div|safe }} 
+{{ uid_oss_script|safe }}
+
+<H2>OST Data</H2>
+{{ ost_script|safe }}
+{{ ost_div|safe }} 
 </center>
 {% endblock %}
