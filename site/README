@@ -1,0 +1,21 @@
+CentOS 7.7
+
+yum install
+
+postgresql96-9.6.12-1PGDG.rhel7.x86_64
+postgresql96-devel-9.6.12-1PGDG.rhel7.x86_64
+postgresql96-server-9.6.12-1PGDG.rhel7.x86_64
+postgresql96-libs-9.6.12-1PGDG.rhel7.x86_64
+postgresql-libs-9.2.24-1.el7_5.x86_64
+postgresql96-contrib-9.6.12-1PGDG.rhel7.x86_64
+timescaledb-postgresql-9.6-1.2.2-0.el7.x86_64
+
+
+pip install
+
+django
+psycopg2
+requests
+bokeh
+pika
+pandas
