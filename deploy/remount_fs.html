@@ -1,0 +1,45 @@
+---
+- hosts: oss0
+  remote_user: root
+
+  tasks:
+  - name: Mount ost0 on oss0
+    mount:
+      path: /mnt/ost0
+      src:  /dev/sdb1
+      fstype:  lustre
+      state: mounted
+  - name: Mount ost1 on oss0
+    mount:
+      path: /mnt/ost1
+      src:  /dev/sdc1
+      fstype:  lustre
+      state: mounted
+
+- hosts: oss1
+  remote_user: root
+
+  tasks:
+  - name: Mount ost2 on oss1
+    mount:
+      path: /mnt/ost2
+      src:  /dev/sdb1
+      fstype:  lustre
+      state: mounted
+  - name: Mount ost3 on oss1
+    mount:
+      path: /mnt/ost3
+      src:  /dev/sdc1
+      fstype:  lustre
+      state: mounted
+
+- hosts: c0, c1
+  remote_user: root
+
+  tasks:
+  - name: Mount Lustre filesystem blue
+    mount:
+      path: /blue
+      src:  192.168.0.5@o2ib0:/blue
+      fstype: lustre
+      state: mounted

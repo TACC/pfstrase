@@ -3,6 +3,6 @@
 #include "lfs_utils.h"
 #include "collect.h"
 
-int collect_exports(json_object *json);
+int collect_exports(json_object *jarray);
 
 #endif
