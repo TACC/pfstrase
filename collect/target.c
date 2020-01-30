@@ -5,33 +5,33 @@
 #include <string.h>
 #include <time.h>
 #include "collect.h"
-#include "lod.h"
-
-#define TYPEPATH "/sys/fs/lustre/lod"
-#define PROCFS_BUF_SIZE 4096
+#include "target.h"
 
 #define SINGLE	       \
-  X(activeobd),	       \
-    X(blocksize),      \
-    X(dom_stripesize), \
     X(filesfree),      \
     X(filestotal),     \
     X(kbytesavail),    \
     X(kbytesfree),     \
-    X(kbytestotal),    \
-    X(lmv_failout),    \
-    X(numobd),	       \
-    X(stripecount),    \
-    X(stripesize),     \
-    X(stripetype)
+    X(kbytestotal)
 
-int collect_lod(json_object *jarray)
+int collect_target(json_object *jarray)
 {
   int rc = -1;
+
+  char *type;
+  char *typepath;
+  typepath = "/proc/fs/lustre/osd-ldiskfs";
+  if (get_dev_data()->class == MDS) {
+    type = "mdt";
+  }
+  if (get_dev_data()->class == OSS) {
+    type = "ost";
+  }
+
   DIR *typedir = NULL;
-  typedir = opendir(TYPEPATH);
+  typedir = opendir(typepath);
   if(typedir == NULL) {
-    fprintf(stderr, "cannot open `%s' : %m\n", TYPEPATH);
+    fprintf(stderr, "cannot open `%s' : %m\n", typepath);
     goto typedir_err;
   }
 
@@ -41,10 +41,10 @@ int collect_lod(json_object *jarray)
       continue;
 
     char devpath[256];
-    snprintf(devpath, sizeof(devpath), "%s/%s", TYPEPATH, typede->d_name);
+    snprintf(devpath, sizeof(devpath), "%s/%s", typepath, typede->d_name);
 
     json_object *tags_json = json_object_new_object();
-    json_object_object_add(tags_json, "stats_type", json_object_new_string("lod"));
+    json_object_object_add(tags_json, "stats_type", json_object_new_string(type));
     json_object_object_add(tags_json, "target", json_object_new_string(typede->d_name));
 
     json_object *stats_json = json_object_new_object();

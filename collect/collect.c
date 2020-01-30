@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include  <syslog.h>
 #include "lfs_utils.h"
 #include "exports.h"
-#include "lod.h"
-#include "osc.h"
+#include "target.h"
 #include "llite.h"
 #include "sysinfo.h"
 #include "collect.h"
@@ -19,40 +19,44 @@ void collect_devices(json_object *jobj)
   if (clock_gettime(CLOCK_REALTIME, &info->time) != 0) {
     fprintf(stderr, "cannot clock_gettime(): %m\n");
   }
- 
-  json_object_object_add(jobj, "host", json_object_new_string(info->hostname));
-  json_object_object_add(jobj, "obdclass", json_object_new_string(info->class_str));
-  json_object_object_add(jobj, "nid", json_object_new_string(info->nid));
-  json_object_object_add(jobj, "jid", json_object_new_string(info->jid));
-  json_object_object_add(jobj, "user", json_object_new_string(info->user));
-  json_object_object_add(jobj, "time", json_object_new_double(info->time.tv_sec + 1e-9*info->time.tv_nsec));
 
-  json_object *type_json = json_object_new_object();
-  // Exports
-  if (info->class == MDS || info->class == OSS)
-    if (collect_exports(type_json) < 0)
-      fprintf(stderr, "export collection failed\n");
+  json_object *tags_json = json_object_new_object();
+  json_object_object_add(tags_json, "time", json_object_new_double(info->time.tv_sec + \
+								   1e-9*info->time.tv_nsec));
+  json_object_object_add(tags_json, "obdclass", json_object_new_string(info->class_str));
+  json_object_object_add(tags_json, "hostname", json_object_new_string(info->hostname));
+  json_object_object_add(tags_json, "nid", json_object_new_string(info->nid));
 
-  // LOD
-  if (info->class == MDS)
-    if (collect_lod(type_json) < 0)
-      fprintf(stderr, "lod collection failed\n");
+  if (info->class == OSC) {
+    json_object_object_add(tags_json, "jid", json_object_new_string(info->jid));
+    json_object_object_add(tags_json, "uid", json_object_new_string(info->user));
+  }
 
+  json_object_object_add(jobj, "tags", tags_json);  
+  json_object *data_json = json_object_new_array();
+  // SYSINFO    
+  if (collect_sysinfo(data_json) < 0)
+    fprintf(stderr, "sysinfo collection failed\n");
   
+  // Server exports and targets
+  if (info->class == MDS || info->class == OSS) {
+    if (collect_exports(data_json) < 0)
+      fprintf(stderr, "export collection failed\n");
+    if (collect_target(data_json) < 0)
+      fprintf(stderr, "target collection failed\n");
+  }
+
+  // Client data
   if (info->class == OSC) {
     // LLITE
-    if (collect_llite(type_json) < 0)
-      fprintf(stderr, "llite collection failed\n");
+    if (collect_llite(data_json) < 0)
+      fprintf(stderr, "llite collection failed\n");   
     // OSC
-    if (collect_osc(type_json) < 0)
+    if (collect_osc(data_json) < 0)
       fprintf(stderr, "osc collection failed\n");
   }
- 
-  // SYSINFO  
-  if (collect_sysinfo(type_json) < 0)
-    fprintf(stderr, "sysinfo collection failed\n");
-
-  json_object_object_add(jobj, "stats", type_json);
+  
+  json_object_object_add(jobj, "data", data_json);  
 }
 
 int collect_stats(const char *path, json_object *stats)

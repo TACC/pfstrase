@@ -5,7 +5,9 @@
   - name: set job and user 1
     shell: 'echo {\"jid\" : \"101\", \"user\" : \"test1\"} | nc localhost 8888'
   - name: start io workload 1
-    shell: watch -n 1 dd if=/dev/zero of=/blue/text1.txt count=1024 bs=1024 &
+    shell: for i in {1..10}; do dd if=/dev/zero of=/blue/text1.txt count=1024 bs=1024; done
+  - name: clear job and user
+    shell: 'echo {\"jid\" : \"-\", \"user\" : \"-\"} | nc localhost 8888'
 
 - hosts: c1
   remote_user: root
@@ -13,4 +15,6 @@
   - name: set job and user 2
     shell: 'echo {\"jid\" : \"102\", \"user\" : \"test2\"} | nc localhost 8888'
   - name: start io workload 2
-    shell: watch -n 1 dd if=/dev/zero of=/blue/text2.txt count=1024 bs=4096
+    shell: for i in {1..5}; do dd if=/dev/zero of=/blue/text2.txt count=1024 bs=4096; done
+  - name: clear job and user
+    shell: 'echo {\"jid\" : \"-\", \"user\" : \"-\"} | nc localhost 8888'

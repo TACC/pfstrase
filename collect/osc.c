@@ -14,7 +14,7 @@
 #define STATS		 \
     X(stats)
 
-int collect_osc(json_object *type_json)
+int collect_osc(json_object *jarray)
 {
   int rc = -1;
 
@@ -25,7 +25,6 @@ int collect_osc(json_object *type_json)
     goto typedir_err;
   }
 
-  json_object *ost_json = json_object_new_object();
   struct dirent *typede;
   while ((typede = readdir(typedir)) != NULL) {  
     if (typede->d_type != DT_DIR || typede->d_name[0] == '.')
@@ -43,11 +42,15 @@ int collect_osc(json_object *type_json)
     }
     char *p = typede->d_name + strlen(typede->d_name) - 20 - 1;
     *p = '\0'; 
-    
-    json_object *stats_json = json_object_new_object();
-    if (collect_string(osspath, stats_json, "oss") < 0)			       
+
+    json_object *tags_json = json_object_new_object();
+    json_object_object_add(tags_json, "stats_type", json_object_new_string("osc"));
+    json_object_object_add(tags_json, "target", json_object_new_string(typede->d_name));
+    if (collect_string(osspath, tags_json, "server_nid") < 0)			       
       fprintf(stderr, "cannot read `%s' from `%s': %m\n", "ost_conn_uuid", osspath);
-     
+
+    json_object *stats_json = json_object_new_object();
+
 #define X(k,r...)							\
     ({									\
       char filepath[256];						\
@@ -57,9 +60,16 @@ int collect_osc(json_object *type_json)
     })
     STATS;
 #undef X
-    json_object_object_add(ost_json, typede->d_name, stats_json);
+    if (json_object_object_length(stats_json) > 0) {
+      json_object_object_add(tags_json, "stats", stats_json);
+      json_object_array_add(jarray, tags_json); 
+    }
+    else {
+      json_object_put(stats_json);
+      json_object_put(tags_json);
+    }
+
   }
-  json_object_object_add(type_json, "osc", ost_json);
 
   rc = 0;
  typedir_err:

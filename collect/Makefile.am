@@ -24,8 +24,6 @@ pfstrased_SOURCES = 	 \
 	exports.c	\
 	lfs_utils.h	\
 	lfs_utils.c	\
-	lod.h		\
-	lod.c		\
 	llite.h		\
 	llite.c		\
 	osc.h 		\
@@ -34,7 +32,9 @@ pfstrased_SOURCES = 	 \
 	sysinfo.c	\
 	socket_utils.h \
 	socket_utils.c \
-	serverd.c
+	serverd.c       \
+        target.h \
+	target.c	
 
 
 EXTRA_DIST = pfstrase.service pfstrase.conf 

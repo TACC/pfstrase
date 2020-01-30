@@ -35,20 +35,17 @@
     X(filestotal),		   \
     X(lazystatfs)                                                                  
                   
-int collect_llite(json_object *type_json)
+int collect_llite(json_object *jarray)
 {
   int rc = -1;
 
   char *typepath = "/sys/kernel/debug/lustre/llite";
-
   DIR *typedir = NULL;
   typedir = opendir(typepath);
   if(typedir == NULL) {
     fprintf(stderr, "cannot open `%s' : %m\n", typepath);
     goto typedir_err;
   }
-
-  json_object *fs_json = json_object_new_object();    
 
   struct dirent *typede;
   while ((typede = readdir(typedir)) != NULL) {  
@@ -64,6 +61,10 @@ int collect_llite(json_object *type_json)
     }
     char *p = typede->d_name + strlen(typede->d_name) - 16 - 1;
     *p = '\0'; 
+
+    json_object *tags_json = json_object_new_object();
+    json_object_object_add(tags_json, "stats_type", json_object_new_string("llite"));
+    json_object_object_add(tags_json, "target", json_object_new_string(typede->d_name));
        
     json_object *stats_json = json_object_new_object();    
 #define X(k,r...)							\
@@ -86,9 +87,15 @@ int collect_llite(json_object *type_json)
     SINGLE;
 #undef X
     */
-    json_object_object_add(fs_json, typede->d_name, stats_json);
+    if (json_object_object_length(stats_json) > 0) {
+      json_object_object_add(tags_json, "stats", stats_json);
+      json_object_array_add(jarray, tags_json); 
+    }
+    else {
+      json_object_put(stats_json);
+      json_object_put(tags_json);
+    }
   }
-  json_object_object_add(type_json, "llite", fs_json);
 
   rc = 0;
  typedir_err:
