@@ -35,7 +35,7 @@ cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
 def groupstatby_hostevents(bucket, interval, obd, stats_type, event):
     df = read_sql(
-        """select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, event_name, locf(last(value, time)) as value from stats join tags on tags_id = id where time > now() - interval '{1}' and tags.obdclass = '{2}' and tags.stats_type = '{3}' and tags.event_name = '{4}' group by hostname, client_nid, event_name, t;""".format(bucket, interval, obd, stats_type, event), conn)
+        """select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, event_name, locf(avg(value)) as value from stats join tags on tags_id = id where time > now() - interval '{1}' and tags.obdclass = '{2}' and tags.stats_type = '{3}' and tags.event_name = '{4}' group by hostname, client_nid, event_name, t;""".format(bucket, interval, obd, stats_type, event), conn)
     return df.set_index("t").tz_convert(tz)
 
 def grouplaststatby_hostevents(bucket, interval, obd, stats_type, event_tuple):
@@ -47,8 +47,8 @@ def grouplaststatby_hostevents(bucket, interval, obd, stats_type, event_tuple):
 def grouprateby_hostclient(bucket, interval, obd, stats_type, event_tuple):
     df= read_sql(
         """select vals.t, vals.hostname, maps.hostname as client_hostname, client_nid, uid, jid, value from \
-        (select t, hostname, client_nid, (case when sum(lastval)>=lag(sum(lastval)) over w then sum(lastval)-lag(sum(lastval)) over w when lag(sum(lastval)) over w is NULL then 0 else 0 end) as value from \
-        (select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, client_nid, interpolate(avg(value)) as lastval from stats join tags on tags_id = id where time > now() - interval '{1}' and tags.obdclass = '{2}' and tags.stats_type = '{4}' and tags.event_name in {3} group by hostname, client_nid, event_name, t) v \
+        (select t, hostname, client_nid, (case when sum(lastval)>=lag(sum(lastval)) over w then sum(lastval)-lag(sum(lastval)) over w when lag(sum(lastval)) over w is NULL then 0 else 0 end) / extract(epoch from t - lag(t) OVER w) as value from \
+        (select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, client_nid, locf(avg(value)) as lastval from stats join tags on tags_id = id where time > now() - interval '{1}' and tags.obdclass = '{2}' and tags.stats_type = '{4}' and tags.event_name in {3} group by hostname, client_nid, event_name, t) v \
         group by hostname, client_nid, t window w as (order by hostname, client_nid, t)) vals join \
         (select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, locf(last(nid, time)) as nid, locf(last(uid, time)) as uid, locf(last(jid, time)) as jid from stats join tags on tags_id = id where time > now() - interval '{1}' and tags.obdclass = 'osc' group by hostname, t) maps on vals.t = maps.t and vals.client_nid = maps.nid;""".format(bucket, interval, obd, event_tuple, stats_type), conn)
     return df.set_index("t").tz_convert(tz)
@@ -154,39 +154,57 @@ class TimePlot():
 
 
     def plotlatestvalueby_host(self):            
-        scale = 1.0
-        #/(1024)
+        scale = 1/1000.0
+        plots = []
 
-        df = grouplaststatby_hostevents(self.bucket, self.interval, "oss", "ost", ('filesfree', 'filestotal'))
+        df = grouplaststatby_hostevents(self.bucket, self.interval, "mds", "mdt", ('filesfree', 'filestotal'))
+        df = df.append(grouplaststatby_hostevents(self.bucket, self.interval, "oss", "ost", ('filesfree', 'filestotal')))
         df = df.groupby(["target", "event_name"]).last().reset_index(level = "target").reset_index(level = "event_name")
-        print(df)
+
         targets = list(df.target.unique())
-        
-        hover = HoverTool(tooltips = [("time", "@time{%Y-%m-%d %H:%M:%S}"), ("Used Files", "@used")], 
+        hover = HoverTool(tooltips = [("time", "@time{%Y-%m-%d %H:%M:%S}"), ("Used Inodes [K]", "@used")], 
                           formatters = {"time" : "datetime"}, line_policy = "nearest")    
 
         plot = figure(plot_width=1200, plot_height=300, x_range = targets,
-                      y_range = Range1d(0, (1.1*scale*df["value"]).max()), y_axis_label = "File Usage", 
+                      y_range = Range1d(0, (1.1*scale*df["value"]).max()), y_axis_label = "Inode Usage [K]", 
                       toolbar_location = "above", tools = "pan,wheel_zoom,save,box_zoom,reset")
         plot.tools.append(hover)
-
         df_total = df[df["event_name"] == "filestotal"]
         df_free = df[df["event_name"] == "filesfree"]
-        source = ColumnDataSource({"targets" : targets, "total" : df_total["value"], 
-                                   "used" : df_total["value"].to_numpy()-df_free["value"].to_numpy()})
-
+        source = ColumnDataSource({"targets" : targets, "total" : scale*df_total["value"], 
+                                   "used" : scale*(df_total["value"].to_numpy()-df_free["value"].to_numpy())})
         plot.vbar(x = "targets", top = "total", source = source, width = 0.8, alpha = 0.5, legend_label = "Total Files")    
         plot.vbar(x = "targets", top = "used", source = source, width = 0.8, color = "red", legend_label = "Used Files")
+        plots += [plot]
 
-        return plot
+        scale = 1.0/1024
+        df = grouplaststatby_hostevents(self.bucket, self.interval, "mds", "mdt", ('kbytesfree', 'kbytestotal'))
+        df = df.append(grouplaststatby_hostevents(self.bucket, self.interval, "oss", "ost", ('kbytesfree', 'kbytestotal')))
+        df = df.groupby(["target", "event_name"]).last().reset_index(level = "target").reset_index(level = "event_name")
+        targets = list(df.target.unique())
+        hover = HoverTool(tooltips = [("time", "@time{%Y-%m-%d %H:%M:%S}"), ("Used MB", "@used")], 
+                          formatters = {"time" : "datetime"}, line_policy = "nearest")    
+
+        plot = figure(plot_width=1200, plot_height=300, x_range = targets,
+                      y_range = Range1d(0, (1.1*scale*df["value"]).max()), y_axis_label = "Disk Usage [MB]", 
+                      toolbar_location = "above", tools = "pan,wheel_zoom,save,box_zoom,reset")
+        plot.tools.append(hover)
+        df_total = df[df["event_name"] == "kbytestotal"]
+        df_free = df[df["event_name"] == "kbytesfree"]
+        source = ColumnDataSource({"targets" : targets, "total" : scale*df_total["value"], 
+                                   "used" : scale*(df_total["value"].to_numpy()-df_free["value"].to_numpy())})
+        plot.vbar(x = "targets", top = "total", source = source, width = 0.8, alpha = 0.5, legend_label = "Total MB")    
+        plot.vbar(x = "targets", top = "used", source = source, width = 0.8, color = "red", legend_label = "Used MB")
+        plots += [plot]
+
+        return gridplot(plots, ncols = 1)
 
 
 def home(request):
     field = {}
 
     bucket = "1 minutes"
-    interval = '2 hours'
-
+    interval = '12 hours'
 
     P = TimePlot(bucket, interval)
 
@@ -194,14 +212,14 @@ def home(request):
     field["mds_freeram_script"], field["mds_freeram_div"] = components(P.ploteventby_host("mds", "sysinfo", "loadavg1m"))
     field["oss_freeram_script"], field["oss_freeram_div"] = components(P.ploteventby_host("oss", "sysinfo", "loadavg1m"))
             
-    field["mds_script"], field["mds_div"] = components(P.plotrateby_host("mds", "mdt", iops_tuples, "client_hostname"))
-    field["oss_script"], field["oss_div"] = components(P.plotrateby_host("oss", "obdfilter", bw_tuples, "client_hostname"))
+    field["mds_script"], field["mds_div"] = components(P.plotrateby_host("mds", "mds", iops_tuples, "client_hostname"))
+    field["oss_script"], field["oss_div"] = components(P.plotrateby_host("oss", "oss", bw_tuples, "client_hostname"))
 
-    field["jid_mds_script"], field["jid_mds_div"] = components(P.plotrateby_host("mds", "mdt", iops_tuples, "jid"))
-    field["jid_oss_script"], field["jid_oss_div"] = components(P.plotrateby_host("oss", "obdfilter", bw_tuples, "jid"))
+    field["jid_mds_script"], field["jid_mds_div"] = components(P.plotrateby_host("mds", "mds", iops_tuples, "jid"))
+    field["jid_oss_script"], field["jid_oss_div"] = components(P.plotrateby_host("oss", "oss", bw_tuples, "jid"))
 
-    field["uid_mds_script"], field["uid_mds_div"] = components(P.plotrateby_host("mds", "mdt", iops_tuples, "uid"))
-    field["uid_oss_script"], field["uid_oss_div"] = components(P.plotrateby_host("oss", "obdfilter", bw_tuples, "uid"))
+    field["uid_mds_script"], field["uid_mds_div"] = components(P.plotrateby_host("mds", "mds", iops_tuples, "uid"))
+    field["uid_oss_script"], field["uid_oss_div"] = components(P.plotrateby_host("oss", "oss", bw_tuples, "uid"))
 
     field["resources"] = CDN.render()
     field["datetime"] = timezone.now()
