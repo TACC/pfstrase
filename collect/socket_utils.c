@@ -119,8 +119,9 @@ static int process_rpc(char *rpc)
     goto out;
   }
 
+  json_object *rpc_json = NULL;
   enum json_tokener_error error = json_tokener_success;
-  json_object *rpc_json = json_tokener_parse_verbose(rpc, &error);  
+  rpc_json = json_tokener_parse_verbose(rpc, &error);  
 
   if (error != json_tokener_success) {
     fprintf(stderr, "RPC `%s': %s\n", rpc, json_tokener_error_desc(error));
@@ -134,6 +135,9 @@ static int process_rpc(char *rpc)
   }
   rc = 1;
  out:
+  if (rpc_json)
+    json_object_put(rpc_json);
+
   return rc;
 }
 
