@@ -4,8 +4,7 @@ from datetime import datetime, timezone
 import pika 
 import psycopg2
 
-
-conn = psycopg2.connect("dbname=pfstrase_db user=postgres")
+conn = psycopg2.connect("dbname=pfstrase_db1 user=postgres")
 cur = conn.cursor()
 
 def ingest(channel, method_frame, header_frame, body):
@@ -25,17 +24,20 @@ def ingest(channel, method_frame, header_frame, body):
     time = datetime.fromtimestamp(data_json["tags"].pop("time"),
                                   tz = timezone.utc)
     tags = data_json["tags"]
+    tags["time"]  = time
     data = data_json["data"]
-    print(tags)
+    
     for d in data:
         events = d.pop("stats")                
         d.update(tags)
-        for e,v in events.items():
-            d.update({"event_name" : e})
-            keys = list(d.keys())
-            vals = ", ".join(["%(" + x + ")s" for x in keys])
-            cur.execute("INSERT INTO tags (%s) values (%s) returning id;" % (", ".join(keys), vals), d)
-            cur.execute("INSERT INTO stats (time, tags_id, value) values (%s, %s, %s);", (time, cur.fetchone()[0], v))  
+        keys = list(d.keys()) + ["event_name", "value"]
+        cols  = ", ".join(keys)        
+        names = ", ".join(["%(" + x + ")s" for x in keys])
+        vals = []
+        for e,v in events.items():            
+            d.update({"event_name" : e, "value" : v})
+            vals += [dict(d)]
+        cur.executemany("INSERT INTO stats (" + cols + ") values (" + names + ");", vals)
     conn.commit()
 
 parameters = pika.ConnectionParameters("tacc-stats03")

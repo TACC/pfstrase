@@ -23,12 +23,12 @@ from bokeh.models.glyphs import Step, Line
 from pandas import read_sql
 import pandas 
 pandas.set_option('display.max_rows', None)
-from .models import Tags, Stats
+from .models import Stats
 import time
 tz = timezone.get_current_timezone()
 
 import psycopg2
-conn = psycopg2.connect("dbname=pfstrase_db user=postgres")
+conn = psycopg2.connect("dbname=pfstrase_db1 user=postgres")
 cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
 class TimePlot():
@@ -39,11 +39,10 @@ class TimePlot():
 
         self.cur.execute("DROP VIEW IF EXISTS server_bucket_stats CASCADE;")
         self.cur.execute("DROP VIEW IF EXISTS client_bucket_tags CASCADE;")
-        self.cur.execute("CREATE TEMP VIEW server_bucket_stats AS select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, obdclass, hostname, target, stats_type, event_name, client_nid, locf(avg(value)) as bucket_value from stats join tags on tags_id = id where time > now() - interval '{1}' and tags.obdclass in ('mds', 'oss') group by obdclass, hostname, target, stats_type, client_nid, event_name, t;".format(self.bucket, self.interval))
-        self.cur.execute("CREATE TEMP VIEW client_bucket_tags AS select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, locf(last(nid, time)) as nid, locf(last(uid, time)) as uid, locf(last(jid, time)) as jid from stats join tags on tags_id = id where time > now() - interval '{1}' and tags.obdclass = 'osc' group by hostname, t;".format(self.bucket, self.interval), conn)
-
-        self.hostnames = read_sql("select distinct hostname from tags join stats on tags_id = id where time > now() - interval '{0}'".format(interval), conn)["hostname"]
-
+        self.cur.execute("CREATE TEMP VIEW server_bucket_stats AS select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, obdclass, hostname, target, stats_type, event_name, client_nid, locf(avg(value)) as bucket_value from stats where time > now() - interval '{1}' and obdclass in ('mds', 'oss') group by obdclass, hostname, target, stats_type, client_nid, event_name, t;".format(self.bucket, self.interval))
+        self.cur.execute("CREATE TEMP VIEW client_bucket_tags AS select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, locf(last(nid, time)) as nid, locf(last(uid, time)) as uid, locf(last(jid, time)) as jid from stats where time > now() - interval '{1}' and obdclass = 'osc' group by hostname, t;".format(self.bucket, self.interval), conn)
+        
+        self.hostnames = read_sql("select distinct hostname from stats where time > now() - interval '{0}'".format(interval), conn)["hostname"]
         self.hc = {}
         colors = d3["Category10"][10]*5#[20]
         for i, h in enumerate(self.hostnames):
@@ -103,7 +102,6 @@ class TimePlot():
         
         df = self.grouprateby_tags(obdclass, stats_type, events)
         server_hostnames = sorted(list(df.hostname.unique()))
-
         plots = []
         for tag in ["client_hostname", "jid", "uid"]:
             tags = list(df[tag].unique())
@@ -140,7 +138,7 @@ class TimePlot():
         return gridplot(plots, ncols = 1)
 
     def plotrateby_host(self, obdclass, stats_type, events):        
-        if "system" in events:
+        if stats_type == "cpu":
             label = "Cores used"
             scale = 1.0/100.
         df = self.grouprateby_host(obdclass, stats_type, events)
@@ -209,7 +207,7 @@ def home(request):
     field = {}
 
     bucket = "60 seconds"
-    interval = '2 hours'
+    interval = '6 hours'
 
     P = TimePlot(bucket, interval)
 
