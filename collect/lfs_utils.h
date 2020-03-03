@@ -14,7 +14,9 @@ struct device_info
   char nid[32];
   char jid[32];
   char user[32];
-  char typepath[64];
+  char llite_path[128];
+  char osc_path[128];
+  char oss_nid_path[128];
   char class_str[16];
   enum device_class class;   
   struct dict nid_jid_dict;

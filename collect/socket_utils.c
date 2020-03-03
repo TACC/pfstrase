@@ -146,7 +146,7 @@ void amqp_send_data()
 {  
   json_object *message_json = json_object_new_object();
   collect_devices(message_json);
-  fprintf (stderr, "The json object created: %s\n",json_object_to_json_string(message_json));
+  //fprintf (stderr, "The json object created: %s\n",json_object_to_json_string(message_json));
   if (amqp_basic_publish(conn, 2,
 			 amqp_cstring_bytes(exchange),
 			 amqp_cstring_bytes("response"),

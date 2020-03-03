@@ -6,15 +6,6 @@
 #include "lfs_utils.h"
 
 
-#define devices_path "/sys/kernel/debug/lustre/devices"
-//#define devices_path "/proc/fs/lustre/devices"
-
-#define nid_path "/sys/kernel/debug/lnet/nis"
-//#define nid_path "/proc/sys/lnet/nis"
-
-#define peers_path "/sys/kernel/debug/lnet/peers"
-//#define peers_path "/proc/sys/lnet/peers"
-
 #define PROCFS_BUF_SIZE 4096
 
  /* Discover device info from devices file 
@@ -55,11 +46,33 @@ static void devices_discover(void) {
   char detail[32];
   char uuid[32];
   unsigned long long u;
+  char devices_path[128];
+  char nid_path[128];
+  char peers_path[128];
 
   FILE *fd = NULL;
-  fd = fopen(devices_path, "r");
-  if (fd == NULL) {
-    fprintf(stderr, "cannot open %s: %m\n", devices_path);
+  if (fd = fopen("/sys/kernel/debug/lustre/devices", "r")) {
+    strcpy(devices_path,    "/sys/kernel/debug/lustre/devices");    
+    strcpy(info.llite_path, "/sys/kernel/debug/lustre/llite");
+    strcpy(info.osc_path,   "/sys/kernel/debug/lustre/osc");
+    strcpy(info.oss_nid_path, "/sys/fs/lustre/osc");
+
+    strcpy(nid_path,   "/sys/kernel/debug/lnet/nis");
+    strcpy(peers_path, "/sys/kernel/debug/lnet/peers");
+  }
+  else if (fd = fopen("/proc/fs/lustre/devices", "r")) {
+    strcpy(devices_path,    "/proc/fs/lustre/devices");
+    strcpy(info.llite_path, "/proc/fs/lustre/llite");
+    strcpy(info.osc_path,   "/proc/fs/lustre/osc");
+
+    strcpy(info.oss_nid_path, "/proc/fs/lustre/osc");
+
+    strcpy(nid_path,   "/proc/sys/lnet/nis");
+    strcpy(peers_path, "/proc/sys/lnet/peers");
+
+  }
+  else {    
+    fprintf(stderr, "cannot open %s: %m\n", "devices file");
     goto err;
   }
 

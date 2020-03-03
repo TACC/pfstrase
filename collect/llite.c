@@ -7,9 +7,6 @@
 #include "collect.h"
 #include "llite.h"
 
-//#define TYPEPATH "/sys/fs/lustre/llite"
-
-
 #define STATS		 \
   X(max_cached_mb),	 \
     X(read_ahead_stats), \
@@ -39,11 +36,10 @@ int collect_llite(json_object *jarray)
 {
   int rc = -1;
 
-  char *typepath = "/sys/kernel/debug/lustre/llite";
   DIR *typedir = NULL;
-  typedir = opendir(typepath);
+  typedir = opendir(get_dev_data()->llite_path);
   if(typedir == NULL) {
-    fprintf(stderr, "cannot open `%s' : %m\n", typepath);
+    fprintf(stderr, "cannot open `%s' : %m\n", get_dev_data()->llite_path);
     goto typedir_err;
   }
 
@@ -53,7 +49,7 @@ int collect_llite(json_object *jarray)
       continue;
 
     char devpath[256];
-    snprintf(devpath, sizeof(devpath), "%s/%s", typepath, typede->d_name);
+    snprintf(devpath, sizeof(devpath), "%s/%s", get_dev_data()->llite_path, typede->d_name);
 
     if (strlen(typede->d_name) < 16) {
       fprintf(stderr, "invalid obd name `%s'\n", typede->d_name);
