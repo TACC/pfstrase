@@ -79,7 +79,7 @@ WSGI_APPLICATION = 'pfstrase.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME'  : 'pfstrase_db',
+        'NAME'  : 'pfstrase_db1',
         'USER': 'postgres',
         'PASSWORD': 'postgres',
         'HOST': 'localhost',

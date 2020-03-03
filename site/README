@@ -19,3 +19,10 @@ requests
 bokeh
 pika
 pandas
+
+
+To initialize database
+
+1) CREATE DATABASE pfstrase_db;
+1) CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
+2) SELECT create_hypertable('stats', 'time');
