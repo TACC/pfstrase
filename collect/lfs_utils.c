@@ -52,24 +52,16 @@ static void devices_discover(void) {
 
   FILE *fd = NULL;
   if (fd = fopen("/sys/kernel/debug/lustre/devices", "r")) {
-    strcpy(devices_path,    "/sys/kernel/debug/lustre/devices");    
-    strcpy(info.llite_path, "/sys/kernel/debug/lustre/llite");
-    strcpy(info.osc_path,   "/sys/kernel/debug/lustre/osc");
+    strcpy(devices_path,      "/sys/kernel/debug/lustre/devices");    
+    strcpy(info.llite_path,   "/sys/kernel/debug/lustre/llite");
+    strcpy(info.osc_path,     "/sys/kernel/debug/lustre/osc");
     strcpy(info.oss_nid_path, "/sys/fs/lustre/osc");
-
-    strcpy(nid_path,   "/sys/kernel/debug/lnet/nis");
-    strcpy(peers_path, "/sys/kernel/debug/lnet/peers");
   }
   else if (fd = fopen("/proc/fs/lustre/devices", "r")) {
-    strcpy(devices_path,    "/proc/fs/lustre/devices");
-    strcpy(info.llite_path, "/proc/fs/lustre/llite");
-    strcpy(info.osc_path,   "/proc/fs/lustre/osc");
-
+    strcpy(devices_path,      "/proc/fs/lustre/devices");
+    strcpy(info.llite_path,   "/proc/fs/lustre/llite");
+    strcpy(info.osc_path,     "/proc/fs/lustre/osc");
     strcpy(info.oss_nid_path, "/proc/fs/lustre/osc");
-
-    strcpy(nid_path,   "/proc/sys/lnet/nis");
-    strcpy(peers_path, "/proc/sys/lnet/peers");
-
   }
   else {    
     fprintf(stderr, "cannot open %s: %m\n", "devices file");
@@ -104,12 +96,20 @@ static void devices_discover(void) {
     fclose(fd);  	
 
   // Get local nid
-  fd = fopen(nid_path, "r");
-  setvbuf(fd, procfs_buf, _IOFBF, sizeof(procfs_buf));
-  if (fd == NULL) {
+  if (fd = fopen("/sys/kernel/debug/lnet/nis", "r")) {
+    strcpy(nid_path, "/sys/kernel/debug/lnet/nis");
+    strcpy(peers_path, "/sys/kernel/debug/lnet/peers");
+  }
+  else if (fd = fopen("/proc/sys/lnet/nis", "r")) {
+    strcpy(nid_path, "/proc/sys/lnet/nis");  
+    strcpy(peers_path, "/proc/sys/lnet/peers");  
+  }
+  else {
     fprintf(stderr, "cannot open %s: %m\n", nid_path);
     goto err;
   }
+
+  setvbuf(fd, procfs_buf, _IOFBF, sizeof(procfs_buf));
   char nid[32];
   while(getline(&line_buf, &line_buf_size, fd) >= 0) {
     char *line = line_buf;
@@ -122,11 +122,11 @@ static void devices_discover(void) {
 
   // Get peer nids and make nid to jobid map
   fd = fopen(peers_path, "r");
-  setvbuf(fd, procfs_buf, _IOFBF, sizeof(procfs_buf));
   if (fd == NULL) {
     fprintf(stderr, "cannot open %s: %m\n", peers_path);
     goto err;
   }
+  setvbuf(fd, procfs_buf, _IOFBF, sizeof(procfs_buf));
 
   if (dict_init(&info.nid_jid_dict, 0) < 0) {
     fprintf(stderr, "cannot create nid_jid_dict: %m\n");

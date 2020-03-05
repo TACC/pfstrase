@@ -94,7 +94,7 @@ static void amqp_rpc_cb(EV_P_ ev_io *w, int revents)
 }
 static void amqp_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
 {
-  fprintf(log_stream, "collect and send data based on amqp timer\n");
+  //fprintf(log_stream, "collect and send data based on amqp timer\n");
   amqp_send_data();
 }
 /* Signal Callbacks for SIGINT (terminate) and SIGHUP (reload conf file) */

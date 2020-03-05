@@ -12,6 +12,8 @@ endif
 pfstrased_CPPFLAGS = -D_GNU_SOURCE
 
 pfstrased_SOURCES = 	 \
+	cpu.h 		 \
+	cpu.c 		 \
 	daemonize.h	 \
 	daemonize.c	 \
 	dict.h		\
@@ -37,4 +39,4 @@ pfstrased_SOURCES = 	 \
 	target.c	
 
 
-EXTRA_DIST = pfstrase.service pfstrase.conf 
+EXTRA_DIST = pfstrase.service pfstrase.conf pfstrase_initd.sh

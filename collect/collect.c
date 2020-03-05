@@ -1,13 +1,13 @@
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include  <syslog.h>
 #include "lfs_utils.h"
-#include "exports.h"
-#include "target.h"
-#include "llite.h"
-#include "sysinfo.h"
 #include "collect.h"
+#include "cpu.h"
+#include "exports.h"
+#include "llite.h"
+#include "target.h"
+#include "sysinfo.h"
 
 #define PROCFS_BUF_SIZE 4096
 
@@ -36,8 +36,11 @@ void collect_devices(json_object *jobj)
   json_object *data_json = json_object_new_array();
   // SYSINFO    
   if (collect_sysinfo(data_json) < 0)
-    fprintf(stderr, "sysinfo collection failed\n");
-  
+    fprintf(stderr, "sysinfo collection failed\n"); 
+  // CPU
+  if (collect_cpu(data_json) < 0)
+    fprintf(stderr, "cpu collection failed\n");
+ 
   // Server exports and targets
   if (info->class == MDS || info->class == OSS) {
     if (collect_exports(data_json) < 0)
