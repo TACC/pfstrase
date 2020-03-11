@@ -8,105 +8,18 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <syslog.h>
-#include <amqp.h>
-#include <amqp_tcp_socket.h>
 
-#include "utils.h"
-#include "collect.h"
+//#include "collect.h"
 #include "lfs_utils.h"
 #include "socket_utils.h"
+#include "dict.h"
 
-char const *exchange = "amq.direct";
-amqp_basic_properties_t props; 
-amqp_connection_state_t conn;
 static int port;
 static char *hostname;
 
 int sockfd;
-
-// Setup connection to RabbitMQ Server
-int amqp_setup_connection(int iport, char *ihostname)
-{
-  amqp_socket_t *socket = NULL;
-  amqp_bytes_t rpc_queue;
-  amqp_bytes_t response_queue;
-  int status = -1;
-
-  port = iport;
-  hostname = ihostname;
-
-  props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG | AMQP_BASIC_DELIVERY_MODE_FLAG;
-  props.content_type = amqp_cstring_bytes("text/plain");
-  props.delivery_mode = 2; /* persistent delivery mode */
-
-  //fprintf(stderr, "Connection to RMQ server %s:%s Attempting\n", hostname, port);
-  syslog(LOG_INFO, "Connecting to RMQ server %s:%d\n", hostname, port);
-
-  conn = amqp_new_connection();
-
-  socket = amqp_tcp_socket_new(conn);
-  if (!socket) {
-    fprintf(stderr, "Connection to RMQ server %s:%d failed\n", hostname, port);
-    return -1;
-  }
-
-  status = amqp_socket_open(socket, hostname, port);
-  if (status) {
-    fprintf(stderr, "Connection to RMQ server %s:%d Failed\n", hostname, port);
-    return -1;
-  }
-
-  die_on_amqp_error(amqp_login(conn, "/", 0, 131072, 0, AMQP_SASL_METHOD_PLAIN,
-			       "guest", "guest"), "Logging in");
-  syslog(LOG_INFO, "Established connection to RMQ server %s:%d\n", hostname, port);
-  /*
-  amqp_channel_open(conn, 1);
-  die_on_amqp_error(amqp_get_rpc_reply(conn), "Opening RPC channel");
-  
-  {
-    amqp_queue_declare_ok_t *r = amqp_queue_declare(conn, 1, amqp_cstring_bytes(get_dev_data()->hostname), 
-						    0, 0, 0, 1, amqp_empty_table);
-    die_on_amqp_error(amqp_get_rpc_reply(conn), "Declaring RPC queue");
-    rpc_queue = amqp_bytes_malloc_dup(r->queue);
-    if (rpc_queue.bytes == NULL) {
-      fprintf(stderr, "Out of memory while copying queue name");
-      return -1;
-    }
-  }
-  amqp_queue_bind(conn, 1, rpc_queue, amqp_cstring_bytes(exchange),
-                  amqp_cstring_bytes(get_dev_data()->hostname), amqp_empty_table);
-  die_on_amqp_error(amqp_get_rpc_reply(conn), "Binding RPC queue");
-  amqp_basic_consume(conn, 1, rpc_queue, amqp_empty_bytes, 0, 1, 0,
-                     amqp_empty_table);
-  die_on_amqp_error(amqp_get_rpc_reply(conn), "Consuming on RPC queue");
-  amqp_bytes_free(rpc_queue);
-  */
-
-  amqp_channel_open(conn, 2);
-  die_on_amqp_error(amqp_get_rpc_reply(conn), "Opening Send channel");
-  {
-    amqp_queue_declare_ok_t *r = amqp_queue_declare(conn, 2, amqp_cstring_bytes("response"), 
-						    0, 1, 0, 0, amqp_empty_table);
-    die_on_amqp_error(amqp_get_rpc_reply(conn), "Declaring response queue");
-    response_queue = amqp_bytes_malloc_dup(r->queue);
-    if (response_queue.bytes == NULL) {
-      fprintf(stderr, "Out of memory while copying queue name");
-      return -1;
-    }
-  }  
-  amqp_queue_bind(conn, 2, response_queue, amqp_cstring_bytes(exchange),
-                  amqp_cstring_bytes("response"), amqp_empty_table);
-  die_on_amqp_error(amqp_get_rpc_reply(conn), "Binding  response queue");
-
-  amqp_bytes_free(response_queue);
-
-  return amqp_socket_get_sockfd(socket);
-}
-
-void amqp_kill_connection()
-{
-    die_on_error(amqp_destroy_connection(conn), "Ending connection");
-}
+struct dict *jid_map;
+struct dict *uid_map;
 
 /* Process RPC */
 static int process_rpc(char *rpc)
@@ -127,12 +40,18 @@ static int process_rpc(char *rpc)
     fprintf(stderr, "RPC `%s': %s\n", rpc, json_tokener_error_desc(error));
     goto out;
   }
+  char host_name[32];
+  char jid[32];
+  char uid[32];
   json_object_object_foreach(rpc_json, key, val) {
+    if (strcmp(key, "hostname") == 0)
+      snprintf(hostname, sizeof(hostname), json_object_get_string(val));
     if (strcmp(key, "jid") == 0)
-      snprintf(get_dev_data()->jid, sizeof(get_dev_data()->jid), json_object_get_string(val));
+      snprintf(jid, sizeof(jid), json_object_get_string(val));
     if (strcmp(key, "user") == 0)
-      snprintf(get_dev_data()->user, sizeof(get_dev_data()->user), json_object_get_string(val));
+      snprintf(uid, sizeof(uid), json_object_get_string(val));
   }
+  printf("%s %s %s\n", hostname, jid, uid);
   rc = 1;
  out:
   if (rpc_json)
@@ -141,49 +60,7 @@ static int process_rpc(char *rpc)
   return rc;
 }
 
-// Collect and send data
-void amqp_send_data()      
-{  
-  json_object *message_json = json_object_new_object();
-  collect_devices(message_json);
-  //fprintf (stderr, "The json object created: %s\n",json_object_to_json_string(message_json));
-  if (amqp_basic_publish(conn, 2,
-			 amqp_cstring_bytes(exchange),
-			 amqp_cstring_bytes("response"),
-			 0, 0, &props,
-			 amqp_cstring_bytes(json_object_to_json_string(message_json))) < 0) {
-    syslog(LOG_ERR, "Connection to response queue failed. Reconnect.\n");
-    amqp_destroy_connection(conn);
-    amqp_setup_connection(port, hostname);
-  }
-  json_object_put(message_json);
-}
-
-// Receive and process rpc
-void amqp_rpc()
-{
-  amqp_rpc_reply_t res;
-  amqp_envelope_t envelope;
-  
-  amqp_maybe_release_buffers(conn);
-  struct timeval timeout;
-  timeout.tv_sec = 5;
-  timeout.tv_usec = 0;
-  res = amqp_consume_message(conn, &envelope, &timeout, 0);
-  if (AMQP_RESPONSE_NORMAL != res.reply_type) {
-    return;
-  }
-  syslog(LOG_ERR, "received rpc over amqp connection\n");
-  char *p = (char*)(envelope.message.body.bytes + envelope.message.body.len);
-  *p = '\0';
-  char *rpc = (char *)envelope.message.body.bytes;
-
-  if (process_rpc(rpc) > 0)
-    amqp_send_data();  
-  amqp_destroy_envelope(&envelope);
-
-}
-
+/* Socket is used by job_map_server to recieve job data */
 int sock_setup_connection(const char *port) 
 {
   int opt = 1;
@@ -192,10 +69,16 @@ int sock_setup_connection(const char *port)
   socklen_t addrlen = sizeof(addr);
   int fd = -1;
 
+  //if (dict_init(jid_map, 5) < 0)
+  //printf("failed to initialize jobid-to-node map;");
+  //if (dict_init(uid_map, 5) < 0)
+  //printf("failed to initialize user-to-node map;");
+
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = INADDR_ANY;
   addr.sin_port = htons(atoi(port));
-  syslog(LOG_INFO, "Initializing listen on local port: %s", port);
+  //syslog(LOG_INFO, "Initializing listen on local port: %s", port);
+  printf("Initializing listen on local port: %s\n", port);
 
   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {    
     syslog(LOG_INFO, "cannot initialize socket: %s\n", strerror(errno));
@@ -215,7 +98,8 @@ int sock_setup_connection(const char *port)
     close(sockfd);
     goto err;
   }
-  syslog(LOG_INFO, "Established listen on local port: %s", port);
+  //syslog(LOG_INFO, "Established listen on local port: %s", port);
+  printf("Established listen on local port: %s\n", port);
  err:
   return sockfd;
 }
@@ -243,15 +127,17 @@ void sock_rpc()
   char *p = request + strlen(request) - 1;
   *p = '\0';
 
-  if (process_rpc(request) > 0)
-    amqp_send_data();
+  if (process_rpc(request) < 0)
+    fprintf(stderr, "rpc processing failed: %s\n", strerror(errno));
 }
+
 
 void sock_send_data()
 {
   json_object *message_json = json_object_new_object();
-  collect_devices(message_json);
+  //collect_devices(message_json);
   fprintf(stderr, "The json object created: %s\n",json_object_to_json_string(message_json));
   int rv = send(sockfd, json_object_to_json_string(message_json), strlen(json_object_to_json_string(message_json)), 0);
   json_object_put(message_json);
 }
+
