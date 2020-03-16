@@ -20,19 +20,19 @@ void collect_devices(json_object *jobj)
     fprintf(stderr, "cannot clock_gettime(): %m\n");
   }
 
-  json_object *tags_json = json_object_new_object();
-  json_object_object_add(tags_json, "time", json_object_new_double(info->time.tv_sec + \
+  //json_object *tags_json = json_object_new_object();
+  json_object_object_add(jobj, "time", json_object_new_double(info->time.tv_sec + \
 								   1e-9*info->time.tv_nsec));
-  json_object_object_add(tags_json, "obdclass", json_object_new_string(info->class_str));
-  json_object_object_add(tags_json, "hostname", json_object_new_string(info->hostname));
-  json_object_object_add(tags_json, "nid", json_object_new_string(info->nid));
+  json_object_object_add(jobj, "obdclass", json_object_new_string(info->class_str));
+  json_object_object_add(jobj, "hostname", json_object_new_string(info->hostname));
+  json_object_object_add(jobj, "nid", json_object_new_string(info->nid));
 
   if (info->class == OSC) {
-    json_object_object_add(tags_json, "jid", json_object_new_string(info->jid));
-    json_object_object_add(tags_json, "uid", json_object_new_string(info->user));
+    json_object_object_add(jobj, "jid", json_object_new_string(info->jid));
+    json_object_object_add(jobj, "uid", json_object_new_string(info->uid));
   }
 
-  json_object_object_add(jobj, "tags", tags_json);  
+  //json_object_object_add(jobj, "tags", tags_json);  
   json_object *data_json = json_object_new_array();
   // SYSINFO    
   if (collect_sysinfo(data_json) < 0)

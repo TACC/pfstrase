@@ -83,7 +83,7 @@ static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
 static void sock_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
 {
   fprintf(log_stream, "collect and send data based on socket timer\n");
-  sock_send_data();
+  sock_send_data("10.1.1.1", "8888");
 }
 
 /* using amqp sockets */
@@ -198,9 +198,7 @@ int main(int argc, char *argv[])
   static struct ev_signal sigint;
   ev_signal_init(&sigint, signal_cb_int, SIGINT);
   ev_signal_start(EV_DEFAULT, &sigint);
-  //static struct ev_signal sigterm;
-  //ev_signal_init(&sigint, signal_cb_int, SIGTERM);
-  //ev_signal_start(EV_DEFAULT, &sigterm);
+
   static struct ev_signal sighup;
   ev_signal_init(&sighup, signal_cb_hup, SIGHUP);
   ev_signal_start(EV_DEFAULT, &sighup);
@@ -246,30 +244,30 @@ int main(int argc, char *argv[])
   ev_io sock_watcher;  
 
   /*  Setup persistent AMQP connection to RMQ server */
-  while (amqp_fd = amqp_setup_connection(port, server) < 0) sleep(60);
+  //while (amqp_fd = amqp_setup_connection(port, server) < 0) sleep(60);
   /* Setup persistent local listener to accept RPCs to socket */
-  sock_fd = sock_setup_connection("8888");  
+  //sock_fd = sock_setup_connection("8888");  
 
   /* Initialize timer routine to collect and send data */
-  ev_timer_init(&timer, amqp_timer_cb, 0.0, freq);   
+  ev_timer_init(&timer, sock_timer_cb, 0.0, freq);   
   /* Initialize callback to respond to RPCs sent through RMQ connections */
   //ev_io_init(&amqp_watcher, amqp_rpc_cb, amqp_fd, EV_READ);
   /* Initialize callback to respond to RPCs send to socekt */
-  ev_io_init(&sock_watcher, sock_rpc_cb, sock_fd, EV_READ);
+  //ev_io_init(&sock_watcher, sock_rpc_cb, sock_fd, EV_READ);
 
   ev_timer_start(EV_DEFAULT, &timer);
   //ev_io_start(EV_DEFAULT, &amqp_watcher);    
-  ev_io_start(EV_DEFAULT, &sock_watcher);    
+  //ev_io_start(EV_DEFAULT, &sock_watcher);    
   syslog(LOG_ERR, "Starting pfstrased with collection frequency %fs\n", freq);
   ev_run(EV_DEFAULT, 0);
 
   /* Clean up sockets and connections */
-  amqp_kill_connection();
+  //amqp_kill_connection();
 
-  if(amqp_fd)
-    close(amqp_fd);
-  if(sock_fd)
-    close(sock_fd);
+  //if(amqp_fd)
+  //  close(amqp_fd);
+  //if(sock_fd)
+  //close(sock_fd);
 
   /* Close log file, when it is used. */
   if (log_stream != stderr) {

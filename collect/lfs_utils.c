@@ -27,7 +27,7 @@ static void devices_discover(void) {
 
   snprintf(info.nid, sizeof(info.nid), "-");
   snprintf(info.jid, sizeof(info.jid), "-");  
-  snprintf(info.user, sizeof(info.user), "-");
+  snprintf(info.uid, sizeof(info.uid), "-");
 
   // Get hostname, device class, and time
   if (clock_gettime(CLOCK_REALTIME, &info.time) != 0) {
@@ -127,12 +127,12 @@ static void devices_discover(void) {
     goto err;
   }
   setvbuf(fd, procfs_buf, _IOFBF, sizeof(procfs_buf));
-
+  /*
   if (dict_init(&info.nid_jid_dict, 0) < 0) {
     fprintf(stderr, "cannot create nid_jid_dict: %m\n");
     goto err;  
   }
-
+  
   char jobid[16];
   snprintf(jobid, sizeof(jobid), "-");
   while(getline(&line_buf, &line_buf_size, fd) >= 0) {
@@ -152,7 +152,7 @@ static void devices_discover(void) {
   char *n;
   while ((n = dict_for_each(&info.nid_jid_dict, &i)) != NULL)
     printf("%d nid `%s', jid `%s'\n", i, n, dict_get(&info.nid_jid_dict, n));
-
+  */
  err:
   if (fd != NULL)
     fclose(fd);  	

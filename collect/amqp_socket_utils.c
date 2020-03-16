@@ -130,7 +130,7 @@ static int process_rpc(char *rpc)
     if (strcmp(key, "jid") == 0)
       snprintf(get_dev_data()->jid, sizeof(get_dev_data()->jid), json_object_get_string(val));
     if (strcmp(key, "user") == 0)
-      snprintf(get_dev_data()->user, sizeof(get_dev_data()->user), json_object_get_string(val));
+      snprintf(get_dev_data()->uid, sizeof(get_dev_data()->uid), json_object_get_string(val));
   }
   rc = 1;
  out:

@@ -66,11 +66,6 @@ static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
   fprintf(log_stream, "update map based on sock rpc\n");
   sock_rpc();
 }
-static void sock_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
-{
-  fprintf(log_stream, "collect and send data based on socket timer\n");
-  sock_send_data();
-}
 
 /* Signal Callbacks for SIGINT (terminate) and SIGHUP (reload conf file) */
 static void signal_cb_int(EV_P_ ev_signal *sig, int revents)
@@ -179,12 +174,11 @@ int main(int argc, char *argv[])
   int sock_fd;
   ev_io sock_watcher;  
 
-  sock_fd = sock_setup_connection("80");  
+  sock_fd = socket_listen("8888");  
   /* Initialize callback to respond to RPCs sent to socekt */
   ev_io_init(&sock_watcher, sock_rpc_cb, sock_fd, EV_READ);
-  printf("here\n");  
   ev_io_start(EV_DEFAULT, &sock_watcher);    
-  fprintf(stderr, "Starting map_server\n", freq);
+  fprintf(stderr, "Starting map_server\n");
   ev_run(EV_DEFAULT, 0);
 
   if(sock_fd)
