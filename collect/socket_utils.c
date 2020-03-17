@@ -164,42 +164,51 @@ void sock_rpc()
     return;
   }
 
-  //char *p = request + strlen(request) - 1;
-  //*p = '\0';
-
   if (process_rpc(request) < 0)
     fprintf(stderr, "rpc processing failed: %s\n", strerror(errno));
 }
 
 
-void sock_send_data(const char *address, const char *port)
+void sock_send_data(const char *dn, const char *port)
 {
   
   int server_socket;
+
+  struct addrinfo *result;
+  struct addrinfo hints; 
+  struct sockaddr_in *saddr_in;    
+
+  memset(&hints, 0, sizeof(struct addrinfo));  
+  hints.ai_family = AF_INET;
+
+  if(getaddrinfo(dn, NULL, &hints, &result) != 0) {
+    syslog(LOG_INFO, "getaddrinfo:: %s\n", strerror(errno));
+    goto err;
+  }
+
+  saddr_in = (struct sockaddr_in *) result->ai_addr;
+  saddr_in->sin_port = htons(atoi(port));
+
   if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
     syslog(LOG_INFO, "cannot intialize socket for send: %s\n", 
 	   strerror(errno));
     goto err;
   }
-  struct sockaddr_in socket_address;
-  socket_address.sin_family = AF_INET;
-  socket_address.sin_port = htons(atoi(port));
-  if (inet_pton(AF_INET, address, &socket_address.sin_addr) <= 0)
-    syslog(LOG_INFO, "cannot intialize socket for send: %s\n", 
-	   strerror(errno));
-  if (connect(server_socket, (struct sockaddr*)&socket_address, sizeof(socket_address)) == -1) {
-    syslog(LOG_INFO, "cannot connect to address %s for send: %s\n", address, 
+
+  if (connect(server_socket, (struct sockaddr *)saddr_in, sizeof(*saddr_in)) == -1) {
+    syslog(LOG_INFO, "cannot connect to address %s port %s for send: %s\n", dn, port, 
 	   strerror(errno));
   }
   
   json_object *message_json = json_object_new_object();
   collect_devices(message_json);
-  fprintf(stderr, "The json object created: %s\n",
-	  json_object_to_json_string(message_json));
+  //fprintf(stderr, "The json object created: %s\n",
+  //	  json_object_to_json_string(message_json));
   int rv = send(server_socket, json_object_to_json_string(message_json), 
 		strlen(json_object_to_json_string(message_json)), 0);
   json_object_put(message_json);
 
+  freeaddrinfo(result);
  err:
   return;
 }

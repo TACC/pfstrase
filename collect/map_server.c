@@ -15,8 +15,7 @@ static char *app_name = NULL;
 static char *conf_file_name = NULL;
 static FILE *log_stream = NULL;
 
-static char *server = NULL;
-static port = 5672;
+static char *port = "8213";
 static double freq = 300;
 
 static ev_timer timer;
@@ -46,8 +45,8 @@ int read_conf_file()
       continue;
     if (strcmp(key, "port") == 0) {
       line[strlen(line) - 1] = '\0';
-      port = atoi(line);
-      fprintf(log_stream, "%s: Setting server port to %d based on file %s\n",
+      port = strdup(line);
+      fprintf(log_stream, "%s: Setting server port to %s based on file %s\n",
 	      app_name, port, conf_file_name);
     }
     if (strcmp(key, "frequency") == 0) {  
@@ -97,11 +96,10 @@ static void usage(void)
           "Mandatory arguments to long options are mandatory for short options too.\n"
           "  -h, --help                 display this help and exit\n"
 	  "  -d --daemon                Run in daemon mode\n"
-          "  -s --server    [SERVER]    Server to send data.\n"
           "  -f --frequency [FREQUENCY] Frequency to sample.\n"
 	  "  -c --conf_file [FILENAME]  Read configuration from the file\n"
 	  "  -l --log_file  [FILENAME]  Write logs to the file\n"
-	  "  -p --pid_file  [FILENAME]  PID file used in daemon mode.\n"
+	  "  -p --port      [PORT]      Port to listen on.\n"
           ,
           program_invocation_short_name);
 }
@@ -110,6 +108,7 @@ int main(int argc, char *argv[])
 {
   int daemonmode = 0;
   char *log_file_name = NULL;
+  char *pid_file_name = NULL;
   app_name = argv[0];
 
   struct option opts[] = {
@@ -118,7 +117,7 @@ int main(int argc, char *argv[])
     { "freq ",  required_argument, 0, 'f' },
     {"conf_file", required_argument, 0, 'c'},
     {"log_file", required_argument, 0, 'l'},
-    {"pid_file", required_argument, 0, 'p'},
+    {"port", required_argument, 0, 'p'},
     { NULL,     0, 0, 0 },
   };
 
@@ -138,7 +137,7 @@ int main(int argc, char *argv[])
       log_file_name = strdup(optarg);
       break;
     case 'p':
-      pid_file_name = strdup(optarg);
+      port = strdup(optarg);
       break;
     case 'h':
       usage();
@@ -156,7 +155,7 @@ int main(int argc, char *argv[])
   }
   log_stream = stderr;  
   //openlog(argv[0], LOG_PID|LOG_CONS, LOG_DAEMON);
-  fprintf(log_stream, "Started %s", app_name);
+  fprintf(log_stream, "Started %s\n", app_name);
 
   /* Setup signal callbacks to stop map_server or reload conf file */
   signal(SIGPIPE, SIG_IGN);
@@ -173,8 +172,8 @@ int main(int argc, char *argv[])
 
   int sock_fd;
   ev_io sock_watcher;  
-
-  sock_fd = socket_listen("8888");  
+  printf("%s\n",port);
+  sock_fd = socket_listen(port);  
   /* Initialize callback to respond to RPCs sent to socekt */
   ev_io_init(&sock_watcher, sock_rpc_cb, sock_fd, EV_READ);
   ev_io_start(EV_DEFAULT, &sock_watcher);    
