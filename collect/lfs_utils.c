@@ -92,10 +92,12 @@ static void devices_discover(void) {
       break;
     }
   }
-  if (fd != NULL)
-    fclose(fd);  	
 
+  fclose(fd);
+  fd = NULL;
+  
   // Get local nid
+  
   if (fd = fopen("/sys/kernel/debug/lnet/nis", "r")) {
     strcpy(nid_path, "/sys/kernel/debug/lnet/nis");
     strcpy(peers_path, "/sys/kernel/debug/lnet/peers");
@@ -108,7 +110,7 @@ static void devices_discover(void) {
     fprintf(stderr, "cannot open %s: %m\n", nid_path);
     goto err;
   }
-
+  
   setvbuf(fd, procfs_buf, _IOFBF, sizeof(procfs_buf));
   char nid[32];
   while(getline(&line_buf, &line_buf_size, fd) >= 0) {
@@ -120,40 +122,13 @@ static void devices_discover(void) {
     }
   }
 
-  // Get peer nids and make nid to jobid map
-  fd = fopen(peers_path, "r");
-  if (fd == NULL) {
-    fprintf(stderr, "cannot open %s: %m\n", peers_path);
-    goto err;
-  }
-  setvbuf(fd, procfs_buf, _IOFBF, sizeof(procfs_buf));
-  /*
-  if (dict_init(&info.nid_jid_dict, 0) < 0) {
-    fprintf(stderr, "cannot create nid_jid_dict: %m\n");
-    goto err;  
-  }
-  
-  char jobid[16];
-  snprintf(jobid, sizeof(jobid), "-");
-  while(getline(&line_buf, &line_buf_size, fd) >= 0) {
-    char *line = line_buf;
-    int n = sscanf(line, "%s %*s", &nid);
-    if (strstr(nid, "@o2ib") != NULL) {    
-      dict_add(&info.nid_jid_dict, nid, jobid);
-    }
-  }
-  
-  if (line_buf != NULL) 
-    free(line_buf);
-  fprintf(stdout, "device type/class/nid: %s/%d/%s\n",
-	  info.class_str, info.class, info.nid);
-  
-  size_t i = 0;
-  char *n;
-  while ((n = dict_for_each(&info.nid_jid_dict, &i)) != NULL)
-    printf("%d nid `%s', jid `%s'\n", i, n, dict_get(&info.nid_jid_dict, n));
-  */
+  fclose(fd);
+  fd = NULL;
+ 
  err:
+  if (line_buf != NULL)
+    free(line_buf);
+
   if (fd != NULL)
     fclose(fd);  	
 }

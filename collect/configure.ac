@@ -9,8 +9,8 @@ AC_CHECK_HEADERS([ev.h], [ev=true], [AC_MSG_ERROR([Failed to find header ev.h])]
 AC_SEARCH_LIBS([amqp_new_connection], [rabbitmq], [librabbitmq=yes], [librabbitmq=no])
 AC_CHECK_HEADERS([amqp.h], [amqp=true], [AC_MSG_ERROR([Failed to find header amqp.h])])
 
-AC_SEARCH_LIBS([json_object_new_object], [json-c], [libjson=yes], [libjson=no])
-AC_CHECK_HEADERS([json/json.h], [json=true], [AC_MSG_ERROR([Failed to find header json.h])])
+AC_SEARCH_LIBS([json_object_new_object], [json-c12], [libjson=yes], [libjson=no])
+AC_CHECK_HEADERS([json-c12/json.h], [json=true], [AC_MSG_ERROR([Failed to find header json.h])])
 
 PKG_PROG_PKG_CONFIG
 AC_ARG_WITH([systemduserunitdir],

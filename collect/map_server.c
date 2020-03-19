@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <ev.h>
 #include <string.h>
-#include <syslog.h>
 #include "socket_utils.h"
 #include "daemonize.h"
 
@@ -70,6 +69,7 @@ static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
 static void signal_cb_int(EV_P_ ev_signal *sig, int revents)
 {
     fprintf(log_stream, "Stopping map_server\n");
+    socket_destroy();
     if (pid_fd != -1) {
       lockf(pid_fd, F_ULOCK, 0);
       close(pid_fd);
@@ -154,7 +154,6 @@ int main(int argc, char *argv[])
     daemonize();
   }
   log_stream = stderr;  
-  //openlog(argv[0], LOG_PID|LOG_CONS, LOG_DAEMON);
   fprintf(log_stream, "Started %s\n", app_name);
 
   /* Setup signal callbacks to stop map_server or reload conf file */
@@ -172,14 +171,14 @@ int main(int argc, char *argv[])
 
   int sock_fd;
   ev_io sock_watcher;  
-  printf("%s\n",port);
+
   sock_fd = socket_listen(port);  
   /* Initialize callback to respond to RPCs sent to socekt */
   ev_io_init(&sock_watcher, sock_rpc_cb, sock_fd, EV_READ);
   ev_io_start(EV_DEFAULT, &sock_watcher);    
-  fprintf(stderr, "Starting map_server\n");
+  fprintf(log_stream, "Starting map_server listening on port %s\n", port);
   ev_run(EV_DEFAULT, 0);
-
+  
   if(sock_fd)
     close(sock_fd);
 
@@ -190,7 +189,7 @@ int main(int argc, char *argv[])
 
   /* Write system log and close it. */
   fprintf(log_stream, "Stopped %s", app_name);
-  //closelog();
+
   /* Free up names of files */
   if (conf_file_name != NULL) free(conf_file_name);
   if (log_file_name != NULL) free(log_file_name);

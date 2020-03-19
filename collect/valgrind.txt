@@ -1,0 +1,6 @@
+==29254== Memcheck, a memory error detector
+==29254== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+==29254== Using Valgrind-3.13.0 and LibVEX; rerun with -h for copyright info
+==29254== Command: ./map_server
+==29254== Parent PID: 29251
+==29254== 

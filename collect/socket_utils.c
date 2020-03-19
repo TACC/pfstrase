@@ -17,28 +17,98 @@ static int port;
 int sockfd;
 
 #define OOM() fprintf(stderr, "cannot allocate memory\n");
+#define printf_json(json) printf(">>> %s\n", json_object_get_string(json));
 
-/* Get stat of stats_type for host */
-static int stats_get(json_object *h_json, const char *stats_type, json_object **stats_json)
-{
-  int rc = 0;
+/* Map client nids of servers to jids and uids */
+static int map_stats() {
+  int rc = -1;
   int arraylen;
   int j;
-  json_object *data;
+  json_object *obd_tag;
+      
+  printf("Updating export map\n");
+  json_object_object_foreach(host_map, key, host_entry) {    
+    if (json_object_object_get_ex(host_map, "obdclass", &obd_tag))
+      if ((strcmp("mds", json_object_get_string(obd_tag)) != 0) &&	\
+	  (strcmp("oss", json_object_get_string(obd_tag)) != 0))
+	continue;
+  
+    json_object *data_array;
+    if (!json_object_object_get_ex(host_entry, "data", &data_array))
+      continue;
 
-  if (json_object_object_get_ex(h_json, "data", &data)) {
-    arraylen = json_object_array_length(data);
+    arraylen = json_object_array_length(data_array);
+    json_object *data_json;
+    json_object *client_nid;
+    json_object *hostname_tag;	
     for (j = 0; j < arraylen; j++) {
-      json_object *data_json = json_object_array_get_idx(data, j);
-      json_object *stats_type_json;
-      if (json_object_object_get_ex(data_json, "stats_type", &stats_type_json) && \
-	  (strcmp(json_object_get_string(stats_type_json), stats_type) == 0))
-	if (json_object_object_get_ex(data_json, "stats", stats_json))
-	  rc = 1;             
-    }
-  }  
+      data_json = json_object_array_get_idx(data_array, j);
+      if (!json_object_object_get_ex(data_json, "client_nid", &client_nid))
+	  continue;
+      if (!json_object_object_get_ex(nid_map, json_object_get_string(client_nid), &hostname_tag))
+	continue;
 
+      json_object_object_add(data_json, "client", json_object_get(hostname_tag));
+      json_object *entry_json;
+      if (json_object_object_get_ex(host_map, json_object_get_string(hostname_tag), &entry_json)) {
+	json_object *jid, *uid;
+	if (json_object_object_get_ex(entry_json, "jid", &jid))
+	  json_object_object_add(data_json, "jid", json_object_get(jid));
+	if (json_object_object_get_ex(entry_json, "uid", &uid))
+	  json_object_object_add(data_json, "uid", json_object_get(uid));
+      }
+    }
+  }
+  printf("Updating export map done\n");
+  rc = 1;
+ out:
   return rc;
+}
+
+static int print_exports_map() {
+  int rc = -1;
+  int arraylen;
+  int j;
+  json_object *obd_tag;
+  json_object *client, *jid, *uid, *stats_type, *target;
+  
+  printf("---------------Exports map--------------------\n");
+  printf("%20s : %10s %10s %10s %10s %20s\n", "server", "client", "jobid", "user", "stats_type", "target");
+  json_object_object_foreach(host_map, key, host_entry) {    
+    if (json_object_object_get_ex(host_map, "obdclass", &obd_tag))
+      if ((strcmp("mds", json_object_get_string(obd_tag)) != 0) &&	\
+	  (strcmp("oss", json_object_get_string(obd_tag)) != 0))
+	continue;
+    json_object *data_array;
+    if (!json_object_object_get_ex(host_entry, "data", &data_array))
+      continue;
+
+    arraylen = json_object_array_length(data_array);
+    for (j = 0; j < arraylen; j++) {
+      json_object *data_json = json_object_array_get_idx(data_array, j);
+      if ((!json_object_object_get_ex(data_json, "client", &client)) ||
+	  (!json_object_object_get_ex(data_json, "jid", &jid)) ||	   
+	  (!json_object_object_get_ex(data_json, "uid", &uid)))
+	continue;
+
+      json_object_object_get_ex(data_json, "stats_type", &stats_type);
+      json_object_object_get_ex(data_json, "target", &target);
+
+      printf("%20s : %10s %10s %10s %10s %20s\n", key, json_object_get_string(client), 
+	     json_object_get_string(jid), json_object_get_string(uid), 
+	     json_object_get_string(stats_type), json_object_get_string(target));
+    }
+  }
+  rc = 1;
+ out:
+  return rc;
+}
+
+static void print_nid_map() {
+  printf("--------------nids map------------------------\n");
+  printf("%20s : %10s\n", "nid", "host");
+  json_object_object_foreach(nid_map, key, val)
+    printf("%20s : %10s\n", key, json_object_get_string(val)); 
 }
 
 /* Process RPC */
@@ -47,6 +117,7 @@ static int process_rpc(char *rpc)
   int rc = -1;
   json_object *rpc_json = NULL;
   char hostname[32];
+  char nid[32];
 
   //fprintf(stderr, "RPC %s\n", rpc);
   if (rpc[0] != '{') {
@@ -61,46 +132,68 @@ static int process_rpc(char *rpc)
     goto out;
   }
 
-  json_object *tmp;
-  if (json_object_object_get_ex(rpc_json, "hostname", &tmp)) {
-    snprintf(hostname, sizeof(hostname), "%s", json_object_get_string(tmp)); 
-    json_object_object_del(rpc_json, "hostname");   
-    json_object_object_add(host_json, hostname, rpc_json);
+  json_object *hostname_tag;
+  if (json_object_object_get_ex(rpc_json, "hostname", &hostname_tag)) {
+    snprintf(hostname, sizeof(hostname), "%s", json_object_get_string(hostname_tag));  
+
+    json_object *nid_tag;
+    if (json_object_object_get_ex(rpc_json, "nid", &nid_tag))
+      json_object_object_add(nid_map, json_object_get_string(nid_tag), json_object_new_string(hostname));
+
+    if (!json_object_object_get_ex(host_map, hostname, &hostname_tag)) {
+      json_object *entry_json = json_object_new_object();
+      json_object_object_add(entry_json, "jid", json_object_new_string("-"));
+      json_object_object_add(entry_json, "uid", json_object_new_string("-"));
+      json_object_object_add(host_map, hostname, entry_json);
+    }
   }
-  else 
+  else
     goto out;
 
-  printf("%10s %10s %10s %20s\n", "CLIENT", "JOBID", "USER", "SYSINFO");
-  /* Iterate through hosts in the json */
-  json_object_object_foreach(host_json, key, val) {
-    json_object *jid;
-    json_object *uid;
-    
-    if (!json_object_object_get_ex(val, "jid", &jid)) {
-      json_object_object_add(val, "jid", json_object_new_string("-"));
-      json_object_object_get_ex(val, "jid", &jid);
-    }
-    if (!json_object_object_get_ex(val, "uid", &uid)) {
-      json_object_object_add(val, "uid", json_object_new_string("-"));
-      json_object_object_get_ex(val, "uid", &uid);
-    }
+  printf_json(nid_map);
 
-    /* Get sysinfo for host */
-    json_object *sysinfo_json; 
-    if (stats_get(val, "sysinfo", &sysinfo_json))
-	printf("%10s %10s %10s %20s\n", key, json_object_get_string(jid), 
-	       json_object_get_string(uid), json_object_get_string(sysinfo_json));
-    else
-      printf("%10s %10s %10s\n", key, json_object_get_string(jid), json_object_get_string(uid));
+  json_object *entry_json;
+  if (json_object_object_get_ex(host_map, hostname, &entry_json)) {
+
+    json_object *jid, *uid, *obdclass, *data;
+    if (json_object_object_get_ex(rpc_json, "jid", &jid))
+      json_object_object_add(entry_json, "jid", json_object_get(jid));
+
+    if (json_object_object_get_ex(rpc_json, "uid", &uid))
+      json_object_object_add(entry_json, "uid", json_object_get(uid));
+
+    if (json_object_object_get_ex(rpc_json, "obdclass", &obdclass))
+      json_object_object_add(entry_json, "obdclass", json_object_get(obdclass));
+
+    if (json_object_object_get_ex(rpc_json, "data", &data))
+      json_object_object_add(entry_json, "data", json_object_get(data));
+
+    map_stats();
   }
-
+  //json_object_put(entry_json);
+  print_nid_map();
+  print_exports_map();
+  //print_hosts_stats("mds");
   rc = 1;
-
+  
  out:
-  //if (rpc_json)
-  //json_object_put(rpc_json);
-  //printf("after %s\n", json_object_to_json_string_ext(host_json, JSON_C_TO_STRING_PRETTY));
+  if (rpc_json)
+    json_object_put(rpc_json);
+
   return rc;
+}
+
+static void map_destroy() {
+  if (host_map)
+    json_object_put(host_map);
+  if (nid_map)
+    json_object_put(nid_map);
+}
+
+int socket_destroy() {
+  close(sockfd);
+  map_destroy();
+  return 0;
 }
 
 /* Socket is used by map_server to receive job data */
@@ -112,7 +205,8 @@ int socket_listen(const char *port)
   socklen_t addrlen = sizeof(addr);
   int fd = -1;
 
-  host_json = json_object_new_object();
+  host_map = json_object_new_object();
+  nid_map = json_object_new_object();
 
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = INADDR_ANY;
@@ -202,8 +296,6 @@ void sock_send_data(const char *dn, const char *port)
   
   json_object *message_json = json_object_new_object();
   collect_devices(message_json);
-  //fprintf(stderr, "The json object created: %s\n",
-  //	  json_object_to_json_string(message_json));
   int rv = send(server_socket, json_object_to_json_string(message_json), 
 		strlen(json_object_to_json_string(message_json)), 0);
   json_object_put(message_json);

@@ -3,7 +3,7 @@
   remote_user: root
   tasks:
   - name: set job 201 and user 3
-    shell: 'echo {\"jid\" : \"201\", \"user\" : \"test3\"} | nc localhost 8888'
+    shell: echo '{hostname: "c0", "jid" : "201", "user" : "test3"}' | nc c1 8312
   - name: start io workload 1
     shell: echo 1 > /proc/sys/vm/drop_caches; /usr/lib64/compat-openmpi16/bin/mpirun -np 16 -wd /blue/testingdir /root/ior/bin/ior -t 16m -s 16 -b 32m -C -e -i 5 -m -o testfile1
 
@@ -11,13 +11,18 @@
   remote_user: root
   tasks:
   - name: reset job and user
-    shell: 'echo {\"jid\" : \"-\", \"user\" : \"-\"} | nc localhost 8888'
+    shell: 'echo \'{hostname: "c0", "jid" : "-", "user" : "-"}\' | nc c1 8312'
+  - name: reset job and user
+    shell: 'echo \'{hostname: "c1", "jid" : "-", "user" : "-"}\' | nc c1 8312'
 
 - hosts: c0, c1
   remote_user: root
   tasks:
   - name: set job and user
-    shell: 'echo {\"jid\" : \"301\", \"user\" : \"test4\"} | nc localhost 8888'
+    shell: 'echo \'{hostname: "c0", "jid" : "301", "user" : "test4"}\' | nc c1 8312'
+  - name: set job and user
+    shell: 'echo \'{hostname: "c1", "jid" : "301", "user" : "test4"}\' | nc c1 8312'
+
 
 - hosts: c0
   remote_user: root
@@ -29,24 +34,27 @@
   remote_user: root
   tasks:
   - name: reset job and user
-    shell: 'echo {\"jid\" : \"-\", \"user\" : \"-\"} | nc localhost 8888'
+    shell: 'echo \'{hostname: "c1", "jid" : "-", "user" : "-"}\' | nc c1 8312'
+  - name: reset job and user
+    shell: 'echo \'{hostname: "c0", "jid" : "-", "user" : "-"}\' | nc c1 8312'
+
 
 - hosts: c0,c1
   remote_user: root
   tasks:
   - name: set jid and uid
-    shell: 'echo {\"jid\" : \"101\", \"user\" : \"test1\"} | nc localhost 8888'
+    shell: 'echo {"jid" : "101", "user" : "test1"} | nc c1 8312'
   - name: start io workload 3
     shell: echo 1 > /proc/sys/vm/drop_caches; /usr/lib64/compat-openmpi16/bin/mpirun -np 24 -wd /blue/testingdir /root/ior/bin/ior -t 16m -s 32 -b 32m -C -e -o testfile3
   - name: reset job and user
-    shell: 'echo {\"jid\" : \"-\", \"user\" : \"-\"} | nc localhost 8888'
+    shell: 'echo {"jid" : "-", "user" : "-"} | nc c1 8312'
 
 - hosts: c0,c1
   remote_user: root
   tasks:
   - name: set jid and uid
-    shell: 'echo {\"jid\" : \"touch\", \"user\" : \"metadatauser\"} | nc localhost 8888'
+    shell: 'echo {"jid" : "touch", "user" : "metadatauser"} | nc c1 8312'
   - name: start io workload 4
     shell: touch /blue/lotsoffiles/bspl{0001..50000}.c; ls /blue/lotsoffiles 
   - name: reset job and user
-    shell: 'echo {\"jid\" : \"-\", \"user\" : \"-\"} | nc localhost 8888'
+    shell: 'echo {"jid" : "-", "user" : "-"} | nc c1 8312'
