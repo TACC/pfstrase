@@ -19,51 +19,120 @@ int sockfd;
 #define OOM() fprintf(stderr, "cannot allocate memory\n");
 #define printf_json(json) printf(">>> %s\n", json_object_get_string(json));
 
+static void print_server_tag_map(const char *tag) {  
+  printf("---------------server client map--------------------\n");
+  printf("%10s : %10s %20s\n", "server", tag, "data");
+  json_object_object_foreach(server_client_map, servername, server_entry) {    
+    json_object_object_foreach(server_entry, clientname, client_entry) {    
+      printf("%10s : %10s %20s\n", servername, clientname, json_object_get_string(client_entry));
+    }
+  }
+}
+
+static int groupbytag(const char *tag) {
+  int rc = -1;
+  int arraylen;
+  int j;
+  json_object *obd_tag, *data_array, *data_json;
+
+  json_object *tid;
+
+  json_object_object_foreach(host_map, key, host_entry) {    
+    if (json_object_object_get_ex(host_entry, "obdclass", &obd_tag)) {
+      if ((strcmp("mds", json_object_get_string(obd_tag)) != 0) &&	\
+	  (strcmp("oss", json_object_get_string(obd_tag)) != 0))
+	continue;
+    }
+    else
+      continue;
+
+    if (!json_object_object_get_ex(host_entry, "data", &data_array))
+      continue;
+
+    json_object *client_entry = json_object_new_object();
+    arraylen = json_object_array_length(data_array);
+    for (j = 0; j < arraylen; j++) {
+      data_json = json_object_array_get_idx(data_array, j);
+      json_object *stats_type;
+      if (json_object_object_get_ex(data_json, "stats_type", &stats_type)) {
+	if ((strcmp("mds", json_object_get_string(stats_type)) != 0) &&	\
+	    (strcmp("oss", json_object_get_string(stats_type)) != 0))
+	  continue;
+      }
+      else 
+	continue;
+
+      if (!json_object_object_get_ex(data_json, tag, &tid))
+	continue;     
+      json_object *stats_json;
+      if (!json_object_object_get_ex(data_json, "stats", &stats_json))
+	continue;
+      //printf(key); printf_json(tid); printf_json(stats_json);
+      json_object *client_stats;
+      if (!json_object_object_get_ex(client_entry, json_object_get_string(tid), &client_stats))
+	client_stats = json_object_new_object();
+      
+      json_object_object_foreach(stats_json, event, newval) {
+	  json_object *oldval;
+	  if (json_object_object_get_ex(client_stats, event, &oldval))
+	    json_object_object_add(client_stats, event,  
+				   json_object_new_int64(json_object_get_int64(oldval) + \
+							 json_object_get_int64(newval)));
+	  else 
+	    json_object_object_add(client_stats, event, json_object_get(newval));  
+      }
+
+      json_object_object_add(client_entry, json_object_get_string(tid), json_object_get(client_stats));
+    }	
+    json_object_object_add(server_client_map, key, json_object_get(client_entry));
+  }  
+  print_server_tag_map(tag);
+}
+
 /* Map client nids of servers to jids and uids */
 static int map_stats() {
   int rc = -1;
   int arraylen;
   int j;
-  json_object *obd_tag;
-      
-  printf("Updating export map\n");
+  json_object *obd_tag, *data_array, *data_json;
+  json_object *client_nid, *nid_entry;
+  json_object *hid, *jid, *uid;
+
   json_object_object_foreach(host_map, key, host_entry) {    
-    if (json_object_object_get_ex(host_map, "obdclass", &obd_tag))
+    if (json_object_object_get_ex(host_entry, "obdclass", &obd_tag)) {
       if ((strcmp("mds", json_object_get_string(obd_tag)) != 0) &&	\
 	  (strcmp("oss", json_object_get_string(obd_tag)) != 0))
 	continue;
-  
-    json_object *data_array;
+    }
+    else 
+      continue;
+
     if (!json_object_object_get_ex(host_entry, "data", &data_array))
       continue;
 
     arraylen = json_object_array_length(data_array);
-    json_object *data_json;
-    json_object *client_nid;
-    json_object *hostname_tag;	
     for (j = 0; j < arraylen; j++) {
       data_json = json_object_array_get_idx(data_array, j);
-      if (!json_object_object_get_ex(data_json, "client_nid", &client_nid))
-	  continue;
-      if (!json_object_object_get_ex(nid_map, json_object_get_string(client_nid), &hostname_tag))
-	continue;
-
-      json_object_object_add(data_json, "client", json_object_get(hostname_tag));
-      json_object *entry_json;
-      if (json_object_object_get_ex(host_map, json_object_get_string(hostname_tag), &entry_json)) {
-	json_object *jid, *uid;
-	if (json_object_object_get_ex(entry_json, "jid", &jid))
+      if ((json_object_object_get_ex(data_json, "client_nid", &client_nid)) && \
+	  (json_object_object_get_ex(nid_map, json_object_get_string(client_nid), &nid_entry))) {
+	if (json_object_object_get_ex(nid_entry, "hid", &hid))
+	  json_object_object_add(data_json, "client", json_object_get(hid));
+	if (json_object_object_get_ex(nid_entry, "jid", &jid))
 	  json_object_object_add(data_json, "jid", json_object_get(jid));
-	if (json_object_object_get_ex(entry_json, "uid", &uid))
+	if (json_object_object_get_ex(nid_entry, "uid", &uid))
 	  json_object_object_add(data_json, "uid", json_object_get(uid));
       }
     }
   }
-  printf("Updating export map done\n");
   rc = 1;
+  groupbytag("client");
+  groupbytag("jid");
+  groupbytag("uid");
  out:
   return rc;
 }
+
+
 
 static int print_exports_map() {
   int rc = -1;
@@ -106,9 +175,13 @@ static int print_exports_map() {
 
 static void print_nid_map() {
   printf("--------------nids map------------------------\n");
-  printf("%20s : %10s\n", "nid", "host");
-  json_object_object_foreach(nid_map, key, val)
-    printf("%20s : %10s\n", key, json_object_get_string(val)); 
+  printf("%20s : %10s %10s %10s\n", "nid", "host", "jid", "uid");
+  json_object *hid, *jid, *uid;
+  json_object_object_foreach(nid_map, key, val) {
+    if ((json_object_object_get_ex(val, "hid", &hid)) && (json_object_object_get_ex(val, "jid", &jid)) && (json_object_object_get_ex(val, "uid", &uid)))
+      printf("%20s : %10s %10s %10s\n", key, json_object_get_string(hid), 
+	     json_object_get_string(jid), json_object_get_string(uid)); 
+  }
 }
 
 /* Process RPC */
@@ -132,15 +205,13 @@ static int process_rpc(char *rpc)
     goto out;
   }
 
+  /* If hostname is not in the rpc it is not valid so return */
   json_object *hostname_tag;
   if (json_object_object_get_ex(rpc_json, "hostname", &hostname_tag)) {
     snprintf(hostname, sizeof(hostname), "%s", json_object_get_string(hostname_tag));  
-
-    json_object *nid_tag;
-    if (json_object_object_get_ex(rpc_json, "nid", &nid_tag))
-      json_object_object_add(nid_map, json_object_get_string(nid_tag), json_object_new_string(hostname));
-
-    if (!json_object_object_get_ex(host_map, hostname, &hostname_tag)) {
+    /* init host_entry of hostmap if does not exist */
+    json_object *hostname_entry;
+    if (!json_object_object_get_ex(host_map, hostname, &hostname_entry)) {
       json_object *entry_json = json_object_new_object();
       json_object_object_add(entry_json, "jid", json_object_new_string("-"));
       json_object_object_add(entry_json, "uid", json_object_new_string("-"));
@@ -150,12 +221,14 @@ static int process_rpc(char *rpc)
   else
     goto out;
 
-  printf_json(nid_map);
-
+  /* update hostname_entry if tags or data are present in rpc */
   json_object *entry_json;
   if (json_object_object_get_ex(host_map, hostname, &entry_json)) {
 
-    json_object *jid, *uid, *obdclass, *data;
+    json_object *hid, *jid, *uid, *nid, *obdclass, *data;
+    if (json_object_object_get_ex(rpc_json, "hostname", &hid))
+      json_object_object_add(entry_json, "hid", json_object_get(hid));
+
     if (json_object_object_get_ex(rpc_json, "jid", &jid))
       json_object_object_add(entry_json, "jid", json_object_get(jid));
 
@@ -168,12 +241,14 @@ static int process_rpc(char *rpc)
     if (json_object_object_get_ex(rpc_json, "data", &data))
       json_object_object_add(entry_json, "data", json_object_get(data));
 
+    if (json_object_object_get_ex(rpc_json, "nid", &nid))
+      json_object_object_add(nid_map, json_object_get_string(nid), json_object_get(entry_json));
+
     map_stats();
   }
-  //json_object_put(entry_json);
-  print_nid_map();
+
+  //print_nid_map();
   print_exports_map();
-  //print_hosts_stats("mds");
   rc = 1;
   
  out:
@@ -207,6 +282,10 @@ int socket_listen(const char *port)
 
   host_map = json_object_new_object();
   nid_map = json_object_new_object();
+
+  server_client_map = json_object_new_object();
+  server_jid_map = json_object_new_object();
+  server_uid_map = json_object_new_object();
 
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = INADDR_ANY;

@@ -10,5 +10,8 @@ void sock_send_data(const char *addr, const char *port);
 
 json_object *host_map;
 json_object *nid_map; 
+json_object *server_client_map; 
+json_object *server_jid_map; 
+json_object *server_uid_map; 
 
 #endif
