@@ -101,7 +101,7 @@ static void amqp_timer_cb(struct ev_loop *loop, ev_timer *w, int revents)
 /* Signal Callbacks for SIGINT (terminate) and SIGHUP (reload conf file) */
 static void signal_cb_int(EV_P_ ev_signal *sig, int revents)
 {
-    fprintf(log_stream, "Stopping pfstrased\n");
+    fprintf(log_stream, "Stopping pfstrase_client\n");
     if (pid_fd != -1) {
       lockf(pid_fd, F_ULOCK, 0);
       close(pid_fd);
@@ -186,7 +186,7 @@ int main(int argc, char *argv[])
 
   if (daemonmode) {
     if (pid_file_name == NULL) 
-      pid_file_name = strdup("/var/run/pfstrased.pid");
+      pid_file_name = strdup("/var/run/pfstrase_client.pid");
     daemonize();
   }
   
@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
   //openlog(argv[0], LOG_PID|LOG_CONS, LOG_DAEMON);
   fprintf(log_stream, "Started %s\n", app_name);
 
-  /* Setup signal callbacks to stop pfstrased or reload conf file */
+  /* Setup signal callbacks to stop pfstrase_client or reload conf file */
   signal(SIGPIPE, SIG_IGN);
   static struct ev_signal sigint;
   ev_signal_init(&sigint, signal_cb_int, SIGINT);

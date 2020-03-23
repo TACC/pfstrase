@@ -27,12 +27,12 @@ sed -i 's/CONFIGFILE/\%{_sysconfdir}\/pfstrase\/pfstrase.conf/' pfstrase.service
 mkdir -p  %{buildroot}/%{_sbindir}/
 mkdir -p  %{buildroot}/%{_sysconfdir}/pfstrase/
 mkdir -p  %{buildroot}/%{_unitdir}/
-install -m 744 pfstrased %{buildroot}/%{_sbindir}/pfstrased
+install -m 744 pfstrase_client %{buildroot}/%{_sbindir}/pfstrase_client
 install -m 644 pfstrase.conf %{buildroot}/%{_sysconfdir}/pfstrase/pfstrase.conf
 install -m 644 pfstrase.service %{buildroot}/%{_unitdir}/pfstrase.service
 
 %files
-%{_sbindir}/pfstrased
+%{_sbindir}/pfstrase_client
 %{_sysconfdir}/pfstrase/pfstrase.conf
 %{_unitdir}/pfstrase.service
 

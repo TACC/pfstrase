@@ -1,4 +1,4 @@
-bin_PROGRAMS = pfstrased map_server
+bin_PROGRAMS = pfstrase_client pfstrase_server
 
 AM_DISTCHECK_CONFIGURE_FLAGS = \
   --with-systemduserunitdir=$$dc_install_base/$(systemduserunitdir)
@@ -9,9 +9,9 @@ systemduserunit_DATA = \
 	pfstrase.conf
 endif
 
-pfstrased_CPPFLAGS = -D_GNU_SOURCE
+pfstrase_client_CPPFLAGS = -D_GNU_SOURCE
 
-pfstrased_SOURCES = 	 \
+pfstrase_client_SOURCES = 	 \
 	amqp_socket_utils.h \
 	amqp_socket_utils.c \
 	cpu.h 		 \
@@ -30,19 +30,21 @@ pfstrased_SOURCES = 	 \
 	llite.c		\
 	osc.h 		\
 	osc.c		\
+	pfstrase_client.c \
 	sysinfo.h	\
 	sysinfo.c	\
 	socket_utils.h \
 	socket_utils.c \
-	serverd.c       \
+	stats.h \
+	stats.c \
         target.h \
 	target.c	
 
 EXTRA_DIST = pfstrase.service pfstrase.conf pfstrase_initd.sh
 
-map_server_CPPFLAGS = -D_GNU_SOURCE
+pfstrase_server_CPPFLAGS = -D_GNU_SOURCE
 
-map_server_SOURCES = 	 \
+pfstrase_server_SOURCES = 	 \
 	cpu.h 		 \
 	cpu.c 		 \
 	daemonize.h	 \
@@ -57,13 +59,15 @@ map_server_SOURCES = 	 \
 	lfs_utils.c	\
 	llite.h		\
 	llite.c		\
-	map_server.c    \
+	pfstrase_server.c    \
 	osc.h 		\
 	osc.c		\
 	sysinfo.h	\
 	sysinfo.c	\
 	socket_utils.h \
 	socket_utils.c \
+	stats.h \
+	stats.c \
         target.h \
 	target.c	
 

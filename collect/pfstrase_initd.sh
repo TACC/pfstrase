@@ -5,11 +5,11 @@
 . /etc/init.d/functions
 
 CONF_FILE=/etc/pfstrase/pfstrase.conf
-PID_FILE=/var/run/pfstrased.pid
+PID_FILE=/var/run/pfstrase_client.pid
 
 start() {
     echo -n "Starting pfstrase"
-    /usr/sbin/pfstrased -c $CONF_FILE -d	
+    /usr/sbin/pfstrase_client -c $CONF_FILE -d	
     return 0
 }
 

@@ -3,7 +3,7 @@ Description=Parallel Filesystem Tracing and Analysis Service
 
 [Service]
 Type=simple
-ExecStart=/usr/sbin/pfstrased -c CONFIGFILE
+ExecStart=/usr/sbin/pfstrase_client -c CONFIGFILE
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
