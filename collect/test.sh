@@ -11,4 +11,4 @@ ssh -t mds0 'systemctl restart pfstrase'
 ssh -t oss0 'systemctl restart pfstrase'
 ssh -t oss1 'systemctl restart pfstrase'
 
-#pkill -9 -f map_server
+pkill -9 -f map_server

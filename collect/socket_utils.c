@@ -19,14 +19,102 @@ int sockfd;
 #define OOM() fprintf(stderr, "cannot allocate memory\n");
 #define printf_json(json) printf(">>> %s\n", json_object_get_string(json));
 
-static void print_server_tag_map(const char *tag) {  
-  printf("---------------server client map--------------------\n");
-  printf("%10s : %10s %20s\n", "server", tag, "data");
-  json_object_object_foreach(server_client_map, servername, server_entry) {    
-    json_object_object_foreach(server_entry, clientname, client_entry) {    
-      printf("%10s : %10s %20s\n", servername, clientname, json_object_get_string(client_entry));
+static int print_exports_map() {
+  int rc = -1;
+  int arraylen;
+  int j;
+  json_object *obd_tag;
+  json_object *client, *jid, *uid, *stats_type, *target;
+  
+  printf("---------------Exports map--------------------\n");
+  printf("%20s : %10s %10s %10s %10s %20s\n", "server", "client", "jobid", "user", "stats_type", "target");
+  json_object_object_foreach(host_map, key, host_entry) {    
+    if (json_object_object_get_ex(host_map, "obdclass", &obd_tag))
+      if ((strcmp("mds", json_object_get_string(obd_tag)) != 0) &&	\
+	  (strcmp("oss", json_object_get_string(obd_tag)) != 0))
+	continue;
+    json_object *data_array;
+    if (!json_object_object_get_ex(host_entry, "data", &data_array))
+      continue;
+
+    arraylen = json_object_array_length(data_array);
+    for (j = 0; j < arraylen; j++) {
+      json_object *data_json = json_object_array_get_idx(data_array, j);
+      if ((!json_object_object_get_ex(data_json, "client", &client)) ||
+	  (!json_object_object_get_ex(data_json, "jid", &jid)) ||	   
+	  (!json_object_object_get_ex(data_json, "uid", &uid)))
+	continue;
+
+      json_object_object_get_ex(data_json, "stats_type", &stats_type);
+      json_object_object_get_ex(data_json, "target", &target);
+      json_object *stats;
+      json_object_object_get_ex(data_json, "stats", &stats);
+      printf("%20s : %10s %10s %10s %10s %20s %s\n", key, json_object_get_string(client), 
+	     json_object_get_string(jid), json_object_get_string(uid), 
+	     json_object_get_string(stats_type), json_object_get_string(target),json_object_get_string(stats));
     }
   }
+  rc = 1;
+ out:
+  return rc;
+}
+
+static void print_nid_map() {
+  printf("--------------nids map------------------------\n");
+  printf("%20s : %10s %10s %10s\n", "nid", "host", "jid", "uid");
+  json_object *hid, *jid, *uid;
+  json_object_object_foreach(nid_map, key, val) {
+    if ((json_object_object_get_ex(val, "hid", &hid)) && (json_object_object_get_ex(val, "jid", &jid)) && (json_object_object_get_ex(val, "uid", &uid)))
+      printf("%20s : %10s %10s %10s\n", key, json_object_get_string(hid), 
+	     json_object_get_string(jid), json_object_get_string(uid)); 
+  }
+}
+
+static void print_server_tag_sum(const char *tag) {  
+  printf("---------------server %s map--------------------\n", tag);
+  printf("%10s : %10s %16s %16s\n", "server", tag, "iops", "bytes");
+  json_object_object_foreach(server_client_sum, servername, server_entry) {    
+    json_object_object_foreach(server_entry, clientname, client_entry) {    
+      json_object *iops, *bytes;
+      if (json_object_object_get_ex(client_entry, "iops", &iops) && \
+	  json_object_object_get_ex(client_entry, "bytes", &bytes)) 
+	printf("%10s : %10s %16lu %16lu\n", servername, clientname, json_object_get_int64(iops), 
+	       json_object_get_int64(bytes));
+    }
+  }
+}
+
+static void print_server_tag_map(const char *tag) {  
+  printf("---------------server %s map--------------------\n", tag);
+  printf("%10s : %10s %20s\n", "server", tag, "data");
+  json_object_object_foreach(server_client_map, servername, server_entry) {    
+    json_object_object_foreach(server_entry, tagname, tag_entry) {    
+      printf("%10s : %10s %20s\n", servername, tagname, json_object_get_string(tag_entry));
+    }
+  }
+}
+
+static int aggregate_server_tag_events() {
+  json_object_object_foreach(server_client_map, servername, server_entry) {    
+    json_object *client_sum_entry = json_object_new_object();
+    json_object_object_foreach(server_entry, clientname, client_entry) {    
+      long long sum_reqs = 0;
+      long long sum_bytes = 0;
+      json_object_object_foreach(client_entry, eventname, value) {    
+	if (strcmp(eventname, "read_bytes") == 0 || strcmp(eventname, "write_bytes") == 0) 
+	  sum_bytes += json_object_get_int64(value);
+	else
+	  sum_reqs += json_object_get_int64(value);
+      }
+      json_object *sum_json = json_object_new_object();
+      json_object_object_add(sum_json, "iops", json_object_new_int64(sum_reqs));
+      json_object_object_add(sum_json, "bytes", json_object_new_int64(sum_bytes));
+      json_object_object_add(client_sum_entry, clientname, sum_json); 
+    }
+    json_object_object_add(server_client_sum, servername, client_sum_entry);
+  }
+  print_server_tag_sum("tag");
+  return 0;
 }
 
 static int groupbytag(const char *tag) {
@@ -34,9 +122,8 @@ static int groupbytag(const char *tag) {
   int arraylen;
   int j;
   json_object *obd_tag, *data_array, *data_json;
-
+  json_object *tag_stats;
   json_object *tid;
-
   json_object_object_foreach(host_map, key, host_entry) {    
     if (json_object_object_get_ex(host_entry, "obdclass", &obd_tag)) {
       if ((strcmp("mds", json_object_get_string(obd_tag)) != 0) &&	\
@@ -49,7 +136,8 @@ static int groupbytag(const char *tag) {
     if (!json_object_object_get_ex(host_entry, "data", &data_array))
       continue;
 
-    json_object *client_entry = json_object_new_object();
+    json_object *tag_map = json_object_new_object();
+
     arraylen = json_object_array_length(data_array);
     for (j = 0; j < arraylen; j++) {
       data_json = json_object_array_get_idx(data_array, j);
@@ -67,26 +155,29 @@ static int groupbytag(const char *tag) {
       json_object *stats_json;
       if (!json_object_object_get_ex(data_json, "stats", &stats_json))
 	continue;
-      //printf(key); printf_json(tid); printf_json(stats_json);
-      json_object *client_stats;
-      if (!json_object_object_get_ex(client_entry, json_object_get_string(tid), &client_stats))
-	client_stats = json_object_new_object();
-      
+
+      if (!json_object_object_get_ex(tag_map, json_object_get_string(tid), &tag_stats)) {
+	tag_stats = json_object_new_object();
+	json_object_object_add(tag_map, json_object_get_string(tid), tag_stats);
+      }
+      /* Add stats values for all devices with same client/jid/uid */
       json_object_object_foreach(stats_json, event, newval) {
 	  json_object *oldval;
-	  if (json_object_object_get_ex(client_stats, event, &oldval))
-	    json_object_object_add(client_stats, event,  
+	  if (json_object_object_get_ex(tag_stats, event, &oldval))
+	    json_object_object_add(tag_stats, event,  
 				   json_object_new_int64(json_object_get_int64(oldval) + \
 							 json_object_get_int64(newval)));
 	  else 
-	    json_object_object_add(client_stats, event, json_object_get(newval));  
+	    json_object_object_add(tag_stats, event, json_object_get(newval));  
       }
-
-      json_object_object_add(client_entry, json_object_get_string(tid), json_object_get(client_stats));
-    }	
-    json_object_object_add(server_client_map, key, json_object_get(client_entry));
+      json_object_object_add(tag_map, json_object_get_string(tid), json_object_get(tag_stats));
+      
+    }
+    json_object_object_add(server_client_map, key, json_object_get(tag_map));   
+    json_object_put(tag_map);
   }  
-  print_server_tag_map(tag);
+  print_server_tag_map(tag);  
+  aggregate_server_tag_events();
 }
 
 /* Map client nids of servers to jids and uids */
@@ -134,55 +225,6 @@ static int map_stats() {
 
 
 
-static int print_exports_map() {
-  int rc = -1;
-  int arraylen;
-  int j;
-  json_object *obd_tag;
-  json_object *client, *jid, *uid, *stats_type, *target;
-  
-  printf("---------------Exports map--------------------\n");
-  printf("%20s : %10s %10s %10s %10s %20s\n", "server", "client", "jobid", "user", "stats_type", "target");
-  json_object_object_foreach(host_map, key, host_entry) {    
-    if (json_object_object_get_ex(host_map, "obdclass", &obd_tag))
-      if ((strcmp("mds", json_object_get_string(obd_tag)) != 0) &&	\
-	  (strcmp("oss", json_object_get_string(obd_tag)) != 0))
-	continue;
-    json_object *data_array;
-    if (!json_object_object_get_ex(host_entry, "data", &data_array))
-      continue;
-
-    arraylen = json_object_array_length(data_array);
-    for (j = 0; j < arraylen; j++) {
-      json_object *data_json = json_object_array_get_idx(data_array, j);
-      if ((!json_object_object_get_ex(data_json, "client", &client)) ||
-	  (!json_object_object_get_ex(data_json, "jid", &jid)) ||	   
-	  (!json_object_object_get_ex(data_json, "uid", &uid)))
-	continue;
-
-      json_object_object_get_ex(data_json, "stats_type", &stats_type);
-      json_object_object_get_ex(data_json, "target", &target);
-
-      printf("%20s : %10s %10s %10s %10s %20s\n", key, json_object_get_string(client), 
-	     json_object_get_string(jid), json_object_get_string(uid), 
-	     json_object_get_string(stats_type), json_object_get_string(target));
-    }
-  }
-  rc = 1;
- out:
-  return rc;
-}
-
-static void print_nid_map() {
-  printf("--------------nids map------------------------\n");
-  printf("%20s : %10s %10s %10s\n", "nid", "host", "jid", "uid");
-  json_object *hid, *jid, *uid;
-  json_object_object_foreach(nid_map, key, val) {
-    if ((json_object_object_get_ex(val, "hid", &hid)) && (json_object_object_get_ex(val, "jid", &jid)) && (json_object_object_get_ex(val, "uid", &uid)))
-      printf("%20s : %10s %10s %10s\n", key, json_object_get_string(hid), 
-	     json_object_get_string(jid), json_object_get_string(uid)); 
-  }
-}
 
 /* Process RPC */
 static int process_rpc(char *rpc)
@@ -248,7 +290,7 @@ static int process_rpc(char *rpc)
   }
 
   //print_nid_map();
-  print_exports_map();
+  //print_exports_map();
   rc = 1;
   
  out:
@@ -284,6 +326,7 @@ int socket_listen(const char *port)
   nid_map = json_object_new_object();
 
   server_client_map = json_object_new_object();
+  server_client_sum = json_object_new_object();
   server_jid_map = json_object_new_object();
   server_uid_map = json_object_new_object();
 
