@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
 
   screen_init(1.0);
   //screen_set_key_cb(&screen_key_cb);
-  //screen_start(EV_DEFAULT);
+  screen_start(EV_DEFAULT);
 
   ev_run(EV_DEFAULT, 0);
   

@@ -74,113 +74,45 @@ static void print_nid_map() {
   }
 }
 
-void print_server_tag_sum(const char *tag) {  
-  printf("---------------server %s map--------------------\n", tag);
-  printf("%10s : %10s %16s %16s[MB]\n", "server", tag, "iops", "bytes");
+void print_tag_sum() {  
+  json_object *iops, *bytes;
+  printf("---------------tag sum map--------------------\n");
+  printf("%10s : %16s %16s[MB]\n", "server", "iops", "bytes");
   json_object_object_foreach(server_tag_sum, servername, server_entry) {    
-    json_object_object_foreach(server_entry, clientname, client_entry) {    
-      json_object *iops, *bytes;
-      if (json_object_object_get_ex(client_entry, "iops", &iops) && \
-	  json_object_object_get_ex(client_entry, "bytes", &bytes)) 
-	printf("%10s : %10s %16lu %16.1f\n", servername, clientname, json_object_get_int64(iops), 
+    json_object_object_foreach(server_entry, tags, tags_entry) {    
+      if (json_object_object_get_ex(tags_entry, "iops", &iops) && \
+	  json_object_object_get_ex(tags_entry, "bytes", &bytes)) {
+	printf("%10s : %20s %16lu %16.1f\n", servername, tags, json_object_get_int64(iops), 
 	       ((double)json_object_get_int64(bytes))/(1024*1024));
+      }
     }
   }
 }
 
-void print_server_tag_map(const char *tag) {  
-  printf("---------------server %s map--------------------\n", tag);
-  printf("%10s : %10s %20s\n", "server", tag, "data");
+void print_tag_map() { 
+  
+  printf("---------------server tag map--------------------\n");
+  printf("%10s : %20s\n", "server", "data");
   json_object_object_foreach(server_tag_map, servername, server_entry) {    
-    json_object_object_foreach(server_entry, tagname, tag_entry) {    
-      printf("%10s : %10s %20s\n", servername, tagname, json_object_get_string(tag_entry));
+    json_object_object_foreach(server_entry, tags, tags_entry) {    
+      enum json_tokener_error error = json_tokener_success;
+      json_object * tags_json = json_tokener_parse_verbose(tags, &error);  
+      if (error != json_tokener_success) {
+	fprintf(stderr, "tags format incorrect `%s': %s\n", tags, json_tokener_error_desc(error));
+	continue;
+      }
+      /*
+      int nt = 0;
+      json_object_object_foreach(tags_json, tag, tag_val) {    
+	
+	nt++;
+      }
+      */
+      printf("%10s : %20s %20s\n", servername, tags, json_object_get_string(tags_entry));
     }
   }
 }
 
-/* Aggregate all events along current tag */
-static void aggregate_server_tag_events() {
-  json_object_object_foreach(server_tag_map, servername, server_entry) {    
-    json_object *client_sum_entry = json_object_new_object();
-    json_object_object_foreach(server_entry, clientname, client_entry) {    
-      long long sum_reqs = 0;
-      long long sum_bytes = 0;
-      json_object_object_foreach(client_entry, eventname, value) {    
-	if (strcmp(eventname, "read_bytes") == 0 || strcmp(eventname, "write_bytes") == 0) 
-	  sum_bytes += json_object_get_int64(value);
-	else
-	  sum_reqs += json_object_get_int64(value);
-      }
-      json_object *sum_json = json_object_new_object();
-      json_object_object_add(sum_json, "iops", json_object_new_int64(sum_reqs));
-      json_object_object_add(sum_json, "bytes", json_object_new_int64(sum_bytes));
-      json_object_object_add(client_sum_entry, clientname, sum_json); 
-    }
-    json_object_object_add(server_tag_sum, servername, client_sum_entry);
-  }
-}
-
-/* Aggregate (group) stats by given tag (client/jid/uid are most likely) */
-/*
-void group_statsbytag(const char *tag_str) {
-  int arraylen;
-  int j;
-  json_object *data_array, *data_entry;
-  json_object *tag_map, *tag_stats;
-  json_object *stats_type, *stats_json;
-  json_object *tag;
-  json_object *oldval;
-  json_object_object_foreach(host_map, servername, host_entry) {    
-    if (json_object_object_get_ex(host_entry, "obdclass", &tag)) {
-      if ((strcmp("mds", json_object_get_string(tag)) != 0) &&	\
-	  (strcmp("oss", json_object_get_string(tag)) != 0))
-	continue;
-    }
-    else
-      continue;
-
-    if (!json_object_object_get_ex(host_entry, "data", &data_array))
-      continue;
-
-    tag_map = json_object_new_object();
-
-    arraylen = json_object_array_length(data_array);
-    for (j = 0; j < arraylen; j++) {
-      data_entry = json_object_array_get_idx(data_array, j);
-      if (json_object_object_get_ex(data_entry, "stats_type", &stats_type)) {
-	if ((strcmp("mds", json_object_get_string(stats_type)) != 0) &&	\
-	    (strcmp("oss", json_object_get_string(stats_type)) != 0))
-	  continue;
-      }
-      else 
-	continue;
-
-      if (!json_object_object_get_ex(data_entry, tag_str, &tag))
-	continue;     
-      if (!json_object_object_get_ex(data_entry, "stats", &stats_json))
-	continue;
-
-      if (!json_object_object_get_ex(tag_map, json_object_get_string(tag), &tag_stats)) {
-	tag_stats = json_object_new_object();
-	json_object_object_add(tag_map, json_object_get_string(tag), tag_stats);
-      }
-      // Add stats values for all devices with same client/jid/uid
-      json_object_object_foreach(stats_json, event, newval) {
-	  if (json_object_object_get_ex(tag_stats, event, &oldval))
-	    json_object_object_add(tag_stats, event,  
-				   json_object_new_int64(json_object_get_int64(oldval) + \
-							 json_object_get_int64(newval)));
-	  else 
-	    json_object_object_add(tag_stats, event, json_object_get(newval));  
-      }
-      json_object_object_add(tag_map, json_object_get_string(tag), json_object_get(tag_stats));
-    }
-    json_object_object_add(server_tag_map, servername, json_object_get(tag_map));   
-    json_object_put(tag_map);
-  }  
-  aggregate_server_tag_events();
-}
-*/
 static void add_stats(json_object *old_stats, json_object *new_stats) {
   /* Add stats values for all devices with same client/jid/uid */
   json_object *oldval;
@@ -205,6 +137,28 @@ static int is_server(json_object *he) {
       rc = 1;
   }
   return rc;    
+}
+
+/* Aggregate all events along current tags */
+static void aggregate_grouped_events() {
+  json_object_object_foreach(server_tag_map, servername, server_entry) {    
+    json_object *tags_sum_map = json_object_new_object();
+    json_object_object_foreach(server_entry, tags, tag_entry) {    
+      long long sum_reqs = 0;
+      long long sum_bytes = 0;
+      json_object_object_foreach(tag_entry, eventname, value) {    
+	if (strcmp(eventname, "read_bytes") == 0 || strcmp(eventname, "write_bytes") == 0) 
+	  sum_bytes += json_object_get_int64(value);
+	else
+	  sum_reqs += json_object_get_int64(value);
+      }
+      json_object *sum_json = json_object_new_object();
+      json_object_object_add(sum_json, "iops", json_object_new_int64(sum_reqs));
+      json_object_object_add(sum_json, "bytes", json_object_new_int64(sum_bytes));
+      json_object_object_add(tags_sum_map, tags, sum_json); 
+    }
+    json_object_object_add(server_tag_sum, servername, tags_sum_map);
+  }
 }
 
 /* Aggregate (group) stats by given tag (client/jid/uid are most likely) */
@@ -256,6 +210,7 @@ void group_statsbytags(int nt, ...) {
     json_object_object_add(server_tag_map, servername, json_object_get(tag_map));   
     json_object_put(tag_map);
   }  
+  aggregate_grouped_events();
 }
 
 /* Tag servers exports with client names, jids, uids, and filesystem */
@@ -353,14 +308,7 @@ int update_host_map(char *rpc) {
   }
   rc = 1;
 
-  group_statsbytags(2, "fid", "jid");
-  print_server_tag_map("client");
-  group_statsbytags(1, "jid");
-  print_server_tag_map("client");
-  group_statsbytags(2, "client", "jid");
-  print_server_tag_map("client");
-  group_statsbytags(1, "fid");
-  print_server_tag_map("client");
+  group_statsbytags(4, "fid", "client", "jid", "uid");
 
  out:
   if (rpc_json)
