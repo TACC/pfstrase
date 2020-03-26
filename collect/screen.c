@@ -259,23 +259,25 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   json_object *data_array = json_object_new_array();
   json_object_object_foreach(server_tag_sum, s, se) {
     json_object_object_foreach(se, t, te) {
-      json_object *tags = json_tokener_parse_verbose(t, &error);
+      json_object *tags = NULL;
+      tags = json_tokener_parse_verbose(t, &error);
       if (error != json_tokener_success) {
         fprintf(stderr, "tags format incorrect `%s': %s\n", t, json_tokener_error_desc(error));
-        continue;
-      }
-      
+        goto end;
+      }      
       if (!json_object_object_get_ex(tags, "client", &hid) ||
 	  !json_object_object_get_ex(tags, "jid", &jid) ||
 	  !json_object_object_get_ex(tags, "uid", &uid) ||
 	  !json_object_object_get_ex(tags, "fid", &fid))
-	continue;
+	goto end;
       json_object_object_add(tags, "server", json_object_new_string(s));
       json_object_object_foreach(te, event, val) {
-	json_object_object_add(tags, event, val);
+	json_object_object_add(tags, event, json_object_get(val));
       }
       json_object_array_add(data_array, json_object_get(tags));
-      json_object_put(tags);
+    end:
+      if(tags)
+	json_object_put(tags);
     }
   }
   int data_length = json_object_array_length(data_array);
@@ -303,7 +305,7 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
     
     }
   }
-
+  json_object_put(data_array);
   move(line, 0);
   clrtobot();
   

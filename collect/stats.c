@@ -181,7 +181,7 @@ void group_statsbytags(int nt, ...) {
       data_entry = json_object_array_get_idx(data_array, i);
 
       if (json_object_object_get_ex(data_entry, "stats_type", &tid)) {
-	if ((strcmp("mds", json_object_get_string(tid)) != 0) &&	\
+	if ((strcmp("mds", json_object_get_string(tid)) != 0) &&
 	    (strcmp("oss", json_object_get_string(tid)) != 0))
 	  continue;
       }
@@ -285,6 +285,9 @@ int update_host_map(char *rpc) {
   /* update hostname_entry if tags or data are present in rpc */
   json_object *entry_json, *tag;
   if (json_object_object_get_ex(host_map, hostname, &entry_json)) {
+
+    if (json_object_object_get_ex(rpc_json, "time", &tag))
+      json_object_object_add(entry_json, "time", json_object_get(tag));
 
     if (json_object_object_get_ex(rpc_json, "hostname", &tag))
       json_object_object_add(entry_json, "hid", json_object_get(tag));
