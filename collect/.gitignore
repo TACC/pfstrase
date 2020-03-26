@@ -2,7 +2,8 @@
 \#*
 *.o
 *.lock
-pfstrased
+pfstrase_client
+pfstrase_server
 .deps
 Makefile
 

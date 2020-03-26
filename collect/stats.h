@@ -7,4 +7,9 @@ void group_statsbytag(const char *tag);
 void print_server_tag_sum(const char *tag);
 void print_server_tag_map(const char *tag);
 
+json_object *host_map;
+json_object *nid_map;
+json_object *server_tag_map;
+json_object *server_tag_sum;
+
 #endif

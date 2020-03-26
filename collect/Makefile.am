@@ -59,15 +59,19 @@ pfstrase_server_SOURCES = 	 \
 	lfs_utils.c	\
 	llite.h		\
 	llite.c		\
-	pfstrase_server.c    \
+	n_buf.h \
+	n_buf.c \
 	osc.h 		\
 	osc.c		\
-	sysinfo.h	\
-	sysinfo.c	\
+	pfstrase_server.c    \
+	screen.h 	\
+	screen.c 	\
 	socket_utils.h \
 	socket_utils.c \
 	stats.h \
 	stats.c \
+	sysinfo.h	\
+	sysinfo.c	\
         target.h \
 	target.c	
 
