@@ -62,7 +62,7 @@ int read_conf_file()
 /* using bare sockets */
 static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
 {
-  //fprintf(log_stream, "update map based on sock rpc\n");
+  //fprintf(log_stream, "update map based on sock rpc\n");  
   sock_rpc();
 }
 
@@ -180,7 +180,7 @@ int main(int argc, char *argv[])
   fprintf(log_stream, "Starting map_server listening on port %s\n", port);
 
   screen_init(1.0);
-  //screen_set_key_cb(&screen_key_cb);
+
   screen_start(EV_DEFAULT);
 
   ev_run(EV_DEFAULT, 0);

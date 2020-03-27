@@ -26,7 +26,6 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS);
 static void screen_key_cb(EV_P_ int);
 
 static struct ev_timer refresh_timer_w;
-static struct ev_timer top_timer_w;
 
 static struct ev_io stdin_io_w;
 static struct ev_signal sigint_w;
@@ -188,12 +187,30 @@ static void screen_key_cb(EV_P_ int key)
 {
   switch (tolower(key)) {
   case ' ':
+    /*
   case '\n':
     ev_feed_event(EV_A_ &top_timer_w, EV_TIMER);
     break;
+    */
   case 'q':
     ev_break(EV_A_ EVBREAK_ALL); /* XXX */
     return;
+  case 'f':
+    groupby = 1;
+    group_statsbytags(1, "fid", "server");
+    break;
+  case 'u':
+    groupby = 2;
+    group_statsbytags(2, "fid", "server", "uid");
+    break;
+  case 'j':
+    groupby = 3;
+    group_statsbytags(3, "fid", "server", "jid", "uid");
+    break;
+  case 'c':
+    groupby = 4;
+    group_statsbytags(4, "fid", "server", "client", "jid", "uid");
+    break;
   case KEY_DOWN:
     scroll_delta += 1;
     break;
@@ -264,22 +281,18 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
       if (error != json_tokener_success) {
         fprintf(stderr, "tags format incorrect `%s': %s\n", t, json_tokener_error_desc(error));
         goto end;
-      }      
-      if (!json_object_object_get_ex(tags, "client", &hid) ||
-	  !json_object_object_get_ex(tags, "jid", &jid) ||
-	  !json_object_object_get_ex(tags, "uid", &uid) ||
-	  !json_object_object_get_ex(tags, "fid", &fid))
-	goto end;
-      json_object_object_add(tags, "server", json_object_new_string(s));
+      }
       json_object_object_foreach(te, event, val) {
 	json_object_object_add(tags, event, json_object_get(val));
       }
       json_object_array_add(data_array, json_object_get(tags));
+
     end:
       if(tags)
 	json_object_put(tags);
     }
   }
+
   int data_length = json_object_array_length(data_array);
   
   int new_start = scroll_start + scroll_delta;
@@ -291,19 +304,28 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   int j;
   for (j = new_start; j < data_length && line < (LINES - 1); j++) {
     json_object *de = json_object_array_get_idx(data_array, j);
-    if (json_object_object_get_ex(de, "client", &hid) &&
-	json_object_object_get_ex(de, "server", &sid) &&
-	json_object_object_get_ex(de, "jid", &jid) &&
-	json_object_object_get_ex(de, "uid", &uid) &&
-	json_object_object_get_ex(de, "fid", &fid) &&
-	json_object_object_get_ex(de, "iops", &iops) &&
-	json_object_object_get_ex(de, "bytes", &bytes)) {
-      mvprintw(line++, 0, "%-15s %10s : %10s %10s %10s %16lu %16.1f\n", json_object_get_string(fid), 
-	       json_object_get_string(sid), json_object_get_string(hid), 
-	       json_object_get_string(jid), json_object_get_string(uid), 
-	       json_object_get_int64(iops), ((double)json_object_get_int64(bytes))*cf);
-    
+    /*
+    char values[256];
+    json_object_object_foreach(te, event, val) {
+    if json_object_is_type(val, json_type_string)
+      snprinf(values, sizeof(values), "%s", json_object_to_string(val));
+          if json_object_is_type(val, json_type_int64)
+      snprinf(values, sizeof(values), "%lu", json_object_to_string(val));
+
     }
+    */
+    json_object_object_get_ex(de, "client", &hid);
+    json_object_object_get_ex(de, "server", &sid);
+    json_object_object_get_ex(de, "jid", &jid);
+    json_object_object_get_ex(de, "uid", &uid);
+    json_object_object_get_ex(de, "fid", &fid);
+    json_object_object_get_ex(de, "iops", &iops);
+    json_object_object_get_ex(de, "bytes", &bytes);
+    
+    mvprintw(line++, 0, "%-15s %10s : %10s %10s %10s %16lu %16.1f", json_object_get_string(fid), 
+	     json_object_get_string(sid), json_object_get_string(hid), 
+	     json_object_get_string(jid), json_object_get_string(uid), 
+	     json_object_get_int64(iops), ((double)json_object_get_int64(bytes))*cf);
   }
   json_object_put(data_array);
   move(line, 0);

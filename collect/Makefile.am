@@ -59,8 +59,6 @@ pfstrase_server_SOURCES = 	 \
 	lfs_utils.c	\
 	llite.h		\
 	llite.c		\
-	n_buf.h \
-	n_buf.c \
 	osc.h 		\
 	osc.c		\
 	pfstrase_server.c    \

@@ -10,6 +10,9 @@ void print_server_tag_map(const char *tag);
 json_object *host_map;
 json_object *nid_map;
 json_object *server_tag_map;
+json_object *server_tag_rate_map;
 json_object *server_tag_sum;
+
+int groupby;
 
 #endif
