@@ -133,7 +133,7 @@ void sock_send_data(const char *dn, const char *port)
   int rv = send(server_socket, json_object_to_json_string(message_json), 
 		strlen(json_object_to_json_string(message_json)), 0);
   json_object_put(message_json);
-
+  close(server_socket);
   freeaddrinfo(result);
  err:
   return;

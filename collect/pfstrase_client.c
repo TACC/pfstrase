@@ -82,7 +82,7 @@ static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
 }
 static void sock_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
 {
-  fprintf(log_stream, "collect and send data based on socket timer\n");
+  //fprintf(log_stream, "collect and send data based on socket timer\n");
   sock_send_data(server, port);
 }
 

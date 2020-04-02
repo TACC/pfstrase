@@ -1,5 +1,5 @@
 ---
-- hosts: mds0, c0, c1, oss0, oss1
+- hosts: mds0, oss0, oss1
   remote_user: root
 
   tasks:

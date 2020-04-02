@@ -18,6 +18,7 @@ static int scroll_start;
 static int scroll_delta;
 
 static char status_bar[256];
+static char sortbykey[32];
 
 static double status_bar_time;
 static int top_color_pair = CP_BLACK;
@@ -109,6 +110,9 @@ void screen_start(EV_P)
   ev_signal_start(EV_A_ &sigint_w);
   ev_signal_start(EV_A_ &sigterm_w);
   ev_signal_start(EV_A_ &sigwinch_w);
+
+  /* Sort by iops by default */
+  snprintf(sortbykey, sizeof(sortbykey), "iops");
   
   screen_is_active = 1;
 }
@@ -211,6 +215,12 @@ static void screen_key_cb(EV_P_ int key)
     groupby = 4;
     group_statsbytags(4, "fid", "server", "client", "jid", "uid");
     break;
+  case 'i':
+    snprintf(sortbykey, sizeof(sortbykey), "iops");
+    break;
+  case 'b':
+    snprintf(sortbykey, sizeof(sortbykey), "bytes");
+    break;
   case KEY_DOWN:
     scroll_delta += 1;
     break;
@@ -255,6 +265,32 @@ void status_bar_printf(EV_P_ const char *fmt, ...)
   va_end(args);
 }
 
+
+/* Sort by specified field value */
+static int sort_da(const void *j1, const void *j2) {
+  json_object * const *jso1, * const *jso2;
+  double d1, d2;
+  
+  jso1 = (json_object* const*)j1;
+  jso2 = (json_object* const*)j2;
+
+  json_object *val1, *val2;
+  if (!json_object_object_get_ex(*jso1, sortbykey, &val1) &&
+      !json_object_object_get_ex(*jso2, sortbykey, &val2))
+    return 0;
+  if (!json_object_object_get_ex(*jso1, sortbykey, &val1))
+      return 1;
+  if (!json_object_object_get_ex(*jso2, sortbykey, &val2))
+      return -1;
+
+  d1 = json_object_get_double(val1);
+  d2 = json_object_get_double(val2);
+
+  return (int)(d2 - d1);
+
+}
+
+
 enum json_tokener_error error = json_tokener_success;
 static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 {
@@ -266,13 +302,12 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 
   erase();
 
-  mvprintw(line, 0, "%-15s %10s : %10s %10s %10s %16s %16s[MB]", 
+  mvprintw(line, 0, "%-15s %10s : %10s %10s %10s %16s[#/s] %16s[MB/s]", 
 	   "filesystem", "server", "client", "jobid", "user", "iops", "bytes");
   mvchgat(line, 0, -1, A_STANDOUT, CP_BLACK, NULL);
   line++;
 
   double cf = 1.0/(1024*1024);
-
   json_object *data_array = json_object_new_array();
   json_object_object_foreach(server_tag_sum, s, se) {
     json_object_object_foreach(se, t, te) {
@@ -292,7 +327,7 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 	json_object_put(tags);
     }
   }
-
+  json_object_array_sort(data_array, sort_da);
   int data_length = json_object_array_length(data_array);
   
   int new_start = scroll_start + scroll_delta;
@@ -322,10 +357,10 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
     json_object_object_get_ex(de, "iops", &iops);
     json_object_object_get_ex(de, "bytes", &bytes);
     
-    mvprintw(line++, 0, "%-15s %10s : %10s %10s %10s %16lu %16.1f", json_object_get_string(fid), 
+    mvprintw(line++, 0, "%-15s %10s : %10s %10s %10s %16.1f %16.1f", json_object_get_string(fid), 
 	     json_object_get_string(sid), json_object_get_string(hid), 
 	     json_object_get_string(jid), json_object_get_string(uid), 
-	     json_object_get_int64(iops), ((double)json_object_get_int64(bytes))*cf);
+	     json_object_get_double(iops), json_object_get_double(bytes)*cf);
   }
   json_object_put(data_array);
   move(line, 0);

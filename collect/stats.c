@@ -161,25 +161,35 @@ static void aggregate_grouped_events() {
 /* Aggregate all events along current tags */
 static void calc_rates(json_object *otags_map, json_object *tags_map, json_object *tags_rate_map) {
 
+  json_object *curr_t, *prev_t;
+  if (!json_object_object_get_ex(otags_map, "time", &prev_t))
+    return;
+  if (!json_object_object_get_ex(tags_map, "time", &curr_t))
+    return;
+  double dt = json_object_get_double(curr_t) - json_object_get_double(prev_t);
+
   json_object_object_foreach(tags_map, tags, tag_entry) {    
     if (strcmp(tags, "time") == 0) continue;
     json_object *otags_entry;
-    /* Check if any entry for these tags exists. If not, initialize with new tags_entry */
-    if (!json_object_object_get_ex(otags_map, tags, &otags_entry)) {
-      json_object_object_add(tags_rate_map, tags, json_object_get(tags_map));
-      continue;
-    }
     json_object *rates = json_object_new_object();
-    json_object_object_foreach(tag_entry, eventname, value) {
-      json_object *ovalue;
-      /* Check if any entry for this event exists. If not initialize with new event value */
-      if (!json_object_object_get_ex(otags_entry, eventname, &ovalue)) {
-	json_object_object_add(tags_rate_map, eventname, value);
-	continue;
+
+    /* Check if any entry for these tags exists. If not, initialize with 0 */
+    if (!json_object_object_get_ex(otags_map, tags, &otags_entry)) {      
+      json_object_object_foreach(tag_entry, eventname, value) {
+	json_object_object_add(rates, eventname, json_object_new_double(0));
       }
-      /* If it eventname does exist in old tag_entry, calculate rate*/      
-      long long delta = json_object_get_int64(value) - json_object_get_int64(ovalue);
-      json_object_object_add(rates, eventname, json_object_new_int64(delta));
+    }
+    else {      
+      json_object_object_foreach(tag_entry, eventname, value) {
+	json_object *ovalue;
+	double delta;
+	/* Check if any entry for this event exists and calc rate. If not initialize rate with 0 */
+	if (!json_object_object_get_ex(otags_entry, eventname, &ovalue))
+	  delta = 0;
+	else
+	  delta = (double)((json_object_get_int64(value) - json_object_get_int64(ovalue)))/dt;
+	json_object_object_add(rates, eventname, json_object_new_double(delta));
+      }
     }
     json_object_object_add(tags_rate_map, tags, rates);
   }
@@ -248,13 +258,14 @@ void group_statsbytags(int nt, ...) {
     tag_rate_map = json_object_new_object();
     json_object_object_add(tag_map, "time", json_object_get(current_time));
     json_object_object_add(tag_rate_map, "time", json_object_get(current_time));
-
+    
     if (!json_object_object_get_ex(server_tag_map, servername, &prev_tag_map)) {
-      json_object_object_add(server_tag_rate_map, servername, json_object_get(tag_map));   
+      //calc_rates(tag_map, tag_map, tag_rate_map);
+      json_object_object_add(server_tag_rate_map, servername, json_object_get(tag_map));     
     }
-    else {
+    else {    
       calc_rates(prev_tag_map, tag_map, tag_rate_map);
-      json_object_object_add(server_tag_rate_map, servername, json_object_get(tag_rate_map));   
+      json_object_object_add(server_tag_rate_map, servername, json_object_get(tag_rate_map));
     }
 
     json_object_put(tag_rate_map);
@@ -339,17 +350,8 @@ int update_host_map(char *rpc) {
   json_object *entry_json, *tag;
   if (json_object_object_get_ex(host_map, hostname, &entry_json)) {
     
-    if (json_object_object_get_ex(rpc_json, "time", &tag)) {
-      json_object *t;
-      if (json_object_object_get_ex(entry_json, "time", &t))
-	json_object_object_add(entry_json, "tdelta", 
-			       json_object_new_double(json_object_get_double(tag) - \
-						      json_object_get_double(t)));      
+    if (json_object_object_get_ex(rpc_json, "time", &tag))
       json_object_object_add(entry_json, "time", json_object_get(tag));
-    }
-
-    //if (json_object_object_get_ex(entry_json, "tdelta", &tag))
-    //jfprintf(stderr, "time delta %f\n", json_object_get_double(tag));
 
     if (json_object_object_get_ex(rpc_json, "hostname", &tag))
       json_object_object_add(entry_json, "hid", json_object_get(tag));
@@ -363,9 +365,8 @@ int update_host_map(char *rpc) {
     if (json_object_object_get_ex(rpc_json, "obdclass", &tag))
       json_object_object_add(entry_json, "obdclass", json_object_get(tag));
 
-    if (json_object_object_get_ex(rpc_json, "data", &tag)) {
+    if (json_object_object_get_ex(rpc_json, "data", &tag))
       json_object_object_add(entry_json, "data", json_object_get(tag));
-    }
 
     if (json_object_object_get_ex(rpc_json, "nid", &tag))
       json_object_object_add(nid_map, json_object_get_string(tag), json_object_get(entry_json));

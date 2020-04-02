@@ -56,7 +56,6 @@ int collect_exports(json_object *jarray)
       char statspath[256];
       snprintf(statspath, sizeof(statspath), "%s/%s/stats", 
 	       exportpath, nidde->d_name);
-      printf("%s\n",statspath);
       json_object *tags_json = json_object_new_object();
       json_object_object_add(tags_json, "stats_type", json_object_new_string(type));
       json_object_object_add(tags_json, "target", json_object_new_string(typede->d_name));
