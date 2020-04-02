@@ -14,5 +14,6 @@ json_object *server_tag_rate_map;
 json_object *server_tag_sum;
 
 int groupby;
+json_object *group_tags;
 
 #endif

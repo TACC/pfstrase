@@ -19,6 +19,7 @@ static void map_init(void) {
   server_tag_map = json_object_new_object();
   server_tag_rate_map = json_object_new_object();
   server_tag_sum = json_object_new_object();
+  group_tags = json_object_new_array();
 }
 __attribute__((destructor))
 static void map_kill(void) {
@@ -27,6 +28,7 @@ static void map_kill(void) {
   json_object_put(server_tag_map);
   json_object_put(server_tag_rate_map);
   json_object_put(server_tag_sum);
+  json_object_put(group_tags);
 }
 
 #define printf_json(json) printf(">>> %s\n", json_object_get_string(json));
@@ -203,6 +205,17 @@ void group_statsbytags(int nt, ...) {
   json_object *data_array, *data_entry, *tid;
   json_object *tag_map, *tags, *stats_json, *tag_stats;
 
+  va_start(args, nt);
+  group_tags = json_object_new_array();
+  for (j = 0; j < nt; j++) {
+    const char *str = va_arg(args, const char *);
+    json_object *tag;
+    tag = json_object_new_object();
+    json_object_object_add(tag, "tag", json_object_new_string(str));
+    json_object_array_add(group_tags, tag);
+  } 
+  va_end(args);
+  
   json_object_object_foreach(host_map, servername, host_entry) {    
     if (is_server(host_entry) < 0)
       continue;
@@ -387,6 +400,9 @@ int update_host_map(char *rpc) {
     break;
   case 1:
     group_statsbytags(2, "fid", "server");
+    break;
+  case 5:
+    group_statsbytags(1, "server");
     break;
   default:
     group_statsbytags(5, "fid", "server", "client", "jid", "uid");

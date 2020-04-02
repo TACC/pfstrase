@@ -201,19 +201,23 @@ static void screen_key_cb(EV_P_ int key)
     return;
   case 'f':
     groupby = 1;
-    group_statsbytags(1, "fid", "server");
+    group_statsbytags(2, "fid", "server");
     break;
   case 'u':
     groupby = 2;
-    group_statsbytags(2, "fid", "server", "uid");
+    group_statsbytags(3, "fid", "server", "uid");
     break;
   case 'j':
     groupby = 3;
-    group_statsbytags(3, "fid", "server", "jid", "uid");
+    group_statsbytags(4, "fid", "server", "jid", "uid");
     break;
   case 'c':
     groupby = 4;
-    group_statsbytags(4, "fid", "server", "client", "jid", "uid");
+    group_statsbytags(5, "fid", "server", "client", "jid", "uid");
+    break;
+  case 's':
+    groupby = 5;
+    group_statsbytags(1, "server");
     break;
   case 'i':
     snprintf(sortbykey, sizeof(sortbykey), "iops");
@@ -297,15 +301,10 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 
   time_t now = ev_now(EV_A);
   int line = 0, i;
-  json_object *sid, *hid, *jid, *uid, *fid;      
+  json_object *sid, *hid, *jid, *uid, *fid, *tid;      
   json_object *iops, *bytes;
 
   erase();
-
-  mvprintw(line, 0, "%-15s %10s : %10s %10s %10s %16s[#/s] %16s[MB/s]", 
-	   "filesystem", "server", "client", "jobid", "user", "iops", "bytes");
-  mvchgat(line, 0, -1, A_STANDOUT, CP_BLACK, NULL);
-  line++;
 
   double cf = 1.0/(1024*1024);
   json_object *data_array = json_object_new_array();
@@ -329,7 +328,22 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   }
   json_object_array_sort(data_array, sort_da);
   int data_length = json_object_array_length(data_array);
-  
+
+  int k;
+  char header[256];
+  snprintf(header, sizeof(header), "%s", "");
+  int tag_length = json_object_array_length(group_tags); 
+  for (k = 0; k < tag_length; k++) {
+    json_object *te = json_object_array_get_idx(group_tags, k);
+    json_object_object_get_ex(te, "tag", &tid);
+    char tag_str[32];
+    snprintf(tag_str, sizeof(tag_str), "%-15s", json_object_get_string(tid));
+    strncat(header, tag_str, sizeof(header));
+  }
+  mvprintw(line, 0, "%s %16s %16s", header, "iops[#/s]", "bytes[MB/s]");
+  mvchgat(line, 0, -1, A_STANDOUT, CP_BLACK, NULL);
+  line++;
+
   int new_start = scroll_start + scroll_delta;
   int max_start = data_length - (LINES - line - 1);
   
@@ -339,27 +353,24 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   int j;
   for (j = new_start; j < data_length && line < (LINES - 1); j++) {
     json_object *de = json_object_array_get_idx(data_array, j);
-    /*
-    char values[256];
-    json_object_object_foreach(te, event, val) {
-    if json_object_is_type(val, json_type_string)
-      snprinf(values, sizeof(values), "%s", json_object_to_string(val));
-          if json_object_is_type(val, json_type_int64)
-      snprinf(values, sizeof(values), "%lu", json_object_to_string(val));
 
+    char row[256];
+    snprintf(row, sizeof(row), "%s", "");
+    for (k = 0; k < tag_length; k++) {
+      json_object *te = json_object_array_get_idx(group_tags, k);
+      json_object_object_get_ex(te, "tag", &tid);      
+      char tag_str[32];
+      if (json_object_object_get_ex(de, json_object_get_string(tid), &hid))
+	snprintf(tag_str, sizeof(tag_str), "%-15s", json_object_get_string(hid));
+      else 
+	snprintf(tag_str, sizeof(tag_str), "%-15s", "");
+      strncat(row, tag_str, sizeof(row));
     }
-    */
-    json_object_object_get_ex(de, "client", &hid);
-    json_object_object_get_ex(de, "server", &sid);
-    json_object_object_get_ex(de, "jid", &jid);
-    json_object_object_get_ex(de, "uid", &uid);
-    json_object_object_get_ex(de, "fid", &fid);
+
     json_object_object_get_ex(de, "iops", &iops);
     json_object_object_get_ex(de, "bytes", &bytes);
-    
-    mvprintw(line++, 0, "%-15s %10s : %10s %10s %10s %16.1f %16.1f", json_object_get_string(fid), 
-	     json_object_get_string(sid), json_object_get_string(hid), 
-	     json_object_get_string(jid), json_object_get_string(uid), 
+
+    mvprintw(line++, 0, "%s %16.1f %16.1f", row, 
 	     json_object_get_double(iops), json_object_get_double(bytes)*cf);
   }
   json_object_put(data_array);
