@@ -19,7 +19,7 @@ static void map_init(void) {
   server_tag_map = json_object_new_object();
   server_tag_rate_map = json_object_new_object();
   server_tag_sum = json_object_new_object();
-  group_tags = json_object_new_array();
+  group_tags = json_object_new_object();
 }
 __attribute__((destructor))
 static void map_kill(void) {
@@ -206,13 +206,10 @@ void group_statsbytags(int nt, ...) {
   json_object *tag_map, *tags, *stats_json, *tag_stats;
 
   va_start(args, nt);
-  group_tags = json_object_new_array();
+  group_tags = json_object_new_object();
   for (j = 0; j < nt; j++) {
     const char *str = va_arg(args, const char *);
-    json_object *tag;
-    tag = json_object_new_object();
-    json_object_object_add(tag, "tag", json_object_new_string(str));
-    json_object_array_add(group_tags, tag);
+    json_object_object_add(group_tags, str, json_object_new_string(""));
   } 
   va_end(args);
   
