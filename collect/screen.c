@@ -113,8 +113,8 @@ void screen_start(EV_P)
   ev_signal_start(EV_A_ &sigterm_w);
   ev_signal_start(EV_A_ &sigwinch_w);
 
-  /* Sort by iops by default */
-  snprintf(sortbykey, sizeof(sortbykey), "iops");
+  /* Sort by load by default */
+  snprintf(sortbykey, sizeof(sortbykey), "load");
   data_map = server_tag_sum;
   detailed = 0;
   screen_is_active = 1;
@@ -222,6 +222,9 @@ static void screen_key_cb(EV_P_ int key)
     groupby = 5;
     group_statsbytags(1, "server");
     break;
+  case 'l':
+    snprintf(sortbykey, sizeof(sortbykey), "load");
+    break;
   case 'i':
     if (!detailed)
       snprintf(sortbykey, sizeof(sortbykey), "iops");   
@@ -236,12 +239,12 @@ static void screen_key_cb(EV_P_ int key)
     break;
   case 'd':
     if (detailed) {
-      snprintf(sortbykey, sizeof(sortbykey), "iops");
+      snprintf(sortbykey, sizeof(sortbykey), "load");
       data_map = server_tag_sum;
       detailed = 0;
     }
     else {
-      snprintf(sortbykey, sizeof(sortbykey), "open");
+      snprintf(sortbykey, sizeof(sortbykey), "load");
       data_map = server_tag_rate_map;
       detailed = 1;
     }
@@ -332,13 +335,15 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
     json_object_object_foreach(se, t, te) {
       json_object *tags = NULL;
       if (strcmp(t, "time") == 0) continue;
+
       tags = json_tokener_parse_verbose(t, &error);
       if (error != json_tokener_success) {
         fprintf(stderr, "tags format incorrect `%s': %s\n", t, json_tokener_error_desc(error));
         goto end;
       }
+
       json_object_object_foreach(te, event, val) {
-	if (json_object_get_double(val) < 2) continue;
+	if (strcmp(event, "load") != 0 && json_object_get_double(val) < 2) continue;
 	json_object_object_add(events, event, json_object_new_string(""));
 	json_object_object_add(tags, event, json_object_get(val));
       }
@@ -357,7 +362,7 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   snprintf(header_tags, sizeof(header_tags), "%s", "");
   json_object_object_foreach(group_tags, t, v) {
     char t_str[32];
-    snprintf(t_str, sizeof(t_str), "%-15s", t);
+    snprintf(t_str, sizeof(t_str), "%-12s", t);
     strncat(header_tags, t_str, sizeof(header_tags));
   }
 
@@ -366,8 +371,11 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   snprintf(header_events, sizeof(header_events), "%s", "");
   json_object_object_foreach(events, e, val) {
     char e_str[32];
-    if (strcmp("bytes", e) == 0 || strcmp("read_bytes", e) == 0 || strcmp("write_bytes", e) == 0)
+    if (strcmp("bytes", e) == 0 || strcmp("read_bytes", e) == 0 || 
+	strcmp("write_bytes", e) == 0)
       snprintf(e_str, sizeof(e_str), "%10s[MB/s]", e);
+    else if (strcmp("load", e) == 0)
+      snprintf(e_str, sizeof(e_str), "%16s", e);
     else
       snprintf(e_str, sizeof(e_str), "%11s[#/s]", e);
     strncat(header_events, e_str, sizeof(header_events));
@@ -389,15 +397,15 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   for (j = new_start; j < data_length && line < (LINES - 1); j++) {
     json_object *de = json_object_array_get_idx(data_array, j);
 
-    char row[512];
-    snprintf(row, sizeof(row), "%s", "");
+    char row_tags[512];
+    snprintf(row_tags, sizeof(row_tags), "%s", "");
     json_object_object_foreach(group_tags, t, v) {
       char tag_str[32];
       if (json_object_object_get_ex(de, t, &tid))
-	snprintf(tag_str, sizeof(tag_str), "%-15s", json_object_get_string(tid));
+	snprintf(tag_str, sizeof(tag_str), "%-12s", json_object_get_string(tid));
       else 
-	snprintf(tag_str, sizeof(tag_str), "%-15s", "");
-      strncat(row, tag_str, sizeof(row));
+	snprintf(tag_str, sizeof(tag_str), "%-12s", "");
+      strncat(row_tags, tag_str, sizeof(row_tags));
     }
 
     char row_events[512];    
@@ -408,14 +416,16 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 	double factor = 1;
 	if (strcmp("bytes", e) == 0 || strcmp("read_bytes", e) == 0 || strcmp("write_bytes", e) == 0)
 	  factor = cf; 
-	snprintf(e_str, sizeof(e_str), "%16.1f", json_object_get_double(eid)*factor);
+	if (strcmp("load", e) == 0 )
+	  factor = 0.01;
+	snprintf(e_str, sizeof(e_str), "%16.2f", json_object_get_double(eid)*factor);
       }
       else
 	snprintf(e_str, sizeof(e_str), "%16.1f", 0.0);
       strncat(row_events, e_str, sizeof(row_events));
     }
 
-    mvprintw(line++, 0, "%s %s", row, row_events); 
+    mvprintw(line++, 0, "%s %s", row_tags, row_events); 
 
   }
   json_object_put(data_array);

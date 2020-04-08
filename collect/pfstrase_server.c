@@ -15,7 +15,8 @@ static char *app_name = NULL;
 static char *conf_file_name = NULL;
 static FILE *log_stream = NULL;
 
-static char *port = "8213";
+//static char *port = "8213";
+static char *port = "5672";
 static double freq = 300;
 
 static ev_timer timer;

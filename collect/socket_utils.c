@@ -21,7 +21,7 @@ static int process_rpc(char *rpc)
   int rc = -1;
 
   if (rpc[0] != '{') {
-    fprintf(stderr, "RPC `%s': json must start with `{'\n", rpc);
+    //fprintf(stderr, "RPC `%s': json must start with `{'\n", rpc);
     goto out;
   }
 
@@ -93,7 +93,8 @@ void sock_rpc()
   }
 
   if (process_rpc(request) < 0)
-    fprintf(stderr, "rpc processing failed: %s\n", strerror(errno));
+    return;
+    //fprintf(stderr, "rpc processing failed: %s\n", strerror(errno));
 }
 
 
