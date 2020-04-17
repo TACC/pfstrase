@@ -84,11 +84,13 @@ void sock_rpc()
 
   char request[SOCKET_BUFFERSIZE];
   memset(request, 0, sizeof(request));
+
   ssize_t bytes_recvd;
   ssize_t p = 0;
   while ((bytes_recvd = recv(fd, request + p, sizeof(request) - p*sizeof(char), 0)) > 0) {
     p += bytes_recvd;
   }
+
   close(fd);
 
   if (bytes_recvd < 0) {
@@ -135,8 +137,13 @@ void sock_send_data(const char *dn, const char *port)
   
   json_object *message_json = json_object_new_object();
   collect_devices(message_json);
+  //printf("%s\n",json_object_get_string(message_json));
+  printf("%zu\n", sizeof(char)*strlen(json_object_to_json_string(message_json)));
   int rv = send(server_socket, json_object_to_json_string(message_json), 
-		strlen(json_object_to_json_string(message_json)), 0);
+		sizeof(char)*strlen(json_object_to_json_string(message_json)), 0);
+  if (rv < 0)
+    printf("error with message %s\n", strerror(errno));
+
   json_object_put(message_json);
   close(server_socket);
   freeaddrinfo(result);

@@ -10,16 +10,11 @@ systemduserunit_DATA = \
 endif
 
 pfstrase_client_CPPFLAGS = -D_GNU_SOURCE
-
 pfstrase_client_SOURCES = 	 \
-	amqp_socket_utils.h \
-	amqp_socket_utils.c \
 	cpu.h 		 \
 	cpu.c 		 \
 	daemonize.h	 \
 	daemonize.c	 \
-	utils.h 	\
-	utils.c		\
 	collect.h 	\
 	collect.c	\
 	exports.h	\
@@ -49,8 +44,6 @@ pfstrase_server_SOURCES = 	 \
 	cpu.c 		 \
 	daemonize.h	 \
 	daemonize.c	 \
-	utils.h 	\
-	utils.c		\
 	collect.h 	\
 	collect.c	\
 	exports.h	\

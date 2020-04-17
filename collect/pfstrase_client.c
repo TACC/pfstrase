@@ -8,11 +8,7 @@
 #include <ev.h>
 #include <string.h>
 #include <syslog.h>
-#include <amqp.h>
-#include <amqp_tcp_socket.h>
 
-#include "utils.h"
-#include "amqp_socket_utils.h"
 #include "socket_utils.h"
 #include "daemonize.h"
 

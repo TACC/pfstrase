@@ -1,0 +1,3 @@
+echo "{\"hostname\" : \"`hostname`\", \"jid\" : \"$SLURM_JOB_ID\", \"uid\" : \"$SLURM_JOB_USER\", \"nid\" : \"`awk '{print $1}' /proc/sys/lnet/nis | tail -1`\"}" | nc login1.wrangler.tacc.utexas.edu 5672
+
+echo "{\"hostname\" : \"`hostname`\", \"jid\" : \"-\", \"uid\" : \"-\", \"nid\" : \"`awk '{print $1}' /proc/sys/lnet/nis | tail -1`\"}" | nc login1.wrangler.tacc.utexas.edu 5672

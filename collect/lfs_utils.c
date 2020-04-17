@@ -5,7 +5,6 @@
 #include <time.h>
 #include "lfs_utils.h"
 
-
 #define PROCFS_BUF_SIZE 4096
 
  /* Discover device info from devices file 
@@ -43,8 +42,8 @@ static void devices_discover(void) {
   unsigned long long num;
   char state[32];
   char type[32];
-  char detail[32];
-  char uuid[32];
+  char detail[64];
+  char uuid[64];
   unsigned long long u;
   char devices_path[128];
   char nid_path[128];
@@ -75,7 +74,6 @@ static void devices_discover(void) {
 		   &num, &state, &type, &detail, &uuid, &u);
     if (n != 6) 
       continue;
-
     if (strcmp(type, "mdt") == 0) {
       info.class = MDS;      
       snprintf(info.class_str, sizeof(info.class_str), "mds");
@@ -86,6 +84,7 @@ static void devices_discover(void) {
       snprintf(info.class_str, sizeof(info.class_str), "oss");
       break;
     }
+
     if (strcmp(type, "osc") == 0) {
       info.class = OSC;
       snprintf(info.class_str, sizeof(info.class_str), "osc");

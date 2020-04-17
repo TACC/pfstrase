@@ -1,6 +1,6 @@
 #ifndef _STATS_H_
 #define _STATS_H_
-#include <json-c12/json.h>
+#include <json-c/json.h>
 
 int update_host_map(char *rpc);
 void group_statsbytag(const char *tag);

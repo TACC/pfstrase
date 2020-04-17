@@ -362,7 +362,7 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   snprintf(header_tags, sizeof(header_tags), "%s", "");
   json_object_object_foreach(group_tags, t, v) {
     char t_str[32];
-    snprintf(t_str, sizeof(t_str), "%-12s", t);
+    snprintf(t_str, sizeof(t_str), "%-32s", t);
     strncat(header_tags, t_str, sizeof(header_tags));
   }
 
@@ -402,9 +402,9 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
     json_object_object_foreach(group_tags, t, v) {
       char tag_str[32];
       if (json_object_object_get_ex(de, t, &tid))
-	snprintf(tag_str, sizeof(tag_str), "%-12s", json_object_get_string(tid));
+	snprintf(tag_str, sizeof(tag_str), "%-32s", json_object_get_string(tid));
       else 
-	snprintf(tag_str, sizeof(tag_str), "%-12s", "");
+	snprintf(tag_str, sizeof(tag_str), "%-32s", "");
       strncat(row_tags, tag_str, sizeof(row_tags));
     }
 
