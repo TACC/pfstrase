@@ -289,7 +289,7 @@ int update_host_map(char *rpc) {
   enum json_tokener_error error = json_tokener_success;
   rpc_json = json_tokener_parse_verbose(rpc, &error);  
   if (error != json_tokener_success) {
-    //fprintf(stderr, "RPC `%s': %s\n", rpc, json_tokener_error_desc(error));
+    fprintf(stderr, "RPC `%s': %s\n", rpc, json_tokener_error_desc(error));
     goto out;
   }
 
@@ -336,10 +336,16 @@ int update_host_map(char *rpc) {
     if (json_object_object_get_ex(rpc_json, "nid", &tag))
       json_object_object_add(nid_map, json_object_get_string(tag), json_object_get(entry_json));
 
+    //if (is_class(entry_json, "osc") > 0)
+    //printf_json(rpc_json);
     tag_stats();
   }
   rc = 1;
-
+  /*
+  json_object_object_foreach(nid_map, host, k) {
+    printf("%s\n", host);
+  }
+  */
   switch(groupby) {
   case 4:
     group_statsbytags(5, "fid", "server", "client", "jid", "uid");

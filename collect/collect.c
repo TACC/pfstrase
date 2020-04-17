@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
-#include  <syslog.h>
+#include <syslog.h>
+#include <time.h>
 #include "lfs_utils.h"
 #include "collect.h"
 #include "cpu.h"
@@ -58,7 +59,6 @@ void collect_devices(json_object *jobj)
     if (collect_osc(data_json) < 0)
       fprintf(stderr, "osc collection failed\n");
   }
-  
   json_object_object_add(jobj, "data", data_json);  
 }
 
