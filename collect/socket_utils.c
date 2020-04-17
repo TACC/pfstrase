@@ -84,7 +84,11 @@ void sock_rpc()
 
   char request[SOCKET_BUFFERSIZE];
   memset(request, 0, sizeof(request));
-  ssize_t bytes_recvd = recv(fd, request, sizeof(request), 0);
+  ssize_t bytes_recvd;
+  ssize_t p = 0;
+  while ((bytes_recvd = recv(fd, request + p, sizeof(request) - p*sizeof(char), 0)) > 0) {
+    p += bytes_recvd;
+  }
   close(fd);
 
   if (bytes_recvd < 0) {

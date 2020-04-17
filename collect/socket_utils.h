@@ -1,6 +1,6 @@
 #ifndef _SOCKET_UTILS_H_
 #define _SOCKET_UTILS_H_
-#define SOCKET_BUFFERSIZE 655336
+#define SOCKET_BUFFERSIZE 1048576
 
 int socket_destroy();
 int socket_listen(const char *port);
