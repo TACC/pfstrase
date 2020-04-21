@@ -7,17 +7,16 @@
 #include <stdio.h>
 #include <ev.h>
 #include <string.h>
-#include <syslog.h>
-
-#include "socket_utils.h"
+#include "socket_server.h"
 #include "daemonize.h"
+#include "screen.h"
 
 static char *app_name = NULL;
 static char *conf_file_name = NULL;
 static FILE *log_stream = NULL;
 
-static char *server = NULL;
-static char *port = "8312";
+//static char *port = "8213";
+static char *port = "5672";
 static double freq = 300;
 
 static ev_timer timer;
@@ -45,12 +44,6 @@ int read_conf_file()
     char *key = strsep(&line, " :\t=");	
     if (key == NULL || line == NULL)
       continue;
-    if (strcmp(key, "server") == 0) { 
-      line[strlen(line) - 1] = '\0';
-      server = strdup(line);
-      fprintf(log_stream, "%s: Setting server to %s based on file %s\n",
-	      app_name, server, conf_file_name);
-    }
     if (strcmp(key, "port") == 0) {
       line[strlen(line) - 1] = '\0';
       port = strdup(line);
@@ -63,41 +56,22 @@ int read_conf_file()
 	       app_name, freq, conf_file_name);
     }
   }
-
   fclose(conf_file_fd);
-
   return ret;
 }
 
 /* using bare sockets */
 static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
 {
-  //fprintf(log_stream, "collect and send data based on sock rpc\n");
-  fprintf(log_stream, "collect and send data based on socket rpc\n");
+  //fprintf(log_stream, "update map based on sock rpc\n");  
   sock_rpc();
 }
-static void sock_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
-{
-  //fprintf(log_stream, "collect and send data based on socket timer\n");
-  sock_send_data(server, port);
-}
 
-/* using amqp sockets */
-static void amqp_rpc_cb(EV_P_ ev_io *w, int revents)
-{
-  //fprintf(log_stream, "collect and send data based on amqp rpc\n");
-  fprintf(log_stream, "collect and send data based on amqp rpc\n");
-  amqp_rpc();
-}
-static void amqp_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
-{
-  //fprintf(log_stream, "collect and send data based on amqp timer\n");
-  amqp_send_data();
-}
 /* Signal Callbacks for SIGINT (terminate) and SIGHUP (reload conf file) */
 static void signal_cb_int(EV_P_ ev_signal *sig, int revents)
 {
-    fprintf(log_stream, "Stopping pfstrase_client\n");
+    fprintf(log_stream, "Stopping map_server\n");
+    socket_destroy();
     if (pid_fd != -1) {
       lockf(pid_fd, F_ULOCK, 0);
       close(pid_fd);
@@ -109,7 +83,7 @@ static void signal_cb_int(EV_P_ ev_signal *sig, int revents)
 }
 static void signal_cb_hup(EV_P_ ev_signal *sig, int revents) 
 {
-  fprintf(log_stream, "Reloading pfstrase config file\n");
+  fprintf(log_stream, "Reloading map_server config file\n");
   read_conf_file();    
   timer.repeat = freq; 
   ev_timer_again(EV_DEFAULT, &timer);
@@ -124,11 +98,10 @@ static void usage(void)
           "Mandatory arguments to long options are mandatory for short options too.\n"
           "  -h, --help                 display this help and exit\n"
 	  "  -d --daemon                Run in daemon mode\n"
-          "  -s --server    [SERVER]    Server to send data.\n"
           "  -f --frequency [FREQUENCY] Frequency to sample.\n"
 	  "  -c --conf_file [FILENAME]  Read configuration from the file\n"
 	  "  -l --log_file  [FILENAME]  Write logs to the file\n"
-	  "  -p --port      [PORT]      Port to connect to on server.\n"
+	  "  -p --port      [PORT]      Port to listen on.\n"
           ,
           program_invocation_short_name);
 }
@@ -137,12 +110,12 @@ int main(int argc, char *argv[])
 {
   int daemonmode = 0;
   char *log_file_name = NULL;
+  char *pid_file_name = NULL;
   app_name = argv[0];
 
   struct option opts[] = {
     { "help",   no_argument, 0, 'h' },
     { "daemon", no_argument, 0, 'd' },
-    { "server", required_argument, 0, 's' },
     { "freq ",  required_argument, 0, 'f' },
     {"conf_file", required_argument, 0, 'c'},
     {"log_file", required_argument, 0, 'l'},
@@ -155,9 +128,6 @@ int main(int argc, char *argv[])
     switch (c) {
     case 'd':
       daemonmode = 1;
-      break;
-    case 's':
-      server = strdup(optarg);
       break;
     case 'f':
       freq = atof(optarg);
@@ -182,15 +152,13 @@ int main(int argc, char *argv[])
 
   if (daemonmode) {
     if (pid_file_name == NULL) 
-      pid_file_name = strdup("/var/run/pfstrase_client.pid");
+      pid_file_name = strdup("/var/run/map_server.pid");
     daemonize();
   }
-  
   log_stream = stderr;  
-  //openlog(argv[0], LOG_PID|LOG_CONS, LOG_DAEMON);
   fprintf(log_stream, "Started %s\n", app_name);
 
-  /* Setup signal callbacks to stop pfstrase_client or reload conf file */
+  /* Setup signal callbacks to stop map_server or reload conf file */
   signal(SIGPIPE, SIG_IGN);
   static struct ev_signal sigint;
   ev_signal_init(&sigint, signal_cb_int, SIGINT);
@@ -200,71 +168,27 @@ int main(int argc, char *argv[])
   ev_signal_init(&sighup, signal_cb_hup, SIGHUP);
   ev_signal_start(EV_DEFAULT, &sighup);
 
-  /* Try to open log file to this daemon */
-  /*
-  if (log_file_name != NULL) {
-    log_stream = fopen(log_file_name, "a+");
-    if (log_stream == NULL) {
-      fprintf(log_stream, "Can not open log file: %s, error: %s",
-	     log_file_name, strerror(errno));
-      log_stream = stderr;
-    }
-  } else {
-    log_stream = stderr;
-  }
 
-  int ret = fprintf(log_stream, "Debug: %d\n", 1);
-  if (ret < 0) {
-    fprintf(log_stream, "Can not write to log stream: %s, error: %s",
-	   (log_stream == stderr) ? "stderr" : log_file_name, strerror(errno));
-  }
-  ret = fflush(log_stream);
-  if (ret != 0) {
-    fprintf(log_stream, "Can not fflush() log stream: %s, error: %s",
-	   (log_stream == stderr) ? "stderr" : log_file_name, strerror(errno));
-  }
-  */
-  /* Read configuration from config file */
   read_conf_file(0);
-  
-  if (server == NULL) {
-    fprintf(log_stream, "Must specify a server to send data to with -s [--server] argument.\n");
-    exit(0);
-  } else {
-    fprintf(log_stream, "pfstrase data to server %s on port %s.\n", server, port);
-  }
-  
-  int amqp_fd;
-  int sock_fd;
 
-  //ev_io amqp_watcher;
+  int sock_fd;
   ev_io sock_watcher;  
 
-  /*  Setup persistent AMQP connection to RMQ server */
-  //while (amqp_fd = amqp_setup_connection(port, server) < 0) sleep(60);
-  /* Setup persistent local listener to accept RPCs to socket */
-  //sock_fd = sock_setup_connection("8888");  
+  sock_fd = socket_listen(port);  
+  /* Initialize callback to respond to RPCs sent to socekt */
+  ev_io_init(&sock_watcher, sock_rpc_cb, sock_fd, EV_READ);
+  ev_io_start(EV_DEFAULT, &sock_watcher);    
+  fprintf(log_stream, "Starting map_server listening on port %s\n", port);
 
-  /* Initialize timer routine to collect and send data */
-  ev_timer_init(&timer, sock_timer_cb, 0.0, freq);   
-  /* Initialize callback to respond to RPCs sent through RMQ connections */
-  //ev_io_init(&amqp_watcher, amqp_rpc_cb, amqp_fd, EV_READ);
-  /* Initialize callback to respond to RPCs send to socekt */
-  //ev_io_init(&sock_watcher, sock_rpc_cb, sock_fd, EV_READ);
+  screen_init(1.0);
 
-  ev_timer_start(EV_DEFAULT, &timer);
-  //ev_io_start(EV_DEFAULT, &amqp_watcher);    
-  //ev_io_start(EV_DEFAULT, &sock_watcher);    
-  fprintf(log_stream, "Setting pfstrase collection frequency to %fs\n", freq);
+  screen_start(EV_DEFAULT);
+
   ev_run(EV_DEFAULT, 0);
-
-  /* Clean up sockets and connections */
-  //amqp_kill_connection();
-
-  //if(amqp_fd)
-  //  close(amqp_fd);
-  //if(sock_fd)
-  //close(sock_fd);
+  
+  screen_stop(EV_DEFAULT);
+  if(sock_fd)
+    close(sock_fd);
 
   /* Close log file, when it is used. */
   if (log_stream != stderr) {
@@ -273,7 +197,7 @@ int main(int argc, char *argv[])
 
   /* Write system log and close it. */
   fprintf(log_stream, "Stopped %s", app_name);
-  //closelog();
+
   /* Free up names of files */
   if (conf_file_name != NULL) free(conf_file_name);
   if (log_file_name != NULL) free(log_file_name);

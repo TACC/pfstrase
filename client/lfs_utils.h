@@ -2,7 +2,7 @@
 #define _LFS_UTILS_H_
 
 #include <time.h>
-#include <json-c/json.h>
+#include <json/json.h>
 
 enum device_class{MDS, OSS, OSC};
 

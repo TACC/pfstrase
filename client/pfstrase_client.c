@@ -7,16 +7,17 @@
 #include <stdio.h>
 #include <ev.h>
 #include <string.h>
-#include "socket_utils.h"
+#include <syslog.h>
+#include <json/json.h>
+#include "socket_client.h"
 #include "daemonize.h"
-#include "screen.h"
 
 static char *app_name = NULL;
 static char *conf_file_name = NULL;
 static FILE *log_stream = NULL;
 
-//static char *port = "8213";
-static char *port = "5672";
+static char *server = NULL;
+static char *port = "8312";
 static double freq = 300;
 
 static ev_timer timer;
@@ -44,6 +45,12 @@ int read_conf_file()
     char *key = strsep(&line, " :\t=");	
     if (key == NULL || line == NULL)
       continue;
+    if (strcmp(key, "server") == 0) { 
+      line[strlen(line) - 1] = '\0';
+      server = strdup(line);
+      fprintf(log_stream, "%s: Setting server to %s based on file %s\n",
+	      app_name, server, conf_file_name);
+    }
     if (strcmp(key, "port") == 0) {
       line[strlen(line) - 1] = '\0';
       port = strdup(line);
@@ -56,22 +63,23 @@ int read_conf_file()
 	       app_name, freq, conf_file_name);
     }
   }
+
   fclose(conf_file_fd);
+
   return ret;
 }
 
-/* using bare sockets */
-static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
+/* Send data based on ev timer interval */
+static void sock_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
 {
-  //fprintf(log_stream, "update map based on sock rpc\n");  
-  sock_rpc();
+  //fprintf(log_stream, "collect and send data based on socket timer\n");
+  sock_send_data(server, port);
 }
 
 /* Signal Callbacks for SIGINT (terminate) and SIGHUP (reload conf file) */
 static void signal_cb_int(EV_P_ ev_signal *sig, int revents)
 {
-    fprintf(log_stream, "Stopping map_server\n");
-    socket_destroy();
+    fprintf(log_stream, "Stopping pfstrase_client\n");
     if (pid_fd != -1) {
       lockf(pid_fd, F_ULOCK, 0);
       close(pid_fd);
@@ -83,7 +91,7 @@ static void signal_cb_int(EV_P_ ev_signal *sig, int revents)
 }
 static void signal_cb_hup(EV_P_ ev_signal *sig, int revents) 
 {
-  fprintf(log_stream, "Reloading map_server config file\n");
+  fprintf(log_stream, "Reloading pfstrase config file\n");
   read_conf_file();    
   timer.repeat = freq; 
   ev_timer_again(EV_DEFAULT, &timer);
@@ -98,10 +106,11 @@ static void usage(void)
           "Mandatory arguments to long options are mandatory for short options too.\n"
           "  -h, --help                 display this help and exit\n"
 	  "  -d --daemon                Run in daemon mode\n"
+          "  -s --server    [SERVER]    Server to send data.\n"
           "  -f --frequency [FREQUENCY] Frequency to sample.\n"
 	  "  -c --conf_file [FILENAME]  Read configuration from the file\n"
 	  "  -l --log_file  [FILENAME]  Write logs to the file\n"
-	  "  -p --port      [PORT]      Port to listen on.\n"
+	  "  -p --port      [PORT]      Port to connect to on server.\n"
           ,
           program_invocation_short_name);
 }
@@ -110,12 +119,12 @@ int main(int argc, char *argv[])
 {
   int daemonmode = 0;
   char *log_file_name = NULL;
-  char *pid_file_name = NULL;
   app_name = argv[0];
 
   struct option opts[] = {
     { "help",   no_argument, 0, 'h' },
     { "daemon", no_argument, 0, 'd' },
+    { "server", required_argument, 0, 's' },
     { "freq ",  required_argument, 0, 'f' },
     {"conf_file", required_argument, 0, 'c'},
     {"log_file", required_argument, 0, 'l'},
@@ -128,6 +137,9 @@ int main(int argc, char *argv[])
     switch (c) {
     case 'd':
       daemonmode = 1;
+      break;
+    case 's':
+      server = strdup(optarg);
       break;
     case 'f':
       freq = atof(optarg);
@@ -152,13 +164,14 @@ int main(int argc, char *argv[])
 
   if (daemonmode) {
     if (pid_file_name == NULL) 
-      pid_file_name = strdup("/var/run/map_server.pid");
+      pid_file_name = strdup("/var/run/pfstrase_client.pid");
     daemonize();
   }
+  
   log_stream = stderr;  
   fprintf(log_stream, "Started %s\n", app_name);
 
-  /* Setup signal callbacks to stop map_server or reload conf file */
+  /* Setup signal callbacks to stop pfstrase_client or reload conf file */
   signal(SIGPIPE, SIG_IGN);
   static struct ev_signal sigint;
   ev_signal_init(&sigint, signal_cb_int, SIGINT);
@@ -168,27 +181,21 @@ int main(int argc, char *argv[])
   ev_signal_init(&sighup, signal_cb_hup, SIGHUP);
   ev_signal_start(EV_DEFAULT, &sighup);
 
-
+  /* Read configuration from config file */
   read_conf_file(0);
-
-  int sock_fd;
-  ev_io sock_watcher;  
-
-  sock_fd = socket_listen(port);  
-  /* Initialize callback to respond to RPCs sent to socekt */
-  ev_io_init(&sock_watcher, sock_rpc_cb, sock_fd, EV_READ);
-  ev_io_start(EV_DEFAULT, &sock_watcher);    
-  fprintf(log_stream, "Starting map_server listening on port %s\n", port);
-
-  screen_init(1.0);
-
-  screen_start(EV_DEFAULT);
-
-  ev_run(EV_DEFAULT, 0);
   
-  screen_stop(EV_DEFAULT);
-  if(sock_fd)
-    close(sock_fd);
+  if (server == NULL) {
+    fprintf(log_stream, "Must specify a server to send data to with -s [--server] argument.\n");
+    exit(0);
+  } else {
+    fprintf(log_stream, "pfstrase data to server %s on port %s.\n", server, port);
+  }
+  
+  /* Initialize timer routine to collect and send data */
+  ev_timer_init(&timer, sock_timer_cb, 0.0, freq);   
+  ev_timer_start(EV_DEFAULT, &timer);
+  fprintf(log_stream, "Setting pfstrase collection frequency to %fs\n", freq);
+  ev_run(EV_DEFAULT, 0);
 
   /* Close log file, when it is used. */
   if (log_stream != stderr) {
@@ -198,6 +205,7 @@ int main(int argc, char *argv[])
   /* Write system log and close it. */
   fprintf(log_stream, "Stopped %s", app_name);
 
+  //closelog();
   /* Free up names of files */
   if (conf_file_name != NULL) free(conf_file_name);
   if (log_file_name != NULL) free(log_file_name);

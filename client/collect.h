@@ -1,7 +1,7 @@
 #ifndef _COLLECT_H_
 #define _COLLECT_H_
 #include "lfs_utils.h"
-#include "json-c/json.h"
+#include "json/json.h"
 
 void collect_devices(json_object *json);
 int collect_stats(const char *path, json_object *stats);
