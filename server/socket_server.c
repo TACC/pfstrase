@@ -20,7 +20,7 @@ static int process_rpc(char *rpc)
 {
   int rc = -1;
 
-  if (rpc[0] != '{') {
+  if (rpc[0] != '{' && rpc[0] != '[') {
     //fprintf(stderr, "RPC `%s': json must start with `{'\n", rpc);
     goto out;
   }

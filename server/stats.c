@@ -359,18 +359,9 @@ static void tag_stats() {
   }
 }
 
-int update_host_map(char *rpc) {
-
+static int update_host_entry(json_object *rpc_json) {
   int rc = -1;
-  json_object *rpc_json = NULL;
   char hostname[32];
-
-  enum json_tokener_error error = json_tokener_success;
-  rpc_json = json_tokener_parse_verbose(rpc, &error);  
-  if (error != json_tokener_success) {
-    fprintf(stderr, "RPC `%s': %s\n", rpc, json_tokener_error_desc(error));
-    goto out;
-  }
 
   /* If hostname is not in the rpc it is not valid so return */
   json_object *hostname_tag;
@@ -417,7 +408,7 @@ int update_host_map(char *rpc) {
 
     tag_stats();    
 
-    pq_insert(entry_json);
+    //pq_insert(entry_json);
     //pq_select();
   }
   switch(groupby) {
@@ -447,5 +438,32 @@ int update_host_map(char *rpc) {
  out:
   if (rpc_json)
     json_object_put(rpc_json);
+  return rc;
+}
+
+
+int update_host_map(char *rpc) {
+
+  int rc = -1;
+  json_object *rpc_json = NULL;
+
+  enum json_tokener_error error = json_tokener_success;
+  rpc_json = json_tokener_parse_verbose(rpc, &error);  
+  if (error != json_tokener_success) {
+    fprintf(stderr, "RPC `%s': %s\n", rpc, json_tokener_error_desc(error));
+    goto out;
+  }
+
+  int i;
+  if (json_object_is_type(rpc_json, json_type_array)) {
+    int arraylen = json_object_array_length(rpc_json);
+    for (i = 0; i < arraylen; i++)
+      update_host_entry(json_object_array_get_idx(rpc_json, i));
+  }
+  else
+    update_host_entry(rpc_json);
+
+  rc = 1;
+ out:
   return rc;
 }

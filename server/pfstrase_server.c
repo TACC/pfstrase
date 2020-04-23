@@ -179,7 +179,7 @@ int main(int argc, char *argv[])
   ev_io_init(&sock_watcher, sock_rpc_cb, sock_fd, EV_READ);
   ev_io_start(EV_DEFAULT, &sock_watcher);    
   fprintf(log_stream, "Starting map_server listening on port %s\n", port);
-
+  
   screen_init(1.0);
 
   screen_start(EV_DEFAULT);
