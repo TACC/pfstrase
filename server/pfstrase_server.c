@@ -70,7 +70,7 @@ static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
 /* Signal Callbacks for SIGINT (terminate) and SIGHUP (reload conf file) */
 static void signal_cb_int(EV_P_ ev_signal *sig, int revents)
 {
-    fprintf(log_stream, "Stopping map_server\n");
+    fprintf(log_stream, "Stopping pfstrase_server\n");
     socket_destroy();
     if (pid_fd != -1) {
       lockf(pid_fd, F_ULOCK, 0);
@@ -83,7 +83,7 @@ static void signal_cb_int(EV_P_ ev_signal *sig, int revents)
 }
 static void signal_cb_hup(EV_P_ ev_signal *sig, int revents) 
 {
-  fprintf(log_stream, "Reloading map_server config file\n");
+  fprintf(log_stream, "Reloading pfstrase_server config file\n");
   read_conf_file();    
   timer.repeat = freq; 
   ev_timer_again(EV_DEFAULT, &timer);
@@ -152,13 +152,13 @@ int main(int argc, char *argv[])
 
   if (daemonmode) {
     if (pid_file_name == NULL) 
-      pid_file_name = strdup("/var/run/map_server.pid");
+      pid_file_name = strdup("/var/run/pfstrase_server.pid");
     daemonize();
   }
   log_stream = stderr;  
   fprintf(log_stream, "Started %s\n", app_name);
 
-  /* Setup signal callbacks to stop map_server or reload conf file */
+  /* Setup signal callbacks to stop pfstrase_server or reload conf file */
   signal(SIGPIPE, SIG_IGN);
   static struct ev_signal sigint;
   ev_signal_init(&sigint, signal_cb_int, SIGINT);
@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
   /* Initialize callback to respond to RPCs sent to socekt */
   ev_io_init(&sock_watcher, sock_rpc_cb, sock_fd, EV_READ);
   ev_io_start(EV_DEFAULT, &sock_watcher);    
-  fprintf(log_stream, "Starting map_server listening on port %s\n", port);
+  fprintf(log_stream, "Starting pfstrase_server listening on port %s\n", port);
   
   screen_init(1.0);
 
