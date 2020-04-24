@@ -115,7 +115,7 @@ void screen_start(EV_P)
 
   /* Sort by load by default */
   snprintf(sortbykey, sizeof(sortbykey), "load");
-  data_map = server_tag_sum;
+
   detailed = 0;
   screen_is_active = 1;
 }
@@ -226,26 +226,16 @@ static void screen_key_cb(EV_P_ int key)
     snprintf(sortbykey, sizeof(sortbykey), "load");
     break;
   case 'i':
-    if (!detailed)
-      snprintf(sortbykey, sizeof(sortbykey), "iops");   
-    else  
-      snprintf(sortbykey, sizeof(sortbykey), "open");      
+    snprintf(sortbykey, sizeof(sortbykey), "iops");   
     break;
   case 'b':
-    if (!detailed)
-      snprintf(sortbykey, sizeof(sortbykey), "bytes");
-    else
-      snprintf(sortbykey, sizeof(sortbykey), "read_bytes");
+    snprintf(sortbykey, sizeof(sortbykey), "bytes");
     break;
   case 'd':
     if (detailed) {
-      snprintf(sortbykey, sizeof(sortbykey), "load");
-      data_map = server_tag_sum;
       detailed = 0;
     }
     else {
-      snprintf(sortbykey, sizeof(sortbykey), "load");
-      data_map = server_tag_rate_map;
       detailed = 1;
     }
     break;
@@ -331,7 +321,7 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 
   json_object *data_array = json_object_new_array();
   json_object *events = json_object_new_object();
-  json_object_object_foreach(data_map, s, se) {
+  json_object_object_foreach(server_tag_rate_map, s, se) {
     json_object_object_foreach(se, t, te) {
       json_object *tags = NULL;
       if (strcmp(t, "time") == 0) continue;
@@ -342,13 +332,28 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
         goto end;
       }
 
-      json_object_object_foreach(te, event, val) {
-	if (strcmp(event, "load") != 0 && json_object_get_double(val) < 2) continue;
-	json_object_object_add(events, event, json_object_new_string(""));
-	json_object_object_add(tags, event, json_object_get(val));
+      if (json_object_object_get_ex(te, "load", &eid)) {
+	json_object_object_add(tags, "load", json_object_get(eid));
+	json_object_object_add(events, "load", json_object_new_string(""));
+      }
+      if (json_object_object_get_ex(te, "iops", &eid)) {
+	json_object_object_add(tags, "iops", json_object_get(eid));
+	json_object_object_add(events, "iops", json_object_new_string(""));
+      }
+      if (json_object_object_get_ex(te, "bytes", &eid)) {
+	json_object_object_add(tags, "bytes", json_object_get(eid));
+	json_object_object_add(events, "bytes", json_object_new_string(""));
+      }
+      if (detailed == 1) {
+	json_object_object_foreach(te, event, val) {
+	  if ((strcmp(event, "load") == 0) || (strcmp(event, "iops") == 0) ||
+	      (strcmp(event, "bytes") == 0) || (json_object_get_double(val) < 2)) continue;
+	
+	  json_object_object_add(events, event, json_object_new_string(""));
+	  json_object_object_add(tags, event, json_object_get(val));
+	}
       }
       json_object_array_add(data_array, json_object_get(tags));
-
     end:
       if(tags)
 	json_object_put(tags);

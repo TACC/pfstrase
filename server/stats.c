@@ -23,7 +23,6 @@ static void map_init(void) {
   nid_map = json_object_new_object();
   server_tag_map = json_object_new_object();
   server_tag_rate_map = json_object_new_object();
-  server_tag_sum = json_object_new_object();
   group_tags = json_object_new_object();
 
   pq_connect();
@@ -34,7 +33,6 @@ static void map_kill(void) {
   json_object_put(nid_map);
   json_object_put(server_tag_map);
   json_object_put(server_tag_rate_map);
-  json_object_put(server_tag_sum);
   json_object_put(group_tags);
 
   pq_finish();
@@ -141,11 +139,10 @@ int is_class(json_object *he, const char *class) {
   return rc;    
 }
 
-/* Aggregate each tag entries events */
-static void aggregate_grouped_events() {
-  json_object_object_foreach(server_tag_rate_map, servername, server_entry) {    
+/* Accumulate events for each host entry */
+static void accumulate_events(json_object *se) {
     json_object *tags_sum_map = json_object_new_object();
-    json_object_object_foreach(server_entry, tags, tag_entry) {
+    json_object_object_foreach(se, tags, tag_entry) {
       if (strcmp(tags, "time") == 0) continue;
 
       double cpu = 0;
@@ -159,14 +156,11 @@ static void aggregate_grouped_events() {
 	else
 	  sum_reqs += json_object_get_double(value);
       }
-      json_object *sum_json = json_object_new_object();
-      json_object_object_add(sum_json, "load", json_object_new_double(cpu));
-      json_object_object_add(sum_json, "iops", json_object_new_double(sum_reqs));
-      json_object_object_add(sum_json, "bytes", json_object_new_double(sum_bytes));
-      json_object_object_add(tags_sum_map, tags, sum_json); 
+
+      json_object_object_add(tag_entry, "load", json_object_new_double(cpu));
+      json_object_object_add(tag_entry, "iops", json_object_new_double(sum_reqs));
+      json_object_object_add(tag_entry, "bytes", json_object_new_double(sum_bytes));
     }
-    json_object_object_add(server_tag_sum, servername, tags_sum_map);
-  }
 }
 
 /* Calculate the rates from two tag maps */
@@ -280,7 +274,6 @@ void group_statsbytags(int nt, ...) {
     if (!json_object_object_get_ex(host_entry, "time", &current_time))
       continue;
 
-
     tag_map = json_object_new_object();
     cpu_map = json_object_new_object();
     if (is_class(host_entry, "mds") > 0) {
@@ -304,7 +297,8 @@ void group_statsbytags(int nt, ...) {
 
     json_object_object_add(tag_map, "time", json_object_get(current_time));
     json_object_object_add(tag_rate_map, "time", json_object_get(current_time));
-        
+
+    accumulate_events(tag_map);
     if (!json_object_object_get_ex(server_tag_map, servername, &prev_tag_map)) {
       json_object_object_add(server_tag_rate_map, servername, json_object_get(tag_map));     
     }
@@ -316,7 +310,6 @@ void group_statsbytags(int nt, ...) {
     json_object_object_add(server_tag_map, servername, json_object_get(tag_map));   
     json_object_put(tag_map);
   }  
-  aggregate_grouped_events();
 }
 
 /* Tag servers exports with client names, jids, uids, and filesystem */
