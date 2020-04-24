@@ -1,5 +1,5 @@
 10.1.58.1	master.wrangler.tacc.utexas.edu master		
-192.168.62.161	login1.wrangler.tacc.utexas.edu login1	
+192.168.58.2@o2ib58  login1.wrangler.tacc.utexas.edu login1	
 10.1.58.244     pdnvme-mgmt.wrangler.tacc.utexas.edu pdnvme
 192.168.58.101@o2ib58  c251-101.wrangler.tacc.utexas.edu c251-101
 192.168.58.102@o2ib58  c251-102.wrangler.tacc.utexas.edu c251-102
@@ -87,13 +87,13 @@
 192.168.58.184@o2ib58  c252-141.wrangler.tacc.utexas.edu c252-141
 192.168.58.185@o2ib58  c252-142.wrangler.tacc.utexas.edu c252-142
 192.168.58.186@o2ib58  c252-143.wrangler.tacc.utexas.edu c252-143
-192.168.58.187@o2ib58  c253-101.wrangler.tacc.utexas.edu c253-101 build # Build node
-192.168.58.188@o2ib58  c253-102.wrangler.tacc.utexas.edu c253-102 # Starfish node
+192.168.58.187@o2ib58  c253-101.wrangler.tacc.utexas.edu c253-101
+192.168.58.188@o2ib58  c253-102.wrangler.tacc.utexas.edu c253-102
 192.168.58.189@o2ib58  c253-103.wrangler.tacc.utexas.edu c253-103
 192.168.58.190@o2ib58  c253-104.wrangler.tacc.utexas.edu c253-104
-192.168.58.191@o2ib58  c253-105.wrangler.tacc.utexas.edu c253-105 namenode-01 # Primary Namenode for Hadoop backups
-192.168.58.192@o2ib58  c253-106.wrangler.tacc.utexas.edu c253-106 namenode-02 # Secondary Namenode for Hadoop backups
-192.168.58.193@o2ib58  c253-107.wrangler.tacc.utexas.edu c253-107 datanode-01 # Datanode for Hadoop backups
+192.168.58.191@o2ib58  c253-105.wrangler.tacc.utexas.edu c253-105
+192.168.58.192@o2ib58  c253-106.wrangler.tacc.utexas.edu c253-106
+192.168.58.193@o2ib58  c253-107.wrangler.tacc.utexas.edu c253-107
 192.168.58.194@o2ib58  c253-108.wrangler.tacc.utexas.edu c253-108
 192.168.58.195@o2ib58  c253-109.wrangler.tacc.utexas.edu c253-109
 192.168.58.196@o2ib58  c253-110.wrangler.tacc.utexas.edu c253-110

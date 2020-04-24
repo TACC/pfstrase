@@ -332,15 +332,15 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
         goto end;
       }
 
-      if (json_object_object_get_ex(te, "load", &eid)) {
+      if (json_object_object_get_ex(te, "load", &eid) && json_object_get_double(eid) >= 0) {
 	json_object_object_add(tags, "load", json_object_get(eid));
 	json_object_object_add(events, "load", json_object_new_string(""));
       }
-      if (json_object_object_get_ex(te, "iops", &eid)) {
+      if (json_object_object_get_ex(te, "iops", &eid) && json_object_get_double(eid) >= 0) {
 	json_object_object_add(tags, "iops", json_object_get(eid));
 	json_object_object_add(events, "iops", json_object_new_string(""));
       }
-      if (json_object_object_get_ex(te, "bytes", &eid)) {
+      if (json_object_object_get_ex(te, "bytes", &eid) && json_object_get_double(eid) >= 0) {
 	json_object_object_add(tags, "bytes", json_object_get(eid));
 	json_object_object_add(events, "bytes", json_object_new_string(""));
       }

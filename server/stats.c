@@ -299,10 +299,7 @@ void group_statsbytags(int nt, ...) {
     json_object_object_add(tag_rate_map, "time", json_object_get(current_time));
 
     accumulate_events(tag_map);
-    if (!json_object_object_get_ex(server_tag_map, servername, &prev_tag_map)) {
-      json_object_object_add(server_tag_rate_map, servername, json_object_get(tag_map));     
-    }
-    else {    
+    if (json_object_object_get_ex(server_tag_map, servername, &prev_tag_map)) {
       calc_rates(prev_tag_map, tag_map, tag_rate_map);
       json_object_object_add(server_tag_rate_map, servername, json_object_get(tag_rate_map));
     }
