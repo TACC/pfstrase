@@ -1,4 +1,4 @@
-bin_PROGRAMS = pfstrase_server
+bin_PROGRAMS = pfstrase_server pfstop
 
 AM_DISTCHECK_CONFIGURE_FLAGS = \
   --with-systemduserunitdir=$$dc_install_base/$(systemduserunitdir)
@@ -19,10 +19,20 @@ pfstrase_server_SOURCES = 	 \
 	pq.h \
 	pq.c \
 	pfstrase_server.c    \
-	screen.h 	\
-	screen.c 	\
+	shmmap.c \
+	shmmap.h \
 	socket_server.h \
 	socket_server.c \
+	stats.h \
+	stats.c
+
+pfstop_CPPFLAGS = -D_GNU_SOURCE
+
+pfstop_SOURCES = 	 \
+	screen.h 	\
+	screen.c 	\
+	shmmap.c \
+	shmmap.h \
 	stats.h \
 	stats.c
 

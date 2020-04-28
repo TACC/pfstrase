@@ -77,7 +77,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = pfstrase_server$(EXEEXT)
+bin_PROGRAMS = pfstrase_server$(EXEEXT) pfstop$(EXEEXT)
 subdir = .
 DIST_COMMON = INSTALL NEWS README AUTHORS ChangeLog \
 	$(srcdir)/Makefile.in $(srcdir)/Makefile.am \
@@ -95,10 +95,14 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" \
 	"$(DESTDIR)$(systemduserunitdir)"
 PROGRAMS = $(bin_PROGRAMS)
+am_pfstop_OBJECTS = pfstop-screen.$(OBJEXT) pfstop-shmmap.$(OBJEXT) \
+	pfstop-stats.$(OBJEXT)
+pfstop_OBJECTS = $(am_pfstop_OBJECTS)
+pfstop_LDADD = $(LDADD)
 am_pfstrase_server_OBJECTS = pfstrase_server-daemonize.$(OBJEXT) \
 	pfstrase_server-pq.$(OBJEXT) \
 	pfstrase_server-pfstrase_server.$(OBJEXT) \
-	pfstrase_server-screen.$(OBJEXT) \
+	pfstrase_server-shmmap.$(OBJEXT) \
 	pfstrase_server-socket_server.$(OBJEXT) \
 	pfstrase_server-stats.$(OBJEXT)
 pfstrase_server_OBJECTS = $(am_pfstrase_server_OBJECTS)
@@ -135,8 +139,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(pfstrase_server_SOURCES)
-DIST_SOURCES = $(pfstrase_server_SOURCES)
+SOURCES = $(pfstop_SOURCES) $(pfstrase_server_SOURCES)
+DIST_SOURCES = $(pfstop_SOURCES) $(pfstrase_server_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -314,10 +318,19 @@ pfstrase_server_SOURCES = \
 	pq.h \
 	pq.c \
 	pfstrase_server.c    \
-	screen.h 	\
-	screen.c 	\
+	shmmap.c \
+	shmmap.h \
 	socket_server.h \
 	socket_server.c \
+	stats.h \
+	stats.c
+
+pfstop_CPPFLAGS = -D_GNU_SOURCE
+pfstop_SOURCES = \
+	screen.h 	\
+	screen.c 	\
+	shmmap.c \
+	shmmap.h \
 	stats.h \
 	stats.c
 
@@ -402,6 +415,10 @@ uninstall-binPROGRAMS:
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
 
+pfstop$(EXEEXT): $(pfstop_OBJECTS) $(pfstop_DEPENDENCIES) $(EXTRA_pfstop_DEPENDENCIES) 
+	@rm -f pfstop$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(pfstop_OBJECTS) $(pfstop_LDADD) $(LIBS)
+
 pfstrase_server$(EXEEXT): $(pfstrase_server_OBJECTS) $(pfstrase_server_DEPENDENCIES) $(EXTRA_pfstrase_server_DEPENDENCIES) 
 	@rm -f pfstrase_server$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(pfstrase_server_OBJECTS) $(pfstrase_server_LDADD) $(LIBS)
@@ -412,10 +429,13 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pfstop-screen.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pfstop-shmmap.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pfstop-stats.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pfstrase_server-daemonize.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pfstrase_server-pfstrase_server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pfstrase_server-pq.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pfstrase_server-screen.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pfstrase_server-shmmap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pfstrase_server-socket_server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pfstrase_server-stats.Po@am__quote@
 
@@ -432,6 +452,48 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c `$(CYGPATH_W) '$<'`
+
+pfstop-screen.o: screen.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstop_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstop-screen.o -MD -MP -MF $(DEPDIR)/pfstop-screen.Tpo -c -o pfstop-screen.o `test -f 'screen.c' || echo '$(srcdir)/'`screen.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstop-screen.Tpo $(DEPDIR)/pfstop-screen.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='screen.c' object='pfstop-screen.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstop_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstop-screen.o `test -f 'screen.c' || echo '$(srcdir)/'`screen.c
+
+pfstop-screen.obj: screen.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstop_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstop-screen.obj -MD -MP -MF $(DEPDIR)/pfstop-screen.Tpo -c -o pfstop-screen.obj `if test -f 'screen.c'; then $(CYGPATH_W) 'screen.c'; else $(CYGPATH_W) '$(srcdir)/screen.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstop-screen.Tpo $(DEPDIR)/pfstop-screen.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='screen.c' object='pfstop-screen.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstop_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstop-screen.obj `if test -f 'screen.c'; then $(CYGPATH_W) 'screen.c'; else $(CYGPATH_W) '$(srcdir)/screen.c'; fi`
+
+pfstop-shmmap.o: shmmap.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstop_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstop-shmmap.o -MD -MP -MF $(DEPDIR)/pfstop-shmmap.Tpo -c -o pfstop-shmmap.o `test -f 'shmmap.c' || echo '$(srcdir)/'`shmmap.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstop-shmmap.Tpo $(DEPDIR)/pfstop-shmmap.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='shmmap.c' object='pfstop-shmmap.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstop_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstop-shmmap.o `test -f 'shmmap.c' || echo '$(srcdir)/'`shmmap.c
+
+pfstop-shmmap.obj: shmmap.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstop_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstop-shmmap.obj -MD -MP -MF $(DEPDIR)/pfstop-shmmap.Tpo -c -o pfstop-shmmap.obj `if test -f 'shmmap.c'; then $(CYGPATH_W) 'shmmap.c'; else $(CYGPATH_W) '$(srcdir)/shmmap.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstop-shmmap.Tpo $(DEPDIR)/pfstop-shmmap.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='shmmap.c' object='pfstop-shmmap.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstop_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstop-shmmap.obj `if test -f 'shmmap.c'; then $(CYGPATH_W) 'shmmap.c'; else $(CYGPATH_W) '$(srcdir)/shmmap.c'; fi`
+
+pfstop-stats.o: stats.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstop_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstop-stats.o -MD -MP -MF $(DEPDIR)/pfstop-stats.Tpo -c -o pfstop-stats.o `test -f 'stats.c' || echo '$(srcdir)/'`stats.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstop-stats.Tpo $(DEPDIR)/pfstop-stats.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='stats.c' object='pfstop-stats.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstop_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstop-stats.o `test -f 'stats.c' || echo '$(srcdir)/'`stats.c
+
+pfstop-stats.obj: stats.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstop_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstop-stats.obj -MD -MP -MF $(DEPDIR)/pfstop-stats.Tpo -c -o pfstop-stats.obj `if test -f 'stats.c'; then $(CYGPATH_W) 'stats.c'; else $(CYGPATH_W) '$(srcdir)/stats.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstop-stats.Tpo $(DEPDIR)/pfstop-stats.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='stats.c' object='pfstop-stats.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstop_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstop-stats.obj `if test -f 'stats.c'; then $(CYGPATH_W) 'stats.c'; else $(CYGPATH_W) '$(srcdir)/stats.c'; fi`
 
 pfstrase_server-daemonize.o: daemonize.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstrase_server-daemonize.o -MD -MP -MF $(DEPDIR)/pfstrase_server-daemonize.Tpo -c -o pfstrase_server-daemonize.o `test -f 'daemonize.c' || echo '$(srcdir)/'`daemonize.c
@@ -475,19 +537,19 @@ pfstrase_server-pfstrase_server.obj: pfstrase_server.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstrase_server-pfstrase_server.obj `if test -f 'pfstrase_server.c'; then $(CYGPATH_W) 'pfstrase_server.c'; else $(CYGPATH_W) '$(srcdir)/pfstrase_server.c'; fi`
 
-pfstrase_server-screen.o: screen.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstrase_server-screen.o -MD -MP -MF $(DEPDIR)/pfstrase_server-screen.Tpo -c -o pfstrase_server-screen.o `test -f 'screen.c' || echo '$(srcdir)/'`screen.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstrase_server-screen.Tpo $(DEPDIR)/pfstrase_server-screen.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='screen.c' object='pfstrase_server-screen.o' libtool=no @AMDEPBACKSLASH@
+pfstrase_server-shmmap.o: shmmap.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstrase_server-shmmap.o -MD -MP -MF $(DEPDIR)/pfstrase_server-shmmap.Tpo -c -o pfstrase_server-shmmap.o `test -f 'shmmap.c' || echo '$(srcdir)/'`shmmap.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstrase_server-shmmap.Tpo $(DEPDIR)/pfstrase_server-shmmap.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='shmmap.c' object='pfstrase_server-shmmap.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstrase_server-screen.o `test -f 'screen.c' || echo '$(srcdir)/'`screen.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstrase_server-shmmap.o `test -f 'shmmap.c' || echo '$(srcdir)/'`shmmap.c
 
-pfstrase_server-screen.obj: screen.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstrase_server-screen.obj -MD -MP -MF $(DEPDIR)/pfstrase_server-screen.Tpo -c -o pfstrase_server-screen.obj `if test -f 'screen.c'; then $(CYGPATH_W) 'screen.c'; else $(CYGPATH_W) '$(srcdir)/screen.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstrase_server-screen.Tpo $(DEPDIR)/pfstrase_server-screen.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='screen.c' object='pfstrase_server-screen.obj' libtool=no @AMDEPBACKSLASH@
+pfstrase_server-shmmap.obj: shmmap.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstrase_server-shmmap.obj -MD -MP -MF $(DEPDIR)/pfstrase_server-shmmap.Tpo -c -o pfstrase_server-shmmap.obj `if test -f 'shmmap.c'; then $(CYGPATH_W) 'shmmap.c'; else $(CYGPATH_W) '$(srcdir)/shmmap.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstrase_server-shmmap.Tpo $(DEPDIR)/pfstrase_server-shmmap.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='shmmap.c' object='pfstrase_server-shmmap.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstrase_server-screen.obj `if test -f 'screen.c'; then $(CYGPATH_W) 'screen.c'; else $(CYGPATH_W) '$(srcdir)/screen.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstrase_server-shmmap.obj `if test -f 'shmmap.c'; then $(CYGPATH_W) 'shmmap.c'; else $(CYGPATH_W) '$(srcdir)/shmmap.c'; fi`
 
 pfstrase_server-socket_server.o: socket_server.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstrase_server-socket_server.o -MD -MP -MF $(DEPDIR)/pfstrase_server-socket_server.Tpo -c -o pfstrase_server-socket_server.o `test -f 'socket_server.c' || echo '$(srcdir)/'`socket_server.c

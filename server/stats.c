@@ -9,8 +9,6 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <syslog.h>
-#include <semaphore.h>
-#include <sys/mman.h>
 #include <fcntl.h>
 #include <libpq-fe.h>
 
@@ -23,9 +21,8 @@ static void map_init(void) {
   nid_map = json_object_new_object();
   server_tag_map = json_object_new_object();
   server_tag_rate_map = json_object_new_object();
-  group_tags = json_object_new_object();
 
-  pq_connect();
+  //pq_connect();
 }
 __attribute__((destructor))
 static void map_kill(void) {
@@ -33,85 +30,11 @@ static void map_kill(void) {
   json_object_put(nid_map);
   json_object_put(server_tag_map);
   json_object_put(server_tag_rate_map);
-  json_object_put(group_tags);
 
-  pq_finish();
+  //pq_finish();
 }
 
 #define printf_json(json) printf(">>> %s\n", json_object_get_string(json));
-
-/* Map data structures to shared memory */
-static size_t mm_size = 1024*1024;;
-
-static void set_shm_map() {
-
-  caddr_t *mm_ptr;
-  sem_t *mutex_sem;
-  int fd_shm;
-
-  size_t json_size = strlen(json_object_to_json_string(server_tag_rate_map))*sizeof(char);
-  //mm_size = strlen(json_object_to_json_string(server_tag_rate_map))*sizeof(char);
-  //  mutual exclusion semaphore, mutex_sem with an initial value 0.
-  if ((mutex_sem = sem_open (SEM_MUTEX_NAME, O_CREAT, 0660, 0)) == SEM_FAILED)
-    fprintf(stderr, "sem_open failed: %s\n", strerror(errno));
-
-  if ((fd_shm = shm_open (SERVER_TAG_RATE_MAP_FILE, O_RDWR | O_CREAT, 0660)) == -1)
-    fprintf(stderr, "shm_open failed: %s\n", strerror(errno));
-
-  if (ftruncate (fd_shm, mm_size) == -1)
-    fprintf(stderr, "ftruncate failed: %s\n", strerror(errno));
-
-  if ((mm_ptr = mmap (NULL, mm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0)) == MAP_FAILED)
-    fprintf(stderr, "mmap failed: %s\n", strerror(errno));
-
-  memcpy((void *)mm_ptr, (const void*)server_tag_rate_map, json_size);
-  
-  if (sem_post (mutex_sem) == -1)
-    fprintf(stderr, "sem_post failed: %s\n", strerror(errno));
-
-  //if (munmap (mm_ptr, mm_size) == -1)
-  //fprintf(stderr, "munmap failed: %s\n", strerror(errno));
-  //printf("before\n");
-  //close(fd_shm);
-  //sem_close(mutex_sem);
-  
-}
-
-
-static void get_shm_map() {
-
-  caddr_t *mm_ptr;
-  sem_t *mutex_sem;
-  int fd_shm;
-
-  //size_t mm_size = 12;
-
-  //  mutual exclusion semaphore, mutex_sem with an initial value 0.
-  if ((mutex_sem = sem_open (SEM_MUTEX_NAME, 0, 0, 0)) == SEM_FAILED)
-    fprintf(stderr, "sem_open failed: %s\n", strerror(errno));
-
-  if (sem_wait(mutex_sem) == -1)
-    fprintf(stderr, "sem_wait failed: %s\n", strerror(errno));
-
-  if ((fd_shm = shm_open (SERVER_TAG_RATE_MAP_FILE, O_RDWR, 0)) == -1)
-    fprintf(stderr, "shm_open failed: %s\n", strerror(errno));
-
-  if ((mm_ptr = mmap (NULL, mm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0)) == MAP_FAILED)
-    fprintf(stderr, "mmap failed: %s\n", strerror(errno));
-
-  printf("%s\n", json_object_to_json_string((json_object *)mm_ptr));
-  
-  if (sem_post (mutex_sem) == -1)
-    fprintf(stderr, "sem_post failed: %s\n", strerror(errno));
-
-  if (munmap (mm_ptr, mm_size) == -1)
-    fprintf(stderr, "munmap failed: %s\n", strerror(errno));
-
-  close(fd_shm);
-  sem_close(mutex_sem);
-
-}
-
 
 /* Add new stat values to old stat values */
 static void add_stats(json_object *old_stats, json_object *new_stats) {
@@ -141,7 +64,6 @@ int is_class(json_object *he, const char *class) {
 
 /* Accumulate events for each host entry */
 static void accumulate_events(json_object *se) {
-    json_object *tags_sum_map = json_object_new_object();
     json_object_object_foreach(se, tags, tag_entry) {
       if (strcmp(tags, "time") == 0) continue;
 
@@ -214,7 +136,7 @@ static int is_new_entry(json_object *server_map, char *servername, json_object *
 }
 
 /* Aggregate a stats type over tags */
-void aggregate_stat(json_object *host_entry, json_object *tag_tuple, char *stat_type, json_object *accum_data) {
+static void aggregate_stat(json_object *host_entry, json_object *tag_tuple, char *stat_type, json_object *accum_data) {
   int i;
   int arraylen;
   json_object *da, *de, *tid, *accum_stats, *stats;
@@ -258,7 +180,7 @@ void group_statsbytags(int nt, ...) {
   json_object *cpu_map, *cpu_rate_map;
 
   va_start(args, nt);
-  group_tags = json_object_new_object();
+  json_object *group_tags = json_object_new_object();
   for (j = 0; j < nt; j++) {
     const char *str = va_arg(args, const char *);
     json_object_object_add(group_tags, str, json_object_new_string(""));
@@ -292,6 +214,7 @@ void group_statsbytags(int nt, ...) {
 	json_object_object_add(tag_entry, "load", json_object_get(system));
       }
     }
+    
     json_object *prev_tag_map, *tag_rate_map;
     tag_rate_map = json_object_new_object();
 
@@ -306,7 +229,9 @@ void group_statsbytags(int nt, ...) {
     json_object_put(tag_rate_map);
     json_object_object_add(server_tag_map, servername, json_object_get(tag_map));   
     json_object_put(tag_map);
+    json_object_put(cpu_map);
   }  
+  json_object_put(group_tags);
 }
 
 /* Tag servers exports with client names, jids, uids, and filesystem */
@@ -401,6 +326,7 @@ static int update_host_entry(json_object *rpc_json) {
     //pq_insert(entry_json);
     //pq_select();
   }
+  /*
   switch(groupby) {
   case 4:
     group_statsbytags(5, "fid", "server", "client", "jid", "uid");
@@ -421,9 +347,9 @@ static int update_host_entry(json_object *rpc_json) {
     group_statsbytags(5, "fid", "server", "client", "jid", "uid");
     break;
   }
+  */
+  set_shm_map();
 
-  //set_shm_map();
-  //get_shm_map();
   rc = 1;
  out:
   if (rpc_json)

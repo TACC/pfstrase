@@ -10,6 +10,7 @@
 #include <time.h>
 #include <sys/ioctl.h>
 #include "stats.h"
+#include "shmmap.h"
 #include "screen.h"
 
 int screen_is_active;
@@ -204,23 +205,18 @@ static void screen_key_cb(EV_P_ int key)
     return;
   case 'f':
     groupby = 1;
-    group_statsbytags(2, "fid", "server");
     break;
   case 'u':
     groupby = 2;
-    group_statsbytags(3, "fid", "server", "uid");
     break;
   case 'j':
     groupby = 3;
-    group_statsbytags(4, "fid", "server", "jid", "uid");
     break;
   case 'c':
     groupby = 4;
-    group_statsbytags(5, "fid", "server", "client", "jid", "uid");
     break;
   case 's':
     groupby = 5;
-    group_statsbytags(1, "server");
     break;
   case 'l':
     snprintf(sortbykey, sizeof(sortbykey), "load");
@@ -321,6 +317,31 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 
   json_object *data_array = json_object_new_array();
   json_object *events = json_object_new_object();
+  json_object *group_tags = json_object_new_object();
+
+  get_shm_map();
+
+  switch(groupby) {
+  case 4:
+    group_statsbytags(5, "fid", "server", "client", "jid", "uid");
+    break;
+  case 3:
+    group_statsbytags(4, "fid", "server", "jid", "uid");
+    break;
+  case 2:
+    group_statsbytags(3, "fid", "server", "uid");
+    break;
+  case 1:
+    group_statsbytags(2, "fid", "server");
+    break;
+  case 5:
+    group_statsbytags(1, "server");
+    break;
+  default:
+    group_statsbytags(5, "fid", "server", "client", "jid", "uid");
+    break;
+  }
+
   json_object_object_foreach(server_tag_rate_map, s, se) {
     json_object_object_foreach(se, t, te) {
       json_object *tags = NULL;
@@ -330,6 +351,10 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
       if (error != json_tokener_success) {
         fprintf(stderr, "tags format incorrect `%s': %s\n", t, json_tokener_error_desc(error));
         goto end;
+      }
+
+      json_object_object_foreach(tags, tag, vtag) {
+	json_object_object_add(group_tags, tag, json_object_new_string(""));
       }
 
       if (json_object_object_get_ex(te, "load", &eid) && json_object_get_double(eid) >= 0) {
@@ -412,6 +437,10 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   }
 
   json_object_put(data_array);
+  json_object_put(events);
+  json_object_put(group_tags);
+  json_object_put(host_map);
+
   move(line, 0);
   clrtobot();
   
@@ -434,3 +463,14 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   scroll_delta = 0;  
 }
 
+int main(int argc, char *argv[])
+{
+  screen_init(1.0);
+  screen_start(EV_DEFAULT);
+
+  ev_run(EV_DEFAULT, 0);
+  
+  screen_stop(EV_DEFAULT);
+
+  return EXIT_SUCCESS;
+}

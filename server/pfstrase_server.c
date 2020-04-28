@@ -180,13 +180,13 @@ int main(int argc, char *argv[])
   ev_io_start(EV_DEFAULT, &sock_watcher);    
   fprintf(log_stream, "Starting pfstrase_server listening on port %s\n", port);
   
-  screen_init(1.0);
+  //screen_init(1.0);
 
-  screen_start(EV_DEFAULT);
+  //screen_start(EV_DEFAULT);
 
   ev_run(EV_DEFAULT, 0);
   
-  screen_stop(EV_DEFAULT);
+  //screen_stop(EV_DEFAULT);
   if(sock_fd)
     close(sock_fd);
 
