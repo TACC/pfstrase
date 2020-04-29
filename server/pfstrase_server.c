@@ -9,6 +9,7 @@
 #include <string.h>
 #include "socket_server.h"
 #include "daemonize.h"
+#include "shmmap.h"
 #include "screen.h"
 
 static char *app_name = NULL;
@@ -59,6 +60,13 @@ int read_conf_file()
   fclose(conf_file_fd);
   return ret;
 }
+
+/* Send data based on ev timer interval */
+static void timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
+{
+  set_shm_map();
+}
+
 
 /* using bare sockets */
 static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
@@ -181,6 +189,8 @@ int main(int argc, char *argv[])
   fprintf(log_stream, "Starting pfstrase_server listening on port %s\n", port);
   
   //screen_init(1.0);
+  ev_timer_init(&timer, timer_cb, 0.0, 1);   
+  ev_timer_start(EV_DEFAULT, &timer);
 
   //screen_start(EV_DEFAULT);
 

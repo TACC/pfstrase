@@ -21,8 +21,6 @@ static void map_init(void) {
   nid_map = json_object_new_object();
   server_tag_map = json_object_new_object();
   server_tag_rate_map = json_object_new_object();
-
-  //pq_connect();
 }
 __attribute__((destructor))
 static void map_kill(void) {
@@ -30,8 +28,6 @@ static void map_kill(void) {
   json_object_put(nid_map);
   json_object_put(server_tag_map);
   json_object_put(server_tag_rate_map);
-
-  //pq_finish();
 }
 
 #define printf_json(json) printf(">>> %s\n", json_object_get_string(json));
@@ -247,12 +243,14 @@ static void tag_stats() {
     if (!json_object_object_get_ex(host_entry, "data", &data_array))
       continue;
 
+    json_object *server = json_object_new_string(key);
     arraylen = json_object_array_length(data_array);
     for (j = 0; j < arraylen; j++) {
 
       data_entry = json_object_array_get_idx(data_array, j);
-      if ((json_object_object_get_ex(data_entry, "client_nid", &tag)) && \
-	  (json_object_object_get_ex(nid_map, json_object_get_string(tag), &nid_entry))) {
+      if ((json_object_object_get_ex(data_entry, "client_nid", &tag)) &&
+	  (json_object_object_get_ex(nid_map, json_object_get_string(tag), &nid_entry)) &&
+	  is_class(nid_entry, "oss") < 0 && is_class(nid_entry, "mds") < 0) {
 	if (json_object_object_get_ex(nid_entry, "hid", &tag))
 	  json_object_object_add(data_entry, "client", json_object_get(tag));
 	if (json_object_object_get_ex(nid_entry, "jid", &tag))
@@ -261,7 +259,8 @@ static void tag_stats() {
 	  json_object_object_add(data_entry, "uid", json_object_get(tag));
       }     
 
-      json_object_object_add(data_entry, "server", json_object_new_string(key));      
+      json_object_object_add(data_entry, "server", json_object_get(server));      
+
       /* Tag with filesystem name */
       if (json_object_object_get_ex(data_entry, "target", &tag)) {
 	char target[32];
@@ -271,6 +270,7 @@ static void tag_stats() {
 	json_object_object_add(data_entry, "fid", json_object_new_string(target));	  
       }      
     }
+    json_object_put(server);
   }
 }
 
@@ -322,38 +322,9 @@ static int update_host_entry(json_object *rpc_json) {
       json_object_object_add(nid_map, json_object_get_string(tag), json_object_get(entry_json));
 
     tag_stats();    
-
-    //pq_insert(entry_json);
-    //pq_select();
   }
-  /*
-  switch(groupby) {
-  case 4:
-    group_statsbytags(5, "fid", "server", "client", "jid", "uid");
-    break;
-  case 3:
-    group_statsbytags(4, "fid", "server", "jid", "uid");
-    break;
-  case 2:
-    group_statsbytags(3, "fid", "server", "uid");
-    break;
-  case 1:
-    group_statsbytags(2, "fid", "server");
-    break;
-  case 5:
-    group_statsbytags(1, "server");
-    break;
-  default:
-    group_statsbytags(5, "fid", "server", "client", "jid", "uid");
-    break;
-  }
-  */
-  set_shm_map();
-
   rc = 1;
  out:
-  if (rpc_json)
-    json_object_put(rpc_json);
   return rc;
 }
 
@@ -362,6 +333,9 @@ int update_host_map(char *rpc) {
 
   int rc = -1;
   json_object *rpc_json = NULL;
+
+  //struct timeval ts,te;
+  //gettimeofday(&ts, NULL); 
 
   enum json_tokener_error error = json_tokener_success;
   rpc_json = json_tokener_parse_verbose(rpc, &error);  
@@ -379,7 +353,13 @@ int update_host_map(char *rpc) {
   else
     update_host_entry(rpc_json);
 
+  //gettimeofday(&te, NULL); 
+  //printf("time for process %f\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000. );
+
   rc = 1;
+
  out:
+  if (rpc_json)
+    json_object_put(rpc_json);
   return rc;
 }

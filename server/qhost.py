@@ -20,7 +20,7 @@ for line in rdata.split('\n'):
     jobid, user, name, hostlist = line.split()[0:4]    
     for host in expand_hostlist(hostlist):
         rpcs += [{"hostname" : host, "jid" : jobid, "uid" : user}]
-
+print(rpcs)
 
 sd.sendall(json.dumps(rpcs))
 

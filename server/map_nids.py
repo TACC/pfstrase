@@ -11,5 +11,6 @@ with open("wrangler_nids") as fd:
             nid, fqdn, hn = line.split()
         except: continue    
         rpcs += [{"hostname" : hn, "nid" : nid}]
+print(rpcs)
 sd.sendall(json.dumps(rpcs))
         
