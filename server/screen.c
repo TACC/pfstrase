@@ -60,7 +60,7 @@ json_object *data_map;
 int screen_init(double interval)
 {
   ev_timer_init(&refresh_timer_w, &refresh_timer_cb, 0.001, interval);
-  ev_timer_init(&map_refresh_timer_w, &map_refresh_timer_cb, 0.001, 1.0);
+  ev_timer_init(&map_refresh_timer_w, &map_refresh_timer_cb, 0.001, interval/4.);
   ev_io_init(&stdin_io_w, &stdin_io_cb, STDIN_FILENO, EV_READ);
   ev_signal_init(&sigint_w, &sigint_cb, SIGINT);
   ev_signal_init(&sigterm_w, &sigint_cb, SIGTERM);
@@ -119,7 +119,7 @@ void screen_start(EV_P)
   ev_signal_start(EV_A_ &sigwinch_w);
 
   /* Sort by load by default */
-  snprintf(sortbykey, sizeof(sortbykey), "load");
+  snprintf(sortbykey, sizeof(sortbykey), "load_eff");
 
   detailed = 0;
   screen_is_active = 1;
@@ -142,7 +142,7 @@ void screen_stop(EV_P)
 static void map_refresh_timer_cb(EV_P_ ev_timer *w, int revents)
 {
   get_shm_map();
-
+  
   switch(groupby) {
   case 4:
     group_statsbytags(5, "fid", "server", "client", "jid", "uid");
@@ -249,7 +249,7 @@ static void screen_key_cb(EV_P_ int key)
     groupby = 5;
     break;
   case 'l':
-    snprintf(sortbykey, sizeof(sortbykey), "load");
+    snprintf(sortbykey, sizeof(sortbykey), "load_eff");
     break;
   case 'i':
     snprintf(sortbykey, sizeof(sortbykey), "iops");   
@@ -348,14 +348,16 @@ static int sort_da(const void *j1, const void *j2) {
   if (!json_object_object_get_ex(*jso2, sortbykey, &val2))
       return -1;
 
-  d1 = json_object_get_double(val1);
-  d2 = json_object_get_double(val2);
-
+  d1 = json_object_get_double(val1)*100;
+  d2 = json_object_get_double(val2)*100;
+  
   return (int)(d2 - d1);
 
 }
 
+double cf = 1.0/(1024*1024);
 enum json_tokener_error error = json_tokener_success;
+
 static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 {
 
@@ -368,8 +370,11 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 
   json_object *data_array = json_object_new_array();
   json_object *events = json_object_new_object();
-  json_object *group_tags = json_object_new_object();
 
+  json_object_object_add(events, "load", json_object_new_string(""));
+  json_object_object_add(events, "load_eff", json_object_new_string(""));
+  json_object_object_add(events, "iops", json_object_new_string(""));
+  json_object_object_add(events, "bytes", json_object_new_string(""));
   //struct timeval ts,te;
   //gettimeofday(&ts, NULL); 
 
@@ -384,25 +389,18 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
         goto end;
       }
 
-      json_object_object_foreach(tags, tag, vtag) {
-	json_object_object_add(group_tags, tag, json_object_new_string(""));
-      }
-
-      if (json_object_object_get_ex(te, "load", &eid) && json_object_get_double(eid) >= 0) {
-	json_object_object_add(tags, "load", json_object_get(eid));
-	json_object_object_add(events, "load", json_object_new_string(""));
-      }
-      if (json_object_object_get_ex(te, "iops", &eid) && json_object_get_double(eid) >= 0) {
+      if (json_object_object_get_ex(te, "load", &eid))
+	json_object_object_add(tags, "load", json_object_get(eid));      
+      if (json_object_object_get_ex(te, "load_eff", &eid))
+	json_object_object_add(tags, "load_eff", json_object_get(eid));      
+      if (json_object_object_get_ex(te, "iops", &eid))
 	json_object_object_add(tags, "iops", json_object_get(eid));
-	json_object_object_add(events, "iops", json_object_new_string(""));
-      }
-      if (json_object_object_get_ex(te, "bytes", &eid) && json_object_get_double(eid) >= 0) {
+      if (json_object_object_get_ex(te, "bytes", &eid))
 	json_object_object_add(tags, "bytes", json_object_get(eid));
-	json_object_object_add(events, "bytes", json_object_new_string(""));
-      }
+
       if (detailed == 1) {
 	json_object_object_foreach(te, event, val) {
-	  if ((strcmp(event, "load") == 0) || (strcmp(event, "iops") == 0) ||
+	  if ((strcmp(event, "load") == 0) || (strcmp(event, "load_eff") == 0) || (strcmp(event, "iops") == 0) ||
 	      (strcmp(event, "bytes") == 0) || (json_object_get_double(val) < 2)) continue;
 	
 	  json_object_object_add(events, event, json_object_new_string(""));
@@ -418,17 +416,15 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   json_object_array_sort(data_array, sort_da);
   int data_length = json_object_array_length(data_array);
 
+  /* Construct header */
   char header_tags[512] = "";
   char *cur = header_tags, * const end = header_tags + sizeof(header_tags);
   json_object_object_foreach(group_tags, t, v) {
-    cur += snprintf(cur, end - cur, "%-14.12s ", t);
+    cur += snprintf(cur, end - cur, "%-14.14s ", t);
   }
-
   json_object_object_foreach(events, e, val) {
     cur += snprintf(cur, end - cur, "%10.10s ", e);
   }
-
-  double cf = 1.0/(1024*1024);
 
   mvprintw(line, 0, "%s", header_tags);
   mvchgat(line, 0, -1, A_STANDOUT, CP_BLACK, NULL);
@@ -443,24 +439,20 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   int j;
   for (j = new_start; j < data_length && line < (LINES - 1); j++) {
     json_object *de = json_object_array_get_idx(data_array, j);
+
+    /* Construct row */
     char row_tags[512] = "";
     char *cur = row_tags, * const end = row_tags + sizeof(row_tags);
     json_object_object_foreach(group_tags, t, v) {
       if (json_object_object_get_ex(de, t, &tid))
-	cur += snprintf(cur, end - cur, "%-14.12s ", json_object_get_string(tid));
+	cur += snprintf(cur, end - cur, "%-14.14s ", json_object_get_string(tid));
       else
 	cur += snprintf(cur, end - cur, "%-14s ", "");
     }
-
     json_object_object_foreach(events, e, val) {
-      if (json_object_object_get_ex(de, e, &eid)) {
-	double factor = 1;
-	if (strcmp("bytes", e) == 0 || strcmp("read_bytes", e) == 0 || strcmp("write_bytes", e) == 0)
-	  factor = cf; 
-	if (strcmp("load", e) == 0 )
-	  factor = 0.01;
-	cur += snprintf(cur, end - cur, "%10.2f ", json_object_get_double(eid)*factor);
-      }
+      double val = 0.0;
+      if (json_object_object_get_ex(de, e, &eid))
+	cur += snprintf(cur, end - cur, "%10.2f ", json_object_get_double(eid));     
       else
 	cur += snprintf(cur, end - cur, "%10.1f ", 0.0);
     }
@@ -469,7 +461,6 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 
   json_object_put(data_array);
   json_object_put(events);
-  json_object_put(group_tags);
 
   move(line, 0);
   clrtobot();
@@ -499,7 +490,7 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 
 int main(int argc, char *argv[])
 {
-  screen_init(3.0);
+  screen_init(2.0);
   screen_start(EV_DEFAULT);
 
   ev_run(EV_DEFAULT, 0);

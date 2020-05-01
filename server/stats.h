@@ -19,7 +19,7 @@ json_object *server_tag_map;
 json_object *server_tag_rate_map;
 
 int groupby;
-
+json_object *group_tags;
 
 int is_class(json_object *he, const char *class);
 
