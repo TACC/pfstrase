@@ -1,9 +1,9 @@
 [Unit]
-Description=Parallel Filesystem Tracing and Analysis Service
+Description=Parallel Filesystem Tracing and Analysis Service Server
 
 [Service]
 Type=simple
-ExecStart=/usr/sbin/pfstrase_client -c CONFIGFILE
+ExecStart=/usr/sbin/pfstrase_server -c CONFIGFILE
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10

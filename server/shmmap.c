@@ -15,7 +15,7 @@
 #include "stats.h"
 #include "shmmap.h"
 
-#define mm_size 1024*1024*1024
+#define mm_size 100*1024*1024
 
 
 int fd_shm = NULL;
@@ -76,6 +76,7 @@ void get_shm_map() {
 
   sem_t *mutex_sem = NULL;
   json_object *server_map = NULL;
+  
   //struct timeval ts,te;
   //gettimeofday(&ts, NULL); 
 
@@ -90,7 +91,7 @@ void get_shm_map() {
   enum json_tokener_error error = json_tokener_success;
     
   server_map = json_tokener_parse_verbose((char *)mm_ptr, &error);
-  //gettimeofday(&te, NULL); 
+
   if (error != json_tokener_success) {
     //fprintf(stderr, "mm_ptr parsing failed `%s': %s\n", json_object_to_json_string(server_map), 
     //	    json_tokener_error_desc(error));
@@ -101,6 +102,8 @@ void get_shm_map() {
     fprintf(stderr, "sem_post failed: %s\n", strerror(errno));
   json_object_put(host_map);
   host_map = json_object_get(server_map);
+
+  //gettimeofday(&te, NULL);   
   //printf("time for cpy %f\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000. );
 
 

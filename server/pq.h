@@ -6,9 +6,9 @@
 
 PGconn *conn;
 
-int pq_connect();
-void pq_finish();
-int pq_insert(json_object *host_entry);
+int pq_connect(char *pq_server, char *dbname, char *dbuser);
+int pq_insert();
 int pq_select();
+void pq_finish();
 
 #endif

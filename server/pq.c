@@ -1,11 +1,12 @@
 #include "pq.h"
+#include "stats.h"
 #include <string.h>
 
-int pq_connect() {
+int pq_connect(char *pq_server, char *dbname, char *dbuser) {
   int rc = -1;
   
-  const char *conninfo;
-  conninfo = "dbname=pfstrase_db1 user=postgres host=tacc-stats03.tacc.utexas.edu";
+  char conninfo[256];
+  snprintf(conninfo, sizeof(conninfo), "dbname=%s user=%s host=%s", dbname, dbuser, pq_server);
   conn = PQconnectdb(conninfo);
   /* Check to see that the backend connection was successfully made */
   if (PQstatus(conn) != CONNECTION_OK) {
@@ -23,6 +24,88 @@ int pq_connect() {
 void pq_finish() {
   PQfinish(conn);
 }
+
+
+enum json_tokener_error error = json_tokener_success;
+int pq_insert() {
+
+  int rc = -1;
+  PGresult *res;
+  int i;
+
+  //struct timeval ts,te;
+  //gettimeofday(&ts, NULL); 
+  int total_size = 0;  
+  group_statsbytags(5, "fid", "server", "client", "jid", "uid");
+  
+  json_object_object_foreach(server_tag_rate_map, s, se) {
+    char query[256000] = "insert into stats (time, hostname, fid, jid, uid, client, event_name, value) values ";
+    int empty_len = strlen(query);
+    char *qcur = query + empty_len, * const qend = query + sizeof(query);
+
+    json_object *time;
+    if (!json_object_object_get_ex(se, "time", &time)) continue;
+   
+    json_object_object_foreach(se, t, te) {
+
+      if (strcmp(t, "time") == 0) continue;     
+      json_object *tags = NULL;      
+      tags = json_tokener_parse_verbose(t, &error);
+      if (error != json_tokener_success) {
+        fprintf(stderr, "tags format incorrect `%s': %s\n", t, json_tokener_error_desc(error));
+        goto end;
+      }
+
+      char tag_str[256];
+      char *cur = tag_str, * const end = tag_str + sizeof(tag_str);
+      cur += snprintf(cur, end - cur, "to_timestamp(%f), ", json_object_get_double(time)); /* time */
+      cur += snprintf(cur, end - cur, "'%s', ", s); /* hostname */
+
+      json_object *tid;
+      if (json_object_object_get_ex(tags, "fid", &tid))
+	cur += snprintf(cur, end - cur, "'%s', ", json_object_get_string(tid));
+      else
+	cur += snprintf(cur, end - cur, "'-', ");
+      if (json_object_object_get_ex(tags, "jid", &tid))
+	cur += snprintf(cur, end - cur, "'%s', ", json_object_get_string(tid));
+      else
+	cur += snprintf(cur, end - cur, "'-', ");
+      if (json_object_object_get_ex(tags, "uid", &tid))
+	cur += snprintf(cur, end - cur, "'%s', ", json_object_get_string(tid));
+      else
+	cur += snprintf(cur, end - cur, "'-', ");
+      if (json_object_object_get_ex(tags, "client", &tid))
+	cur += snprintf(cur, end - cur, "'%s', ", json_object_get_string(tid));
+      else
+	cur += snprintf(cur, end - cur, "'-', ");
+
+      json_object_object_foreach(te, event, val) {
+	if (json_object_get_double(val) > 0)
+	  qcur += snprintf(qcur, qend - qcur, "(%s '%s', %f), ", tag_str, event, json_object_get_double(val));
+      }
+
+    end:
+      if(tags)
+        json_object_put(tags);
+    }
+
+    int query_len = strlen(query);
+    total_size += query_len;
+    if (query_len > empty_len) {
+      query[strlen(query) - 2] = ';';
+      res = PQexec(conn, query);
+      PQclear(res);
+    }
+  }
+  //gettimeofday(&te, NULL);   
+  //printf("time for insert %f of size %d\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000., total_size);
+
+  rc = 1;
+
+ out:
+  return rc;
+}
+
 
 int pq_select() {
   int rc = -1;
@@ -57,66 +140,3 @@ int pq_select() {
   PQclear(res);
   return rc;
 }
-
-int pq_insert(json_object *host_entry) {
-
-  int rc = -1;
-  PGresult   *res;
-  int i;
-
-  char tags[128];
-  json_object *time, *fid, *hid, *oid, *jid, *uid, *da;
-  int arraylen;
-
-  if (is_class(host_entry, "mds") < 0 && is_class(host_entry, "oss") < 0)
-    goto out;
-  if (!json_object_object_get_ex(host_entry, "data", &da) || 
-      ((arraylen = json_object_array_length(da)) == 0))
-    goto out;
-
-  if (json_object_object_get_ex(host_entry, "time", &time) &&
-      json_object_object_get_ex(host_entry, "hid", &hid) &&
-      json_object_object_get_ex(host_entry, "obdclass", &oid)) {   
-    snprintf(tags, sizeof(tags), "to_timestamp(%f), '%s', '%s'", json_object_get_double(time), 
-	     json_object_get_string(hid), json_object_get_string(oid));
-  }
-  else
-    goto out;
-
-  char query[131072] = "insert into stats (time, hostname, obdclass, jid, uid, fid, target, client, stats_type, event_name, value) values ";
-
-  json_object *de, *target, *client, *sid, *stats;  
-  for (i = 0; i < arraylen; i++) {
-    de = json_object_array_get_idx(da, i);
-    //if (strcmp(json_object_get_string(oid), "mds") == 0) printf("%s\n", json_object_get_string(de));
-    if (!json_object_object_get_ex(de, "target", &target) ||
-	!json_object_object_get_ex(de, "fid", &fid) ||
-	!json_object_object_get_ex(de, "jid", &jid) ||
-	!json_object_object_get_ex(de, "uid", &uid) ||
-	!json_object_object_get_ex(de, "client", &client) ||
-	!json_object_object_get_ex(de, "stats_type", &sid) ||
-	!json_object_object_get_ex(de, "stats", &stats))
-      continue;
-    //if (strcmp(json_object_get_string(oid), "mds") == 0) printf("%s\n", json_object_get_string(jid));
-    json_object_object_foreach(stats, eventname, value) {    
-      char insert[1024];
-      snprintf(insert, sizeof(insert), "(%s, '%s', '%s', '%s', '%s', '%s', '%s', '%s', %lu), ", tags,
-	       json_object_get_string(jid), json_object_get_string(uid), json_object_get_string(fid), 
-	       json_object_get_string(target), json_object_get_string(client), json_object_get_string(sid), 
-	       eventname, value);
-      size_t n = strlen(query);
-      strncat(query, insert, sizeof(query) - n - 1);
-    }
-  }  
-  
-  query[strlen(query) - 2] = ';';
-  if (strcmp(json_object_get_string(oid), "mds") == 0) printf("%s\n", query);
-  res = PQexec(conn, query);
-  PQclear(res);
-
-  rc = 1;
-
- out:
-  return rc;
-}
-
