@@ -16,11 +16,17 @@ static char *app_name = NULL;
 static char *conf_file_name = NULL;
 static FILE *log_stream = NULL;
 
-//static char *port = "8213";
-static char *port = "5672";
-static double freq = 300;
+static char *dbserver = NULL;
+static char *dbname = NULL;
+static char *dbuser = NULL;
 
-static ev_timer timer;
+static char *port = "5672";
+
+static double shm_interval = 1;
+static double db_interval = 30;
+
+static ev_timer shm_timer;
+static ev_timer pq_timer;
 
 /* Read conf file in to set server, port, and frequency of collection*/
 int read_conf_file()
@@ -51,22 +57,51 @@ int read_conf_file()
       fprintf(log_stream, "%s: Setting server port to %s based on file %s\n",
 	      app_name, port, conf_file_name);
     }
-    if (strcmp(key, "frequency") == 0) {  
-      if (sscanf(line, "%lf", &freq) == 1)
-	fprintf(log_stream, "%s: Setting frequency to %f based on file %s\n",
-	       app_name, freq, conf_file_name);
+    if (strcmp(key, "sharedmem_interval") == 0) {  
+      if (sscanf(line, "%lf", &shm_interval) == 1)
+	fprintf(log_stream, "%s: Setting shared memory update interval to %f based on file %s\n",
+	       app_name, shm_interval, conf_file_name);
+    }
+    if (strcmp(key, "dbserver") == 0) {  
+      line[strlen(line) - 1] = '\0';
+      dbserver = strdup(line);
+      fprintf(log_stream, "%s: Setting database server to %s based on file %s\n",
+	      app_name, dbserver, conf_file_name);
+    }
+    if (strcmp(key, "dbname") == 0) {  
+      line[strlen(line) - 1] = '\0';
+      dbname = strdup(line);
+      fprintf(log_stream, "%s: Setting database name to %s based on file %s\n",
+	      app_name, dbname, conf_file_name);
+    }
+    if (strcmp(key, "dbuser") == 0) {  
+      line[strlen(line) - 1] = '\0';
+      dbuser = strdup(line);
+      fprintf(log_stream, "%s: Setting database user to %s based on file %s\n",
+	      app_name, dbuser, conf_file_name);
+    }
+    if (strcmp(key, "db_interval") == 0) {  
+      if (sscanf(line, "%lf", &db_interval) == 1)
+	fprintf(log_stream, "%s: Setting database update interval to %f based on file %s\n",
+	       app_name, db_interval, conf_file_name);
     }
   }
   fclose(conf_file_fd);
   return ret;
 }
 
-/* Send data based on ev timer interval */
-static void timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
+/* Sync shared memory data based on ev shm_timer interval */
+static void shm_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
 {
   set_shm_map();
 }
 
+/* Sync shared memory data based on ev shm_timer interval */
+static void pq_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
+{
+  //fprintf(log_stream, "Sending data to postgres server\n");
+  pq_insert();
+}
 
 /* using bare sockets */
 static void sock_rpc_cb(EV_P_ ev_io *w, int revents)
@@ -93,8 +128,10 @@ static void signal_cb_hup(EV_P_ ev_signal *sig, int revents)
 {
   fprintf(log_stream, "Reloading pfstrase_server config file\n");
   read_conf_file();    
-  timer.repeat = freq; 
-  ev_timer_again(EV_DEFAULT, &timer);
+  shm_timer.repeat = shm_interval; 
+  ev_timer_again(EV_DEFAULT, &shm_timer);
+  pq_timer.repeat = db_interval; 
+  ev_timer_again(EV_DEFAULT, &pq_timer);
 }
 
 static void usage(void)
@@ -106,9 +143,8 @@ static void usage(void)
           "Mandatory arguments to long options are mandatory for short options too.\n"
           "  -h, --help                 display this help and exit\n"
 	  "  -d --daemon                Run in daemon mode\n"
-          "  -f --frequency [FREQUENCY] Frequency to sample.\n"
+          "  -i --interval  [INTERVAL]  Interval to update shared memory.\n"
 	  "  -c --conf_file [FILENAME]  Read configuration from the file\n"
-	  "  -l --log_file  [FILENAME]  Write logs to the file\n"
 	  "  -p --port      [PORT]      Port to listen on.\n"
           ,
           program_invocation_short_name);
@@ -124,9 +160,8 @@ int main(int argc, char *argv[])
   struct option opts[] = {
     { "help",   no_argument, 0, 'h' },
     { "daemon", no_argument, 0, 'd' },
-    { "freq ",  required_argument, 0, 'f' },
+    { "interval ",  required_argument, 0, 'i' },
     {"conf_file", required_argument, 0, 'c'},
-    {"log_file", required_argument, 0, 'l'},
     {"port", required_argument, 0, 'p'},
     { NULL,     0, 0, 0 },
   };
@@ -137,14 +172,11 @@ int main(int argc, char *argv[])
     case 'd':
       daemonmode = 1;
       break;
-    case 'f':
-      freq = atof(optarg);
+    case 'i':
+      shm_interval = atof(optarg);
       break;
     case 'c':
       conf_file_name = strdup(optarg);
-      break;
-    case 'l':
-      log_file_name = strdup(optarg);
       break;
     case 'p':
       port = strdup(optarg);
@@ -188,15 +220,20 @@ int main(int argc, char *argv[])
   ev_io_start(EV_DEFAULT, &sock_watcher);    
   fprintf(log_stream, "Starting pfstrase_server listening on port %s\n", port);
   
-  //screen_init(1.0);
-  ev_timer_init(&timer, timer_cb, 0.0, 1);   
-  ev_timer_start(EV_DEFAULT, &timer);
+  ev_timer_init(&shm_timer, shm_timer_cb, 0.0, shm_interval);   
+  ev_timer_start(EV_DEFAULT, &shm_timer);
 
-  //screen_start(EV_DEFAULT);
+  if (pq_connect(dbserver, dbname, dbuser) < 0)
+    goto out;
+
+  ev_timer_init(&pq_timer, pq_timer_cb, 0.0, db_interval);   
+  ev_timer_start(EV_DEFAULT, &pq_timer);
 
   ev_run(EV_DEFAULT, 0);
-  
-  //screen_stop(EV_DEFAULT);
+
+  pq_finish();
+
+  out:
   if(sock_fd)
     close(sock_fd);
 

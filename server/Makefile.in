@@ -307,10 +307,10 @@ AM_DISTCHECK_CONFIGURE_FLAGS = \
   --with-systemduserunitdir=$$dc_install_base/$(systemduserunitdir)
 
 @HAVE_SYSTEMD_TRUE@systemduserunit_DATA = \
-@HAVE_SYSTEMD_TRUE@	pfstrase.service \
-@HAVE_SYSTEMD_TRUE@	pfstrase.conf
+@HAVE_SYSTEMD_TRUE@	pfstrase_server.service \
+@HAVE_SYSTEMD_TRUE@	pfstrase_server.conf
 
-EXTRA_DIST = pfstrase.service pfstrase.conf
+EXTRA_DIST = pfstrase_server.service pfstrase_server.conf
 pfstrase_server_CPPFLAGS = -D_GNU_SOURCE
 pfstrase_server_SOURCES = \
 	daemonize.h	 \

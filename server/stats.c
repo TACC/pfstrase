@@ -173,7 +173,6 @@ static void aggregate_stat(json_object *host_entry, json_object *tag_tuple, char
     json_object_put(tags);
 
     if (!json_object_object_get_ex(accum_data, tags_str, &accum_stats)) {
-      accum_stats = json_object_new_object();
       json_object_object_add(accum_data, tags_str, json_object_get(stats));
     }
     else {

@@ -5,11 +5,11 @@ AM_DISTCHECK_CONFIGURE_FLAGS = \
 
 if HAVE_SYSTEMD
 systemduserunit_DATA = \
-	pfstrase.service \
-	pfstrase.conf
+	pfstrase_server.service \
+	pfstrase_server.conf
 endif
 
-EXTRA_DIST = pfstrase.service pfstrase.conf
+EXTRA_DIST = pfstrase_server.service pfstrase_server.conf
 
 pfstrase_server_CPPFLAGS = -D_GNU_SOURCE
 
