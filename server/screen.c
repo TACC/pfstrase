@@ -490,12 +490,16 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 
 int main(int argc, char *argv[])
 {
+  shmmap_client_init();
+  
   screen_init(2.0);
   screen_start(EV_DEFAULT);
 
   ev_run(EV_DEFAULT, 0);
   
   screen_stop(EV_DEFAULT);
+
+  shmmap_client_kill();
 
   return EXIT_SUCCESS;
 }

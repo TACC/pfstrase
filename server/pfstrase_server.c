@@ -86,6 +86,8 @@ int read_conf_file()
 	       app_name, db_interval, conf_file_name);
     }
   }
+  if (line_buf)
+    free(line_buf);
   fclose(conf_file_fd);
   return ret;
 }
@@ -211,6 +213,8 @@ int main(int argc, char *argv[])
 
   read_conf_file(0);
 
+  shmmap_server_init();
+
   int sock_fd;
   ev_io sock_watcher;  
 
@@ -241,7 +245,7 @@ int main(int argc, char *argv[])
   if (log_stream != stderr) {
     fclose(log_stream);
   }
-
+  shmmap_server_kill();
   /* Write system log and close it. */
   fprintf(log_stream, "Stopped %s", app_name);
 

@@ -11,97 +11,123 @@
 #include <syslog.h>
 #include <semaphore.h>
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include "stats.h"
 #include "shmmap.h"
 
 #define mm_size 100*1024*1024
 
-
+sem_t *mutex_sem = NULL;
 int fd_shm = NULL;
 caddr_t *mm_ptr = NULL;
 
-__attribute__((constructor))
-static void shmmap_init(void) {
-  //shm_unlink(SERVER_TAG_RATE_MAP_FILE);
-  if ((fd_shm = shm_open (SERVER_TAG_RATE_MAP_FILE, O_RDWR | O_CREAT, 0644)) == -1) {
+void shmmap_server_init(void) {
+  umask(S_IXGRP | S_IXOTH);
+  sem_unlink(SEM_MUTEX_NAME);
+  if ((mutex_sem = sem_open (SEM_MUTEX_NAME, O_CREAT, 0666, 0)) == SEM_FAILED) {
+    fprintf(stderr, "sem_open failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  if ((fd_shm = shm_open (SERVER_TAG_RATE_MAP_FILE, O_RDWR | O_CREAT | O_TRUNC, 0666)) == -1) {
     fprintf(stderr, "shm_open failed: %s\n", strerror(errno));
+    exit(1);
   }
   if (ftruncate (fd_shm, mm_size) == -1) {
     fprintf(stderr, "ftruncate failed: %s\n", strerror(errno));  
+    exit(1);
   }
   if ((mm_ptr = mmap (NULL, mm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0)) == MAP_FAILED) {
     fprintf(stderr, "mmap failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  if(mlock(mm_ptr, mm_size) != 0){
+    fprintf(stderr, "mlock failure");
+    exit(1);
+  }
+  if (sem_post (mutex_sem) == -1) {
+    fprintf(stderr, "sem_post failed: %s\n", strerror(errno)); 
+    exit(1);
   }
 }
-__attribute__((destructor))
-static void shmmap_kill(void) {
+
+void shmmap_server_kill(void) {
   if (munmap (mm_ptr, mm_size) == -1)
     fprintf(stderr, "munmap failed: %s\n", strerror(errno));
   if (fd_shm)
     close(fd_shm);
-  //shm_unlink(SEM_MUTEX_NAME);
-  //shm_unlink(SERVER_TAG_RATE_MAP_FILE);
+  if(mutex_sem)
+    sem_close(mutex_sem);
+  sem_unlink(SEM_MUTEX_NAME);
+  shm_unlink(SERVER_TAG_RATE_MAP_FILE);
 }
+
+void shmmap_client_init(void) {
+  if ((mutex_sem = sem_open (SEM_MUTEX_NAME, 0)) == SEM_FAILED) {
+    fprintf(stderr, "sem_open failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  if ((fd_shm = shm_open (SERVER_TAG_RATE_MAP_FILE, O_RDWR, 0)) == -1) {
+    fprintf(stderr, "shm_open failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  if ((mm_ptr = mmap (NULL, mm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0)) == MAP_FAILED) {
+    fprintf(stderr, "mmap failed: %s\n", strerror(errno));
+    exit(1);
+  }  
+}
+
+void shmmap_client_kill(void) {
+  if (munmap (mm_ptr, mm_size) == -1)
+    fprintf(stderr, "munmap failed: %s\n", strerror(errno));
+  if (fd_shm)
+    close(fd_shm);
+}
+
 
 void set_shm_map() {
 
-  sem_t *mutex_sem = NULL;
+
+  sem_wait(mutex_sem);
+
   //struct timeval ts,te;
   //gettimeofday(&ts, NULL); 
-
-  if ((mutex_sem = sem_open (SEM_MUTEX_NAME, O_CREAT, 0660, 0)) == SEM_FAILED) {
-    fprintf(stderr, "sem_open failed: %s\n", strerror(errno));
-    goto out;
-  }
-
+  
   const char *buffer = json_object_to_json_string(host_map);
   memcpy(mm_ptr, buffer, strlen(buffer));
-  //memcpy(mm_ptr, host_map, strlen(buffer)*sizeof(char));
 
   if (sem_post (mutex_sem) == -1)
     fprintf(stderr, "sem_post failed: %s\n", strerror(errno));  
 
- out:
-  if(mutex_sem)
-    sem_close(mutex_sem);
-
-  //gettimeofday(&te, NULL); 
+  //gettimeofday(&te, NULL);   
   //printf("time for cpy %f\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000. );
-
-
 }
 
 void get_shm_map() {
 
-  sem_t *mutex_sem = NULL;
   json_object *server_map = NULL;
-  
-  //struct timeval ts,te;
-  //gettimeofday(&ts, NULL); 
-
-  //  mutual exclusion semaphore, mutex_sem with an initial value 0.  
-  if ((mutex_sem = sem_open (SEM_MUTEX_NAME, 0)) == SEM_FAILED) {
-    fprintf(stderr, "sem_open failed: %s\n", strerror(errno));
-    goto out;
-  }
+  int val;
 
   sem_wait(mutex_sem);
 
-  enum json_tokener_error error = json_tokener_success;
-    
+  //struct timeval ts,te;
+  //gettimeofday(&ts, NULL); 
+  
+  enum json_tokener_error error = json_tokener_success;    
   server_map = json_tokener_parse_verbose((char *)mm_ptr, &error);
-
   if (error != json_tokener_success) {
     //fprintf(stderr, "mm_ptr parsing failed `%s': %s\n", json_object_to_json_string(server_map), 
     //	    json_tokener_error_desc(error));
     goto out;
   }
-
-  if (sem_post(mutex_sem) == -1)
-    fprintf(stderr, "sem_post failed: %s\n", strerror(errno));
   json_object_put(host_map);
   host_map = json_object_get(server_map);
+  
+  //host_map = (json_object *)mm_ptr;
+  //printf("here %s\n", json_object_to_json_string(host_map));
+  if (sem_post(mutex_sem) == -1)
+    fprintf(stderr, "sem_post failed: %s\n", strerror(errno));
 
   //gettimeofday(&te, NULL);   
   //printf("time for cpy %f\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000. );
@@ -110,9 +136,5 @@ void get_shm_map() {
  out:
   if (server_map)
     json_object_put(server_map);
-  if (mutex_sem)
-    sem_close(mutex_sem);
-
-
 }
 

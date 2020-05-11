@@ -135,13 +135,15 @@ static void calc_rates(json_object *otags_map, json_object *tags_map, json_objec
 
 /* Test if an entry is newer than what a server map contains */
 static int is_new_entry(json_object *server_map, char *servername, json_object *host_entry) {
-  int rc = 1;
+  int rc = -1;
   json_object *current_time, *se, *prev_time;    
+
+  if (!json_object_object_get_ex(server_map, servername, &se)) 
+    rc = 1;
   if (json_object_object_get_ex(host_entry, "time", &current_time) &&
-      json_object_object_get_ex(server_map, servername, &se) &&
-      json_object_object_get_ex(se, "time", &prev_time) &&             
-      (json_object_get_double(current_time) <= json_object_get_double(prev_time)))
-    rc = -1;
+      json_object_object_get_ex(se, "time", &prev_time) &&
+      (json_object_get_double(current_time) > json_object_get_double(prev_time)))
+    rc = 1;
 
   return rc;
 }
