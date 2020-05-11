@@ -19,6 +19,7 @@ from bokeh.palettes import d3
 from bokeh.models import ColumnDataSource, Plot, Grid, DataRange1d, Range1d
 from bokeh.models import HoverTool, PanTool, WheelZoomTool, BoxZoomTool, UndoTool, RedoTool, ResetTool
 from bokeh.models.glyphs import Step, Line
+from bokeh.transform import factor_cmap
 
 from pandas import read_sql
 import pandas 
@@ -30,7 +31,7 @@ tz = timezone.get_current_timezone()
 import psycopg2
 conn = psycopg2.connect("dbname=pfstrase_db1 user=postgres")
 cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
+"""
 class TimePlot():
     def __init__(self, bucket, interval):
         self.bucket = bucket
@@ -201,16 +202,113 @@ class TimePlot():
         plots += [plot]
 
         return gridplot(plots, ncols = 1)
+"""
 
+class RatePlot():
+    def __init__(self, bucket, interval):
+        self.bucket = bucket
+        self.interval = interval
+        self.cur = conn.cursor()
+
+        self.cur.execute("DROP VIEW IF EXISTS server_rates CASCADE;")
+
+        self.cur.execute("CREATE TEMP VIEW server_rates AS select time, hostname, uid, jid, client, event_name, value from stats where time > now() - interval '{0}'".format(interval), conn)
+        self.cur.execute("CREATE TEMP VIEW server_bucketed AS select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, uid, jid, client, event_name, coalesce(last(value,time), 0) as value from server_rates group by t, hostname, uid, jid, client, event_name order by hostname, t;".format(self.bucket, self.interval))
+
+        self.hostnames = read_sql("select distinct hostname from server_rates", conn)["hostname"]
+        self.hc = {}
+        colors = d3["Category10"][10]*5#[20]
+        for i, h in enumerate(self.hostnames):
+            self.hc[h] = colors[i%20]
+
+        pandas.set_option('display.max_columns', 20)
+
+    def format_plot(self, p):
+        p.legend.click_policy="hide"
+        p.legend.orientation = "horizontal"
+        p.xaxis.axis_label_text_font_size = "12pt"
+        p.yaxis.axis_label_text_font_size = "12pt"
+        new_legend = p.legend[0]
+        p.legend[0] = None
+        p.add_layout(new_legend, 'below')
+
+    def plothostrateby_tag(self, hostname, event_name, tag):        
+
+        df = read_sql("select t, hostname, {2}, sum(value) as value from server_bucketed where hostname like '{0}%' and event_name = '{1}' group by t, hostname, {2}".format(hostname, event_name, tag), conn)
+        df = df.set_index("t").tz_convert(tz)
+
+        scale = 1.0
+        hover = HoverTool(tooltips = [("host", "@hostname"), (tag, "@" + tag), ("time", "@time{%Y-%m-%d %H:%M:%S}"), (event_name, "@values")], 
+                          formatters = {"time" : "datetime"}, line_policy = "nearest")    
+
+        hs = df["hostname"].unique()
+        ts = df[tag].unique()
+
+        plots = []
+        for h in hs:                     
+            selectby_hostname = df[(df["hostname"] == h)]
+            groupby_hostname = selectby_hostname.groupby([selectby_hostname.index, "hostname"]).sum().reset_index(level = "hostname")
+
+            ylimit = (1.1*scale*groupby_hostname["value"]).max()
+            plot = figure(title =  event_name, plot_width=1200, plot_height=300, x_axis_type = "datetime", 
+                          y_range = Range1d(0, ylimit), y_axis_label = event_name, 
+                          tools = "pan,wheel_zoom,save,box_zoom,reset", toolbar_location = "above")
+            plot.tools.append(hover)        
+
+            #print(groupby_hostname)
+            btime = groupby_hostname.index.tz_localize(None)
+        
+            source = ColumnDataSource({"time" : btime, 
+                                       "hostname" : groupby_hostname["hostname"], 
+                                       "values" : scale*groupby_hostname["value"]})
+            plot.line(source = source, x = "time", y = "values", line_color = self.hc[h], 
+                      line_width = 4, line_alpha = 0.5, legend_label = h)
+            
+            source = ColumnDataSource({"time" : selectby_hostname.index.tz_localize(None),
+                                       "hostname" : selectby_hostname["hostname"], 
+                                       tag : selectby_hostname[tag], 
+                                       "values" : scale*selectby_hostname["value"]})
+            
+            plot.triangle(source = source, x = "time", y = "values", color = factor_cmap(tag, palette=d3["Category10"][10], factors = ts))
+            self.format_plot(plot)
+            plots += [plot]
+        return gridplot(plots, ncols = 1)
+
+    def plotrateby_host(self, hostname, event_name):        
+
+        df = read_sql("select t, hostname, sum(value) as value from server_bucketed where hostname like '{0}%' and event_name = '{1}' group by t, hostname".format(hostname, event_name), conn)
+        df = df.set_index("t").tz_convert(tz)
+        scale = 1.0
+        hover = HoverTool(tooltips = [("host", "@hostname"), ("time", "@time{%Y-%m-%d %H:%M:%S}"), (event_name, "@values")], 
+                          formatters = {"time" : "datetime"}, line_policy = "nearest")    
+        plot = figure(title =  event_name, plot_width=1200, plot_height=300, x_axis_type = "datetime", 
+                      y_range = Range1d(0, (1.1*scale*df["value"]).max()), y_axis_label = event_name, 
+                      tools = "pan,wheel_zoom,save,box_zoom,reset", toolbar_location = "above")
+        plot.tools.append(hover)        
+
+        for h in df.hostname.unique(): 
+            selectby_hostname = df[df.hostname == h]
+            source = ColumnDataSource({"time" : selectby_hostname.index.tz_localize(None), 
+                                       "hostname": selectby_hostname["hostname"], 
+                                       "values" : scale*selectby_hostname["value"]})
+            plot.line(source = source, x = "time", y = "values", line_color = self.hc[h], 
+                      line_width = 4, line_alpha = 0.5, legend_label = h)
+
+        self.format_plot(plot)
+        return plot
 
 def home(request):
     field = {}
 
     bucket = "60 seconds"
-    interval = '6 hours'
+    interval = '2.5 hours'
 
-    P = TimePlot(bucket, interval)
+    P = RatePlot(bucket, interval)
+    field["mds_load_script"], field["mds_load_div"] = components(P.plothostrateby_tag("mds", "load_eff", "uid"))
 
+    field["mds_script"], field["mds_div"] = components(P.plothostrateby_tag("mds", "iops", "uid"))
+    field["oss_script"], field["oss_div"] = components(P.plothostrateby_tag("oss", "bytes", "uid"))
+    """
     field["ost_script"], field["ost_div"] = components(P.plotlatestvalueby_host())
 
     iops_tuples = ('open', 'close', 'setattr', 'create', 'statfs', 'set_info')
@@ -222,7 +320,7 @@ def home(request):
             
     field["mds_script"], field["mds_div"] = components(P.plotrateby_tag("mds", "mds", iops_tuples))
     field["oss_script"], field["oss_div"] = components(P.plotrateby_tag("oss", "oss", bw_tuples))
-
+    """
 
     field["resources"] = CDN.render()
     field["datetime"] = timezone.now()
