@@ -111,23 +111,16 @@ static void calc_rates(json_object *otags_map, json_object *tags_map, json_objec
     json_object *otags_entry;
     json_object *rates = json_object_new_object();
 
-    /* Check if any entry for these tags exists. If not, initialize with 0 */
-    if (!json_object_object_get_ex(otags_map, tags, &otags_entry)) {      
-      json_object_object_foreach(tag_entry, eventname, value) {
-	json_object_object_add(rates, eventname, json_object_new_double(0));
-      }
-    }
-    else {      
-      json_object_object_foreach(tag_entry, eventname, value) {
-	json_object *ovalue;
-	double delta;
-	/* Check if any entry for this event exists and calc rate. If not initialize rate with 0 */
-	if (!json_object_object_get_ex(otags_entry, eventname, &ovalue))
-	  delta = 0;
-	else
-	  delta = (double)((json_object_get_int64(value) - json_object_get_int64(ovalue)))/dt;
-	json_object_object_add(rates, eventname, json_object_new_double(delta));
-      }
+    /* Check if any previous entry for these tags exists. If not then pass */
+    if (!json_object_object_get_ex(otags_map, tags, &otags_entry))
+      continue;
+
+    json_object_object_foreach(tag_entry, eventname, value) {
+      json_object *ovalue;
+      if (!json_object_object_get_ex(otags_entry, eventname, &ovalue))
+	continue;
+      double delta = (double)((json_object_get_int64(value) - json_object_get_int64(ovalue)))/dt;
+      json_object_object_add(rates, eventname, json_object_new_double(delta));
     }
     json_object_object_add(tags_rate_map, tags, rates);
   }
