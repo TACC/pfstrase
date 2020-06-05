@@ -360,7 +360,7 @@ enum json_tokener_error error = json_tokener_success;
 
 static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 {
-
+  //  return;
   time_t now = ev_now(EV_A);
   int line = 0, i;
 
@@ -371,6 +371,7 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   json_object *data_array = json_object_new_array();
   json_object *events = json_object_new_object();
 
+  json_object_object_add(events, "nclients", json_object_new_string(""));
   json_object_object_add(events, "load", json_object_new_string(""));
   json_object_object_add(events, "load_eff", json_object_new_string(""));
   json_object_object_add(events, "iops", json_object_new_string(""));
@@ -379,16 +380,19 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   //gettimeofday(&ts, NULL); 
 
   json_object_object_foreach(server_tag_rate_map, s, se) {
+
     json_object_object_foreach(se, t, te) {
       json_object *tags = NULL;
-      if (strcmp(t, "time") == 0) continue;
-
+      if (strcmp(t, "time") == 0) continue;      
+      
       tags = json_tokener_parse_verbose(t, &error);
       if (error != json_tokener_success) {
         fprintf(stderr, "tags format incorrect `%s': %s\n", t, json_tokener_error_desc(error));
         goto end;
       }
 
+      if (json_object_object_get_ex(te, "nclients", &eid))
+	json_object_object_add(tags, "nclients", json_object_get(eid));      
       if (json_object_object_get_ex(te, "load", &eid))
 	json_object_object_add(tags, "load", json_object_get(eid));      
       if (json_object_object_get_ex(te, "load_eff", &eid))
@@ -422,6 +426,7 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   json_object_object_foreach(group_tags, t, v) {
     cur += snprintf(cur, end - cur, "%-14.14s ", t);
   }
+
   json_object_object_foreach(events, e, val) {
     cur += snprintf(cur, end - cur, "%10.10s ", e);
   }
@@ -449,8 +454,8 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
       else
 	cur += snprintf(cur, end - cur, "%-14s ", "");
     }
+
     json_object_object_foreach(events, e, val) {
-      double val = 0.0;
       if (json_object_object_get_ex(de, e, &eid))
 	cur += snprintf(cur, end - cur, "%10.2f ", json_object_get_double(eid));     
       else
@@ -492,7 +497,7 @@ int main(int argc, char *argv[])
 {
   shmmap_client_init();
   
-  screen_init(2.0);
+  screen_init(3.0);
   screen_start(EV_DEFAULT);
 
   ev_run(EV_DEFAULT, 0);

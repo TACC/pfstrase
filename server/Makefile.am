@@ -11,7 +11,7 @@ endif
 
 EXTRA_DIST = pfstrase_server.service pfstrase_server.conf
 
-pfstrase_server_CPPFLAGS = -D_GNU_SOURCE
+pfstrase_server_CPPFLAGS = -D_GNU_SOURCE -O3
 
 pfstrase_server_SOURCES = 	 \
 	daemonize.h	 \

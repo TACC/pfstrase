@@ -28,7 +28,7 @@ void pq_finish() {
 
 enum json_tokener_error error = json_tokener_success;
 int pq_insert() {
-
+  
   int rc = -1;
   PGresult *res;
   int i;
@@ -36,8 +36,9 @@ int pq_insert() {
   //struct timeval ts,te;
   //gettimeofday(&ts, NULL); 
   int total_size = 0;  
+  tag_stats();
   group_statsbytags(5, "fid", "server", "client", "jid", "uid");
-  
+
   json_object_object_foreach(server_tag_rate_map, s, se) {
     char query[256000] = "insert into stats (time, hostname, fid, jid, uid, client, event_name, value) values ";
     int empty_len = strlen(query);

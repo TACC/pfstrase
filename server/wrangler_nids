@@ -1,6 +1,7 @@
 10.1.58.1	master.wrangler.tacc.utexas.edu master		
 192.168.58.2@o2ib58  login1.wrangler.tacc.utexas.edu login1	
 10.1.58.244     pdnvme-mgmt.wrangler.tacc.utexas.edu pdnvme
+192.168.58.6@o2ib58    mds1.wrangler.tacc.utexas.edu     mds1
 192.168.58.101@o2ib58  c251-101.wrangler.tacc.utexas.edu c251-101
 192.168.58.102@o2ib58  c251-102.wrangler.tacc.utexas.edu c251-102
 192.168.58.103@o2ib58  c251-103.wrangler.tacc.utexas.edu c251-103

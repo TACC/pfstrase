@@ -88,9 +88,8 @@ void shmmap_client_kill(void) {
 
 void set_shm_map() {
 
-
   sem_wait(mutex_sem);
-
+  tag_stats();    
   //struct timeval ts,te;
   //gettimeofday(&ts, NULL); 
   
