@@ -10,7 +10,7 @@ json_object *host_map;
 json_object *nid_map;
 json_object *server_tag_map;
 json_object *server_tag_rate_map;
-json_object *nmap;
+json_object *screen_map;
 int groupby;
 json_object *group_tags;
 

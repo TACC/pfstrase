@@ -37,9 +37,9 @@ int pq_insert() {
   //gettimeofday(&ts, NULL); 
   int total_size = 0;  
   tag_stats();
-  group_statsbytags(5, "fid", "server", "client", "jid", "uid");
+  group_ratesbytags(5, "fid", "server", "client", "jid", "uid");
 
-  json_object_object_foreach(server_tag_rate_map, s, se) {
+  json_object_object_foreach(screen_map, s, se) {
     char query[256000] = "insert into stats (time, hostname, fid, jid, uid, client, event_name, value) values ";
     int empty_len = strlen(query);
     char *qcur = query + empty_len, * const qend = query + sizeof(query);

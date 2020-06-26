@@ -28,7 +28,6 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS);
 static void screen_key_cb(EV_P_ int);
 
 static struct ev_timer refresh_timer_w;
-static struct ev_timer map_refresh_timer_w;
 
 static struct ev_io stdin_io_w;
 static struct ev_signal sigint_w;
@@ -37,7 +36,6 @@ static struct ev_signal sigwinch_w;
 
 static unsigned long bkgd_attr[2];
 
-static void map_refresh_timer_cb(EV_P_ struct ev_timer *w, int revents);
 static void refresh_timer_cb(EV_P_ struct ev_timer *w, int revents);
 static void stdin_io_cb(EV_P_ struct ev_io *w, int revents);
 static void sigint_cb(EV_P_ ev_signal *w, int revents);
@@ -60,7 +58,6 @@ json_object *data_map;
 int screen_init(double interval)
 {
   ev_timer_init(&refresh_timer_w, &refresh_timer_cb, 0.001, interval);
-  ev_timer_init(&map_refresh_timer_w, &map_refresh_timer_cb, 0.001, interval/4.);
   ev_io_init(&stdin_io_w, &stdin_io_cb, STDIN_FILENO, EV_READ);
   ev_signal_init(&sigint_w, &sigint_cb, SIGINT);
   ev_signal_init(&sigterm_w, &sigint_cb, SIGTERM);
@@ -112,7 +109,6 @@ void screen_start(EV_P)
   curs_set(0); /* Hide the cursor. */
 
   ev_timer_start(EV_A_ &refresh_timer_w);
-  ev_timer_start(EV_A_ &map_refresh_timer_w);
   ev_io_start(EV_A_ &stdin_io_w);
   ev_signal_start(EV_A_ &sigint_w);
   ev_signal_start(EV_A_ &sigterm_w);
@@ -139,34 +135,31 @@ void screen_stop(EV_P)
   screen_is_active = 0;
 }
 
-static void map_refresh_timer_cb(EV_P_ ev_timer *w, int revents)
+static void refresh_timer_cb(EV_P_ ev_timer *w, int revents)
 {
   get_shm_map();
   
   switch(groupby) {
   case 4:
-    group_statsbytags(5, "fid", "server", "client", "jid", "uid");
+    group_ratesbytags(5, "fid", "server", "client", "jid", "uid");
     break;
   case 3:
-    group_statsbytags(4, "fid", "server", "jid", "uid");
+    group_ratesbytags(4, "fid", "server", "jid", "uid");
     break;
   case 2:
-    group_statsbytags(3, "fid", "server", "uid");
+    group_ratesbytags(3, "fid", "server", "uid");
     break;
   case 1:
-    group_statsbytags(2, "fid", "server");
+    group_ratesbytags(2, "fid", "server");
     break;
   case 5:
-    group_statsbytags(1, "server");
+    group_ratesbytags(1, "server");
     break;
   default:
-    group_statsbytags(5, "fid", "server", "client", "jid", "uid");
+    group_ratesbytags(5, "fid", "server", "client", "jid", "uid");
     break;
   }
-}
 
-static void refresh_timer_cb(EV_P_ ev_timer *w, int revents)
-{
   screen_refresh_cb(EV_A_ LINES, COLS);
   ev_clear_pending(EV_A_ w);
   refresh();
@@ -293,22 +286,22 @@ static void screen_key_cb(EV_P_ int key)
 
   switch(groupby) {
   case 4:
-    group_statsbytags(5, "fid", "server", "client", "jid", "uid");
+    group_ratesbytags(5, "fid", "server", "client", "jid", "uid");
     break;
   case 3:
-    group_statsbytags(4, "fid", "server", "jid", "uid");
+    group_ratesbytags(4, "fid", "server", "jid", "uid");
     break;
   case 2:
-    group_statsbytags(3, "fid", "server", "uid");
+    group_ratesbytags(3, "fid", "server", "uid");
     break;
   case 1:
-    group_statsbytags(2, "fid", "server");
+    group_ratesbytags(2, "fid", "server");
     break;
   case 5:
-    group_statsbytags(1, "server");
+    group_ratesbytags(1, "server");
     break;
   default:
-    group_statsbytags(5, "fid", "server", "client", "jid", "uid");
+    group_ratesbytags(5, "fid", "server", "client", "jid", "uid");
     break;
   }
 
@@ -379,8 +372,8 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   //struct timeval ts,te;
   //gettimeofday(&ts, NULL); 
 
-  json_object_object_foreach(server_tag_rate_map, s, se) {
-
+  json_object_object_foreach(screen_map, s, se) {
+    //printf("%s %s\n", s, json_object_to_json_string(se));
     json_object_object_foreach(se, t, te) {
       json_object *tags = NULL;
       if (strcmp(t, "time") == 0) continue;      

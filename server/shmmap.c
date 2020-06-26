@@ -79,6 +79,10 @@ void shmmap_client_init(void) {
 }
 
 void shmmap_client_kill(void) {
+  sem_wait(mutex_sem);
+  if (sem_post(mutex_sem) == -1)
+    fprintf(stderr, "sem_post failed: %s\n", strerror(errno));
+
   if (munmap (mm_ptr, mm_size) == -1)
     fprintf(stderr, "munmap failed: %s\n", strerror(errno));
   if (fd_shm)
@@ -89,11 +93,14 @@ void shmmap_client_kill(void) {
 void set_shm_map() {
 
   sem_wait(mutex_sem);
-  tag_stats();    
   //struct timeval ts,te;
   //gettimeofday(&ts, NULL); 
+
+  tag_stats();    
+  group_statsbytags(5, "fid", "server", "client", "jid", "uid");
   
-  const char *buffer = json_object_to_json_string(host_map);
+  const char *buffer = json_object_to_json_string(server_tag_rate_map);
+  //printf(buffer);
   memcpy(mm_ptr, buffer, strlen(buffer));
 
   if (sem_post (mutex_sem) == -1)
@@ -120,9 +127,9 @@ void get_shm_map() {
     //	    json_tokener_error_desc(error));
     goto out;
   }
-  json_object_put(host_map);
-  host_map = json_object_get(server_map);
-  
+  json_object_put(server_tag_rate_map);
+  server_tag_rate_map = json_object_get(server_map);
+
   //host_map = (json_object *)mm_ptr;
   //printf("here %s\n", json_object_to_json_string(host_map));
   if (sem_post(mutex_sem) == -1)
