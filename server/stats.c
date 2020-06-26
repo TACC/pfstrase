@@ -237,11 +237,16 @@ void group_ratesbytags(int nt, ...) {
 
   json_object *tid;
   json_object_object_foreach(server_tag_rate_map, server, rate_entry) {    
-    json_object *tag_rate_map = json_object_new_object();
+    json_object *time;
+    if (!json_object_object_get_ex(rate_entry, "time", &time)) continue;
 
+    json_object *tag_rate_map = json_object_new_object();
     json_object_object_foreach(rate_entry, t, rates) {    
       json_object *pre_tags = NULL;
-      if (strcmp(t, "time") == 0) continue;      
+      if (strcmp(t, "time") == 0)  {
+	json_object_object_add(tag_rate_map, "time", json_object_get(time));
+	continue;      
+      }
 
       pre_tags = json_tokener_parse_verbose(t, &error);
       if (error != json_tokener_success) {
