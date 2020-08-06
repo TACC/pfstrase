@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/ioctl.h>
+#include <getopt.h>
 #include "stats.h"
 #include "shmmap.h"
 #include "screen.h"
@@ -20,6 +21,9 @@ static int scroll_delta;
 
 static char status_bar[256];
 static char sortbykey[32];
+
+char filter_by[32];
+double refresh_interval = 3;
 
 static double status_bar_time;
 static int top_color_pair = CP_BLACK;
@@ -486,11 +490,63 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 
 }
 
+static void usage(void)
+{
+  fprintf(stderr,
+          "Usage: %s [OPTION...]\n"
+          "The pfstop program provides a dynamic real-time view of parallel filesystem usage as part of PFSTRASE (Parallel FileSystem TRacing and Analysis SErvice).\n"
+          "\n"
+          "Input Arguments:\n"
+          "  -n, --interval     Set refresh interval in seconds (default=3.0)\n"
+          "  -u, --user         Filter displayed usage for a specific user ID (uid)" 
+          "  -h, --help         Print this message\n"
+          "\n"
+          "Display modifiers:\n"
+          "  f      Group by filesystem ID (fid)\n"
+          "  u      Group by user ID (uid)\n"
+          "  j      Group by job ID (jid)\n"
+          "  c      Group by pfs client\n"
+          "  s      Group by pfs server\n"
+          "\n"
+          "  l      Sort by effective load (load_eff)\n"
+          "  i      Sort by IOPS\n"
+          "  b      Sort by bytes\n"
+          "\n"
+          "  q      Quit \n",
+          program_invocation_short_name);
+}
+
 int main(int argc, char *argv[])
 {
+
+  struct option opts[] = {
+    { "help",   no_argument, 0, 'h' },
+    { "interval", required_argument, 0, 'n' },
+    { "user", required_argument, 0, 'u' },
+    { NULL,     0, 0, 0 },
+  };
+
+  int c;
+  while((c = getopt_long(argc, argv, "h:nu:", opts, 0)) != -1) {
+    switch (c) {
+      case 'n':
+        refresh_interval = atof(optarg);
+        break;
+      case 'u':
+        filter_by = optarg
+        break;
+      case 'h':
+        usage();
+        exit(0);
+      case '?':
+        fprintf (stderr, "Try '%s --help' for more information.\n", program_invocation_short_name);
+        exit(1);
+    }
+  }
+
   shmmap_client_init();
   
-  screen_init(3.0);
+  screen_init(refresh_interval);
   screen_start(EV_DEFAULT);
 
   ev_run(EV_DEFAULT, 0);
