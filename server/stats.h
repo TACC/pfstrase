@@ -11,6 +11,12 @@ json_object *nid_map;
 json_object *server_tag_map;
 json_object *server_tag_rate_map;
 json_object *screen_map;
+
+char *filter_user;
+char *filter_server;
+char *filter_client;
+char *filter_job;
+
 int groupby;
 json_object *group_tags;
 

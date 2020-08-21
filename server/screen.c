@@ -9,6 +9,10 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <pwd.h>
 #include <getopt.h>
 #include "stats.h"
 #include "shmmap.h"
@@ -22,7 +26,8 @@ static int scroll_delta;
 static char status_bar[256];
 static char sortbykey[32];
 
-char filter_by[32];
+static struct passwd *p;
+
 double refresh_interval = 3;
 
 static double status_bar_time;
@@ -58,6 +63,26 @@ json_object *data_map;
   typeof(y) _max2 = (y);                    \
   (void) (&_max1 == &_max2);                \
   _max1 > _max2 ? _max1 : _max2; })
+
+static bool in_admin_group()
+{
+  int ngroups, i;
+  gid_t groups[NGROUPS_MAX];
+  int admin_group = 25072;
+
+  ngroups = NGROUPS_MAX;
+  if ( getgrouplist(p->pw_name, getegid(), groups, &ngroups) == -1) {
+    printf ("Groups array is too small: %d\n", ngroups);
+  }
+
+  for (i=0; i < ngroups; i++) {
+    if (groups[i] == admin_group) {
+      return true;
+      break;
+    }
+  }
+  return false;
+}
 
 int screen_init(double interval)
 {
@@ -139,10 +164,14 @@ void screen_stop(EV_P)
   screen_is_active = 0;
 }
 
+enum json_tokener_error error = json_tokener_success;
+
 static void refresh_timer_cb(EV_P_ ev_timer *w, int revents)
 {
   get_shm_map();
-  
+
+  //screen_stop(EV_DEFAULT);
+
   switch(groupby) {
   case 4:
     group_ratesbytags(5, "fid", "server", "client", "jid", "uid");
@@ -164,9 +193,13 @@ static void refresh_timer_cb(EV_P_ ev_timer *w, int revents)
     break;
   }
 
+  //shmmap_client_kill();
+  //exit(1);
+
   screen_refresh_cb(EV_A_ LINES, COLS);
   ev_clear_pending(EV_A_ w);
   refresh();
+
 }
 
 static void stdin_io_cb(EV_P_ ev_io *w, int revents)
@@ -353,7 +386,6 @@ static int sort_da(const void *j1, const void *j2) {
 }
 
 double cf = 1.0/(1024*1024);
-enum json_tokener_error error = json_tokener_success;
 
 static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 {
@@ -499,6 +531,10 @@ static void usage(void)
           "Input Arguments:\n"
           "  -n, --interval     Set refresh interval in seconds (default=3.0)\n"
           "  -u, --user         Filter displayed usage for a specific user ID (uid)" 
+          "  -c, --client       Filter displayed usage for a specific client (cid)"
+          "  -s, --server       Filter displayed usage for a specific FS server"
+          "  -j, --job          Filter displayed usage for a specific job ID (jid)"
+
           "  -h, --help         Print this message\n"
           "\n"
           "Display modifiers:\n"
@@ -520,20 +556,32 @@ int main(int argc, char *argv[])
 {
 
   struct option opts[] = {
-    { "help",   no_argument, 0, 'h' },
+    { "help",     no_argument, 0, 'h' },
     { "interval", required_argument, 0, 'n' },
-    { "user", required_argument, 0, 'u' },
-    { NULL,     0, 0, 0 },
+    { "user",     required_argument, 0, 'u' },
+    { "client",   required_argument, 0, 'c' },
+    { "server",   required_argument, 0, 's' },
+    { "job",      required_argument, 0, 'j' },
+    { NULL,       0, 0, 0 },
   };
 
   int c;
-  while((c = getopt_long(argc, argv, "h:nu:", opts, 0)) != -1) {
+  while((c = getopt_long(argc, argv, "hn:u:c:s:j:", opts, 0)) != -1) {
     switch (c) {
       case 'n':
         refresh_interval = atof(optarg);
         break;
       case 'u':
-        filter_by = optarg
+        filter_user = optarg;
+        break;
+      case 'c':
+        filter_client = optarg;
+        break;
+      case 's':
+        filter_server = optarg;
+        break;
+      case 'j':
+        filter_job = optarg;
         break;
       case 'h':
         usage();
@@ -542,6 +590,12 @@ int main(int argc, char *argv[])
         fprintf (stderr, "Try '%s --help' for more information.\n", program_invocation_short_name);
         exit(1);
     }
+  }
+
+  // Set uid filter if not in admin group
+  p = getpwuid(geteuid());
+  if (!in_admin_group()) {
+    filter_user = p->pw_name;
   }
 
   shmmap_client_init();

@@ -1,4 +1,30 @@
-# pfstrase
-A repository for pfstrase related scripts and source code.
+# PFSTRASE
+## About
+PFSTRASE (Parallel FileSystem TRacing and Analysis SErvice) 
 
-Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.
+## Installation
+```
+git clone https://github.com/TACC/pfstrase.git 
+cd pfstrase/server
+./configure
+make
+```
+## Usage
+Start the data collector
+```
+./pfstrase_server
+```
+Run the monitor interface
+```
+./pfstop
+```
+## Copyright
+(C) 2018 University of Texas at Austin
+
+## License
+This library is free software; you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation; either version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License along with this library; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+
