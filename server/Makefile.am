@@ -9,7 +9,7 @@ systemduserunit_DATA = \
 	pfstrase_server.conf
 endif
 
-EXTRA_DIST = pfstrase_server.service pfstrase_server.conf
+EXTRA_DIST = pfstrase_server.service pfstrase_server.conf man/pfstop.1.gz man/pfstrase_server.1.gz map_nids.py qhost.py
 
 pfstrase_server_CPPFLAGS = -D_GNU_SOURCE -O3
 
@@ -35,4 +35,3 @@ pfstop_SOURCES = 	 \
 	shmmap.h \
 	stats.h \
 	stats.c
-

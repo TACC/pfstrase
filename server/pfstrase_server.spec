@@ -27,16 +27,25 @@ sed -i 's/CONFIGFILE/\%{_sysconfdir}\/pfstrase\/pfstrase_server.conf/' pfstrase_
 mkdir -p  %{buildroot}/%{_sbindir}/
 mkdir -p  %{buildroot}/%{_sysconfdir}/pfstrase/
 mkdir -p  %{buildroot}/%{_unitdir}/
+mkdir -p  %{buildroot}/%{_mandir}/man1/
 install -m 744 pfstrase_server %{buildroot}/%{_sbindir}/pfstrase_server
 install -m 744 pfstop %{buildroot}/%{_sbindir}/pfstop
+install -m 744 map_nids.py %{buildroot}/%{_sbindir}/map_nids.py
+install -m 744 qhost.py %{buildroot}/%{_sbindir}/map_nids.py
 install -m 644 pfstrase_server.conf %{buildroot}/%{_sysconfdir}/pfstrase/pfstrase_server.conf
 install -m 644 pfstrase_server.service %{buildroot}/%{_unitdir}/pfstrase_server.service
+install -m 644 man/pfstop.1.gz %{buildroot}/%{_mandir}/man1/pfstop.1.gz
+install -m 644 man/pfstrase_server.1.gz %{buildroot}/%{_mandir}/man1/pfstrase_server.1.gz
 
 %files
 %{_sbindir}/pfstrase_server
 %{_sbindir}/pfstop
+%{_sbindir}/map_nids.py
+%{_sbindir}/qhost.py
 %{_sysconfdir}/pfstrase/pfstrase_server.conf
 %{_unitdir}/pfstrase_server.service
+%{_mandir}/man1/pfstop.1.gz
+%{_mandir}/man1/pfstrase_server.1.gz
 
 %post
 %systemd_post pfstrase_server.service
