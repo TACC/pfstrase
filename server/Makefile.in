@@ -318,7 +318,7 @@ AM_DISTCHECK_CONFIGURE_FLAGS = \
 @HAVE_SYSTEMD_TRUE@	pfstrase_server.service \
 @HAVE_SYSTEMD_TRUE@	pfstrase_server.conf
 
-EXTRA_DIST = pfstrase_server.service pfstrase_server.conf
+EXTRA_DIST = pfstrase_server.service pfstrase_server.conf man/pfstop.1.gz man/pfstrase_server.1.gz map_nids.py qhost.py
 pfstrase_server_CPPFLAGS = -D_GNU_SOURCE -O3 $(am__append_2)
 pfstrase_server_SOURCES = daemonize.h daemonize.c pfstrase_server.c \
 	shmmap.c shmmap.h socket_server.h socket_server.c stats.h \

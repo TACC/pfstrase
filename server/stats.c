@@ -258,7 +258,56 @@ void group_ratesbytags(int nt, ...) {
       json_object_object_foreach(group_tags, tag, t) {
 	if (json_object_object_get_ex(pre_tags, tag, &tid))
 	  json_object_object_add(tags, tag, json_object_get(tid));
-      }
+    }
+
+  // uid filter
+  if (filter_user != NULL) {
+    json_object *uid;
+    json_object_object_get_ex(tags, "uid", &uid);
+
+    if (uid == 0) continue;
+
+    if (strcmp(json_object_get_string(uid), filter_user) != 0) {
+      json_object_object_add(tags, "uid", json_object_new_string("*"));
+    }
+  }
+
+  // server filter
+  if (filter_server != NULL) {
+    json_object *server;
+    json_object_object_get_ex(tags, "server", &server);
+
+    if (server == 0) continue;
+
+    if (strcmp(json_object_get_string(server), filter_server) != 0) {
+      json_object_object_add(tags, "server", json_object_new_string("*"));
+    }
+  }
+
+  // client filter
+  if (filter_client != NULL) {
+    json_object *client;
+    json_object_object_get_ex(tags, "client", &client);
+
+    if (client == 0) continue;
+
+    if (strcmp(json_object_get_string(client), filter_client) != 0) {
+      json_object_object_add(tags, "client", json_object_new_string("*"));
+    }
+  }
+
+  // job filter
+  if (filter_job != NULL) {
+    json_object *jid;
+    json_object_object_get_ex(tags, "jid", &jid);
+
+    if (jid == 0) continue;
+
+    if (strcmp(json_object_get_string(jid), filter_job) != 0) {
+      json_object_object_add(tags, "jid", json_object_new_string("*"));
+    }
+  }
+
       char tags_str[256];
       snprintf(tags_str, sizeof(tags_str), json_object_to_json_string(tags));
       add_stats(tag_rate_map, tags_str, rates);

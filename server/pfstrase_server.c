@@ -143,14 +143,14 @@ static void usage(void)
 {
   fprintf(stderr,
           "Usage: %s [OPTION]... [TYPE]...\n"
-          "Collect statistics.\n"
+          "Statistics collector for PFSTRASE (Parallel FileSystem TRacing and Analysis SErvice).\n"
           "\n"
           "Mandatory arguments to long options are mandatory for short options too.\n"
-          "  -h, --help                 display this help and exit\n"
-	  "  -d --daemon                Run in daemon mode\n"
+          "  -h, --help                 display this help and exit.\n"
+	        "  -d --daemon                Run in daemon mode.\n"
           "  -i --interval  [INTERVAL]  Interval to update shared memory.\n"
-	  "  -c --conf_file [FILENAME]  Read configuration from the file\n"
-	  "  -p --port      [PORT]      Port to listen on.\n"
+	        "  -c --conf_file [FILENAME]  Read configuration from the file.\n"
+	        "  -p --port      [PORT]      Port to listen on.\n"
           ,
           program_invocation_short_name);
 }
@@ -166,8 +166,8 @@ int main(int argc, char *argv[])
     { "help",   no_argument, 0, 'h' },
     { "daemon", no_argument, 0, 'd' },
     { "interval ",  required_argument, 0, 'i' },
-    {"conf_file", required_argument, 0, 'c'},
-    {"port", required_argument, 0, 'p'},
+    { "conf_file", required_argument, 0, 'c' },
+    { "port", required_argument, 0, 'p' },
     { NULL,     0, 0, 0 },
   };
 
@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
       usage();
       exit(0);
     case '?':
-      fprintf(stderr, "Try `%s --help' for more information.\n", program_invocation_short_name);
+      fprintf(stderr, "Try '%s --help' for more information.\n", program_invocation_short_name);
       exit(1);
     }
   }
