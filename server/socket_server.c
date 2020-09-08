@@ -72,6 +72,8 @@ int socket_listen(const char *port)
   return sockfd;
 }
 
+char request[SOCKET_BUFFERSIZE];
+
 void sock_rpc() 
 {  
   struct sockaddr_in addr;
@@ -82,7 +84,6 @@ void sock_rpc()
     if (!(errno == EAGAIN || errno == EWOULDBLOCK || errno == ECONNABORTED))
       fprintf(stderr, "cannot accept connections: %s\n", strerror(errno));
 
-  char request[SOCKET_BUFFERSIZE];
   memset(request, 0, sizeof(request));
 
   ssize_t bytes_recvd;

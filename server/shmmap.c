@@ -17,7 +17,7 @@
 #include "stats.h"
 #include "shmmap.h"
 
-#define mm_size 100*1024*1024
+#define mm_size 500*1024*1024
 
 sem_t *mutex_sem = NULL;
 int fd_shm = NULL;

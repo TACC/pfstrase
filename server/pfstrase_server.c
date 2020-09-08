@@ -11,6 +11,7 @@
 #include "daemonize.h"
 #include "shmmap.h"
 #include "screen.h"
+#include "pq.h"
 
 static char *app_name = NULL;
 static char *conf_file_name = NULL;
@@ -62,6 +63,7 @@ int read_conf_file()
 	fprintf(log_stream, "%s: Setting shared memory update interval to %f based on file %s\n",
 	       app_name, shm_interval, conf_file_name);
     }
+    #ifdef PQSL
     if (strcmp(key, "dbserver") == 0) {  
       line[strlen(line) - 1] = '\0';
       dbserver = strdup(line);
@@ -85,6 +87,7 @@ int read_conf_file()
 	fprintf(log_stream, "%s: Setting database update interval to %f based on file %s\n",
 	       app_name, db_interval, conf_file_name);
     }
+    #endif
   }
   if (line_buf)
     free(line_buf);
@@ -226,16 +229,19 @@ int main(int argc, char *argv[])
   
   ev_timer_init(&shm_timer, shm_timer_cb, 0.0, shm_interval);   
   ev_timer_start(EV_DEFAULT, &shm_timer);
-
+  
+  #ifdef PQSL
   if (pq_connect(dbserver, dbname, dbuser) < 0)
     goto out;
-
   ev_timer_init(&pq_timer, pq_timer_cb, 0.0, db_interval);   
   ev_timer_start(EV_DEFAULT, &pq_timer);
+  #endif
 
   ev_run(EV_DEFAULT, 0);
 
+  #ifdef PQSL
   pq_finish();
+  #endif
 
   out:
   if(sock_fd)

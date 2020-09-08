@@ -12,8 +12,20 @@ AC_CHECK_HEADERS([json/json.h], [json=true], [AC_MSG_ERROR([Failed to find heade
 AC_SEARCH_LIBS([initscr], [ncurses], [libncurses=yes], [libncurses=no])
 AC_CHECK_HEADERS([ncurses.h], [ncurses=true], [AC_MSG_ERROR([Failed to find header ncurses.h])])
 
-AC_SEARCH_LIBS([PQconnectdb], [pq], [libpq=yes], [libpq=no])
-AC_CHECK_HEADERS([libpq-fe.h], [pqfe=true], [AC_MSG_ERROR([Failed to find header libpq-fe.h])])
+AC_ARG_ENABLE([psql],
+[ --enable-psql Enable PostgreSQL backend (default is false)],
+[case "${enableval}" in
+  yes) psql=true
+  AC_SEARCH_LIBS([PQconnectdb], [pq], [libpq=yes], [AC_MSG_ERROR([Unable to find libpq.so!])])
+  if test "x${libpq}" = xyes; then
+    AC_CHECK_HEADERS([libpq-fe.h], [pqfe=true], [AC_MSG_ERROR([Failed to find header libpq-fe.h])])
+  fi
+  ;;
+  no) gpu = false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-psql]) ;;
+esac],
+[psql=false])
+AM_CONDITIONAL([PSQL], [test x$psql = xtrue])
 
 AC_SEARCH_LIBS([shm_open], [rt], [librt=yes], [librt=no])
 AC_SEARCH_LIBS([sem_open], [pthread], [libpthread=yes], [libpthread=no])

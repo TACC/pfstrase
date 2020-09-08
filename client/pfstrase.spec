@@ -1,13 +1,13 @@
 Summary: Parallel Filesystem Monitoring Agent
 Name: pfstrased
-Version: 0.0.1
+Version: 1.0.0
 Release: 1%{?dist}
 License: GPL
 Vendor: Texas Advanced Computing Center
 Group: System Environment/Base
 Packager: TACC - rtevans@tacc.utexas.edu
 Source: pfstrased-%{version}.tar.gz
-BuildRequires: systemd
+BuildRequires: systemd libev json-c
 
 %{?systemd_requires}
 

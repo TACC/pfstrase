@@ -1,1 +1,6 @@
-../mds/partitions.yaml
+---
+partitions:
+  - name: v0
+    device: /dev/sdb
+  - name: v1
+    device: /dev/sdc

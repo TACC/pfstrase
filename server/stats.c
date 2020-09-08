@@ -437,9 +437,9 @@ static int update_host_entry(json_object *rpc_json) {
       json_object_object_add(host_entry, "data", json_object_get(tag));
 
     if (is_class(host_entry, "mds") < 0 && is_class(host_entry, "oss") < 0)
-      if (json_object_object_get_ex(rpc_json, "nid", &tag))
+      if (json_object_object_get_ex(rpc_json, "nid", &tag))	
 	json_object_object_add(nid_map, json_object_get_string(tag), json_object_get(host_entry));
-
+  
   }
   rc = 1;
  out:

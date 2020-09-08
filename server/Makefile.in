@@ -78,6 +78,11 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 bin_PROGRAMS = pfstrase_server$(EXEEXT) pfstop$(EXEEXT)
+@PSQL_TRUE@am__append_1 = \
+@PSQL_TRUE@	pq.h \
+@PSQL_TRUE@	pq.c
+
+@PSQL_TRUE@am__append_2 = -DPSQL
 subdir = .
 DIST_COMMON = INSTALL NEWS README AUTHORS ChangeLog \
 	$(srcdir)/Makefile.in $(srcdir)/Makefile.am \
@@ -99,12 +104,15 @@ am_pfstop_OBJECTS = pfstop-screen.$(OBJEXT) pfstop-shmmap.$(OBJEXT) \
 	pfstop-stats.$(OBJEXT)
 pfstop_OBJECTS = $(am_pfstop_OBJECTS)
 pfstop_LDADD = $(LDADD)
+am__pfstrase_server_SOURCES_DIST = daemonize.h daemonize.c \
+	pfstrase_server.c shmmap.c shmmap.h socket_server.h \
+	socket_server.c stats.h stats.c pq.h pq.c
+@PSQL_TRUE@am__objects_1 = pfstrase_server-pq.$(OBJEXT)
 am_pfstrase_server_OBJECTS = pfstrase_server-daemonize.$(OBJEXT) \
-	pfstrase_server-pq.$(OBJEXT) \
 	pfstrase_server-pfstrase_server.$(OBJEXT) \
 	pfstrase_server-shmmap.$(OBJEXT) \
 	pfstrase_server-socket_server.$(OBJEXT) \
-	pfstrase_server-stats.$(OBJEXT)
+	pfstrase_server-stats.$(OBJEXT) $(am__objects_1)
 pfstrase_server_OBJECTS = $(am_pfstrase_server_OBJECTS)
 pfstrase_server_LDADD = $(LDADD)
 AM_V_P = $(am__v_P_@AM_V@)
@@ -140,7 +148,7 @@ am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(pfstop_SOURCES) $(pfstrase_server_SOURCES)
-DIST_SOURCES = $(pfstop_SOURCES) $(pfstrase_server_SOURCES)
+DIST_SOURCES = $(pfstop_SOURCES) $(am__pfstrase_server_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -311,20 +319,10 @@ AM_DISTCHECK_CONFIGURE_FLAGS = \
 @HAVE_SYSTEMD_TRUE@	pfstrase_server.conf
 
 EXTRA_DIST = pfstrase_server.service pfstrase_server.conf
-pfstrase_server_CPPFLAGS = -D_GNU_SOURCE -O3
-pfstrase_server_SOURCES = \
-	daemonize.h	 \
-	daemonize.c	 \
-	pq.h \
-	pq.c \
-	pfstrase_server.c    \
-	shmmap.c \
-	shmmap.h \
-	socket_server.h \
-	socket_server.c \
-	stats.h \
-	stats.c
-
+pfstrase_server_CPPFLAGS = -D_GNU_SOURCE -O3 $(am__append_2)
+pfstrase_server_SOURCES = daemonize.h daemonize.c pfstrase_server.c \
+	shmmap.c shmmap.h socket_server.h socket_server.c stats.h \
+	stats.c $(am__append_1)
 pfstop_CPPFLAGS = -D_GNU_SOURCE
 pfstop_SOURCES = \
 	screen.h 	\
@@ -509,20 +507,6 @@ pfstrase_server-daemonize.obj: daemonize.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstrase_server-daemonize.obj `if test -f 'daemonize.c'; then $(CYGPATH_W) 'daemonize.c'; else $(CYGPATH_W) '$(srcdir)/daemonize.c'; fi`
 
-pfstrase_server-pq.o: pq.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstrase_server-pq.o -MD -MP -MF $(DEPDIR)/pfstrase_server-pq.Tpo -c -o pfstrase_server-pq.o `test -f 'pq.c' || echo '$(srcdir)/'`pq.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstrase_server-pq.Tpo $(DEPDIR)/pfstrase_server-pq.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='pq.c' object='pfstrase_server-pq.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstrase_server-pq.o `test -f 'pq.c' || echo '$(srcdir)/'`pq.c
-
-pfstrase_server-pq.obj: pq.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstrase_server-pq.obj -MD -MP -MF $(DEPDIR)/pfstrase_server-pq.Tpo -c -o pfstrase_server-pq.obj `if test -f 'pq.c'; then $(CYGPATH_W) 'pq.c'; else $(CYGPATH_W) '$(srcdir)/pq.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstrase_server-pq.Tpo $(DEPDIR)/pfstrase_server-pq.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='pq.c' object='pfstrase_server-pq.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstrase_server-pq.obj `if test -f 'pq.c'; then $(CYGPATH_W) 'pq.c'; else $(CYGPATH_W) '$(srcdir)/pq.c'; fi`
-
 pfstrase_server-pfstrase_server.o: pfstrase_server.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstrase_server-pfstrase_server.o -MD -MP -MF $(DEPDIR)/pfstrase_server-pfstrase_server.Tpo -c -o pfstrase_server-pfstrase_server.o `test -f 'pfstrase_server.c' || echo '$(srcdir)/'`pfstrase_server.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstrase_server-pfstrase_server.Tpo $(DEPDIR)/pfstrase_server-pfstrase_server.Po
@@ -578,6 +562,20 @@ pfstrase_server-stats.obj: stats.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='stats.c' object='pfstrase_server-stats.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstrase_server-stats.obj `if test -f 'stats.c'; then $(CYGPATH_W) 'stats.c'; else $(CYGPATH_W) '$(srcdir)/stats.c'; fi`
+
+pfstrase_server-pq.o: pq.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstrase_server-pq.o -MD -MP -MF $(DEPDIR)/pfstrase_server-pq.Tpo -c -o pfstrase_server-pq.o `test -f 'pq.c' || echo '$(srcdir)/'`pq.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstrase_server-pq.Tpo $(DEPDIR)/pfstrase_server-pq.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='pq.c' object='pfstrase_server-pq.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstrase_server-pq.o `test -f 'pq.c' || echo '$(srcdir)/'`pq.c
+
+pfstrase_server-pq.obj: pq.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pfstrase_server-pq.obj -MD -MP -MF $(DEPDIR)/pfstrase_server-pq.Tpo -c -o pfstrase_server-pq.obj `if test -f 'pq.c'; then $(CYGPATH_W) 'pq.c'; else $(CYGPATH_W) '$(srcdir)/pq.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pfstrase_server-pq.Tpo $(DEPDIR)/pfstrase_server-pq.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='pq.c' object='pfstrase_server-pq.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pfstrase_server_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pfstrase_server-pq.obj `if test -f 'pq.c'; then $(CYGPATH_W) 'pq.c'; else $(CYGPATH_W) '$(srcdir)/pq.c'; fi`
 install-systemduserunitDATA: $(systemduserunit_DATA)
 	@$(NORMAL_INSTALL)
 	@list='$(systemduserunit_DATA)'; test -n "$(systemduserunitdir)" || list=; \

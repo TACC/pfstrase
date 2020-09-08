@@ -1,0 +1,20 @@
+172.29.200.1@o2ib1172   master.stockyard.tacc.utexas.edu master
+172.29.200.3@o2ib1172   login1.stockyard.tacc.utexas.edu login1
+172.29.200.4@o2ib1172   export1.stockyard.tacc.utexas.edu export1 
+
+172.29.200.100@o2ib1172 200nv-0-c0 200nv-0-c0
+172.29.200.101@o2ib1172 200nv-0-c1 200nv-0-c1
+
+172.29.200.110@o2ib1172 14k-0-c0 14k-0-c0	
+172.29.200.111@o2ib1172 14k-0-c1 14k-0-c1	
+172.29.200.112@o2ib1172 14k-1-c0 14k-1-c0	
+172.29.200.113@o2ib1172 14k-1-c1 14k-1-c1		
+
+# IB block
+172.29.200.3@o2ib1172   login1-ib.stockyard.tacc.utexas.edu login1-ib 
+
+# Lnet routers
+172.29.201.111@o2ib1172 lnet2.wrangler.tacc.utexas.edu b255-105.wrangler.tacc.utexas.edu
+
+172.29.200.10@o2ib1172  mds00 mds00
+172.29.200.11@o2ib1172  mds01 mds01

@@ -16,8 +16,6 @@ pfstrase_server_CPPFLAGS = -D_GNU_SOURCE -O3
 pfstrase_server_SOURCES = 	 \
 	daemonize.h	 \
 	daemonize.c	 \
-	pq.h \
-	pq.c \
 	pfstrase_server.c    \
 	shmmap.c \
 	shmmap.h \
@@ -25,6 +23,13 @@ pfstrase_server_SOURCES = 	 \
 	socket_server.c \
 	stats.h \
 	stats.c
+
+if PSQL
+pfstrase_server_SOURCES += \
+	pq.h \
+	pq.c
+pfstrase_server_CPPFLAGS += -DPSQL
+endif
 
 pfstop_CPPFLAGS = -D_GNU_SOURCE
 

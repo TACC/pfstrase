@@ -1,0 +1,61 @@
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+
+# Public facing IPs - login and data transfer nodes only
+# davec - is this IP correct? should be 129.  129.114.62.33 is monitor1.stampede.tacc.utexas.edu
+# 129.114.62.50 is login1.stockyard.tacc.utexas.edu
+192.114.62.33         login1-pub login1-pub.stockyard.tacc.utexas.edu
+
+# GigE
+172.28.200.1          master master.stockyard.tacc.utexas.edu 
+172.28.200.3          login1 login1.stockyard.tacc.utexas.edu
+172.28.200.4          export1 export1.stockyard.tacc.utexas.edu
+172.28.200.10         mds00
+172.28.200.11         mds01
+172.28.200.20         oss00
+172.28.200.21         oss01
+172.28.200.22         oss02
+172.28.200.23         oss03
+172.28.200.24         oss04
+172.28.200.25         oss05
+172.28.200.26         oss06
+172.28.200.27         oss07
+172.28.200.28         oss08
+172.28.200.29         oss09
+172.28.200.30         oss10
+172.28.200.31         oss11
+
+172.28.200.100        200nv-0-c0
+172.28.200.101        200nv-0-c1
+
+172.28.200.110        14k-0-c0	
+172.28.200.111        14k-0-c1	
+172.28.200.112        14k-1-c0	
+172.28.200.113        14k-1-c1	
+
+
+
+
+# IPMI block
+172.28.201.3          mlogin1
+172.28.201.4          mexport1	
+172.28.201.10         mmds00
+172.28.201.11         mmds01
+172.28.201.20         moss00
+172.28.201.21         moss01
+172.28.201.22         moss02
+172.28.201.23         moss03
+172.28.201.24         moss04
+172.28.201.25         moss05
+172.28.201.26         moss06
+172.28.201.27         moss07
+172.28.201.28         moss08
+172.28.201.29         moss09
+172.28.201.30         moss10
+172.28.201.31         moss11
+
+# IB block
+172.29.200.3          login1-ib login1-ib.stockyard.tacc.utexas.edu
+
+# Lnet routers
+172.29.201.111        wrangler-lnet2 lnet2.wrangler.tacc.utexas.edu b255-105.wrangler.tacc.utexas.edu
