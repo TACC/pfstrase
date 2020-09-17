@@ -18,3 +18,6 @@
 
 172.29.200.10@o2ib1172  mds00 mds00
 172.29.200.11@o2ib1172  mds01 mds01
+
+192.168.64.2@o2ib64 staff.frontera staff.frontera
+

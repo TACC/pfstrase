@@ -45,7 +45,10 @@ with open(nid_file) as fd:
     for line in fd:
         try:
             nid, fqdn, hn = line.split()
-        except: continue    
+        except: pass
+        try:
+            nid, hn = line.split()
+        except: continue
         rpcs += [{"hostname" : hn, "nid" : nid}]
 
 if not rpcs:
