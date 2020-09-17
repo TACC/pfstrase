@@ -1,6 +1,6 @@
 Summary: Parallel Filesystem Monitoring Agent Server
 Name: pfstrase_server
-Version: 0.0.1
+Version: 1.0.0
 Release: 1%{?dist}
 License: GPL
 Vendor: Texas Advanced Computing Center
@@ -31,7 +31,7 @@ mkdir -p  %{buildroot}/%{_mandir}/man1/
 install -m 744 pfstrase_server %{buildroot}/%{_sbindir}/pfstrase_server
 install -m 744 pfstop %{buildroot}/%{_sbindir}/pfstop
 install -m 744 map_nids.py %{buildroot}/%{_sbindir}/map_nids.py
-install -m 744 qhost.py %{buildroot}/%{_sbindir}/map_nids.py
+install -m 744 qhost.py %{buildroot}/%{_sbindir}/qhost.py
 install -m 644 pfstrase_server.conf %{buildroot}/%{_sysconfdir}/pfstrase/pfstrase_server.conf
 install -m 644 pfstrase_server.service %{buildroot}/%{_unitdir}/pfstrase_server.service
 install -m 644 man/pfstop.1.gz %{buildroot}/%{_mandir}/man1/pfstop.1.gz
