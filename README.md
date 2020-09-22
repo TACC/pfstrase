@@ -59,6 +59,10 @@ ansible-playbook ../deploy/install_pfstrase.yaml
 ## Copyright
 (C) 2018 University of Texas at Austin
 
+This material is based upon work supported by the National Science Foundation under Grant Number 1835135.
+
+Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.
+
 ## License
 This library is free software; you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation; either version 2.1 of the License, or (at your option) any later version.
 
