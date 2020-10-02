@@ -32,9 +32,14 @@ LustreNodeID  FQDN  hostname
 map_nids.py [pfstrase_server] [nid_filename]
 ```
 The nids directory can be examined for example mapping files. This step must be done every time the server is restarted.
-
 In order to import current job data from SLURM either run the script `qhost.py` periodically (crontab) or add as a SLURM prolog script.
 
+Run the 
+```
+pfstop
+```
+command to view the data in an top-like interface. It will filter the data to the user running it unless they are root or part of an administrative group
+currently set in line 74 of server/screen.c (this will be configurable in the future using the conf file).
 ### 2. Client setup
 The client daemon collects usage data and sends it to the server via JSON reports at the specified polling rate.
 Build and install pfstrased RPM:
@@ -54,7 +59,7 @@ rpm -i ~/rpmbuild/RPMS/pfstrased-1.0.0.rpm
 Deployment:
 Copy the client RPM to the OSSs and MDSs to be monitored, install and start the pfstrase service
 ```
-systemctl start pfstrased
+systemctl start pfstrase
 ```
 
 An Ansible playbook is available as an example:
