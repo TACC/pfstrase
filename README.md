@@ -4,7 +4,7 @@ As the name suggests PFSTRASE (Parallel FileSystem TRacing and Analysis SErvice)
 
 ## Installation
 ### 1. Server setup
-The pfstrase server collects usage data from clients (OSSs and MDSs) and makes it available to the monitoring viewer pfstop and sends it to the database.
+The pfstrase server aggregates usage data from clients (OSSs and MDSs) and makes it available to the monitoring viewer pfstop and optionally sends it to a backend database.
 Build and install pfstrase_server RPM:
 ```
 git clone https://github.com/TACC/pfstrase.git 
@@ -16,11 +16,11 @@ mkdir -p ~/rpmbuild/SPECS
 cp pfstrase_server.spec ~/rpmbuild/SPECS
 cp *.tar.gz ~/rpmbuild/SOURCES
 rpmbuild -bb ~/rpmbuild/SPECS/pfstrase_server.spec
-rpm -i ~/rpmbuild/RPMS/pfstrase_server.rpm
+rpm -i ~/rpmbuild/RPMS/pfstrase_server-1.0.0.rpm
 ```
-Edit `pfstrase_server.conf` with aprsopriate values and start the server (remove the `-d` argument for troubleshooting):
+Edit `/etc/pfstrase/pfstrase_server.conf` with appropriate values and start the server (remove the `-d` argument for troubleshooting):
 ```
-pfstrase_server -c pfstrase_server.conf  -d
+systemctl start pfstrase_server
 ```
 In order to map the Lustre client names extracted from the servers to something more readable, create a mapping file and import this into the server. Currently this must be done everytime the server is restarted.
 ```
@@ -31,6 +31,8 @@ LustreNodeID  FQDN  hostname
 
 map_nids.py [pfstrase_server] [nid_filename]
 ```
+The nids directory can be examined for example mapping files. This step must be done every time the server is restarted.
+
 In order to import current job data from SLURM either run the script `qhost.py` periodically (crontab) or add as a SLURM prolog script.
 
 ### 2. Client setup
@@ -47,11 +49,15 @@ cp  pfstrase.spec ~/rpmbuild/SPECS
 
 rpmbuild -bb ~/rpmbuild/SPECS/pfstrase.spec 
 
-rpm -i ~/rpmbuild/RPMS/pfstrase_server.rpm
+rpm -i ~/rpmbuild/RPMS/pfstrased-1.0.0.rpm
 ```
 Deployment:
 Copy the client RPM to the OSSs and MDSs to be monitored, install and start the pfstrase service
-An Ansible playbook is available to implement this:
+```
+systemctl start pfstrased
+```
+
+An Ansible playbook is available as an example:
 ```
 ansible-playbook ../deploy/install_pfstrase.yaml
 ```
