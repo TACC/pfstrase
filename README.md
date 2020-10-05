@@ -22,7 +22,7 @@ Edit `/etc/pfstrase/pfstrase_server.conf` with appropriate values and start the 
 ```
 systemctl start pfstrase_server
 ```
-In order to map the Lustre client names extracted from the servers to something more readable, create a mapping file and import this into the server. Currently this must be done everytime the server is restarted.
+In order to map the Lustre client names extracted from the servers to something more readable, and map the jobids and usernames to the clients, create a mapping file and import this into the server. Currently this must be done everytime the server is restarted.
 ```
 nid_file:
 ###
@@ -34,12 +34,30 @@ map_nids.py [pfstrase_server] [nid_filename]
 The nids directory can be examined for example mapping files. This step must be done every time the server is restarted.
 In order to import current job data from SLURM either run the script `qhost.py` periodically (crontab) or add as a SLURM prolog script.
 
+#### pfstop
 Run the 
 ```
 pfstop
 ```
 command to view the data in an top-like interface. It will filter the data to the user running it unless they are root or part of an administrative group
 currently set in line 74 of server/screen.c (this will be configurable in the future using the conf file).
+
+#### PostgreSQL Backend
+The server will send data to a database backend if it is configured at build time with
+```
+./configure --enable-psql
+```
+The data will be send to the database [dbname] on host [dbserver] at the interval [db_interval] specified in
+```
+$ cat /etc/pfstrase/pfstrase_server.conf
+dbserver    tacc-stats03.tacc.utexas.edu
+dbname      pfstrase_db1
+dbuser      postgres
+db_interval 30
+sharedmem_interval 1
+port     5672
+```
+
 ### 2. Client setup
 The client daemon collects usage data and sends it to the server via JSON reports at the specified polling rate.
 Build and install pfstrased RPM:
