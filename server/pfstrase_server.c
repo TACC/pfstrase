@@ -63,7 +63,7 @@ int read_conf_file()
 	fprintf(log_stream, "%s: Setting shared memory update interval to %f based on file %s\n",
 	       app_name, shm_interval, conf_file_name);
     }
-    #ifdef PQSL
+    #ifdef PSQL
     if (strcmp(key, "dbserver") == 0) {  
       line[strlen(line) - 1] = '\0';
       dbserver = strdup(line);
@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
   ev_timer_init(&shm_timer, shm_timer_cb, 0.0, shm_interval);   
   ev_timer_start(EV_DEFAULT, &shm_timer);
   
-  #ifdef PQSL
+  #ifdef PSQL
   if (pq_connect(dbserver, dbname, dbuser) < 0)
     goto out;
   ev_timer_init(&pq_timer, pq_timer_cb, 0.0, db_interval);   
@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
 
   ev_run(EV_DEFAULT, 0);
 
-  #ifdef PQSL
+  #ifdef PSQL
   pq_finish();
   #endif
 
