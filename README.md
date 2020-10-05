@@ -50,8 +50,8 @@ The server will send data to a database backend if it is configured at build tim
 The data will be send to the database [dbname] on host [dbserver] at the interval [db_interval] specified in
 ```
 $ cat /etc/pfstrase/pfstrase_server.conf
-dbserver    tacc-stats03.tacc.utexas.edu
-dbname      pfstrase_db1
+dbserver    dbserver.tacc.utexas.edu
+dbname      pfstrase_dbx
 dbuser      postgres
 db_interval 30
 sharedmem_interval 1
