@@ -1,4 +1,4 @@
-AC_INIT([pfstrase_server], [0.0.1], [rtevans@tacc.utexas.edu])
+AC_INIT([pfstrase_server], [1.0.0], [rtevans@tacc.utexas.edu])
 AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability])
 AC_PROG_CC
 AM_PROG_CC_C_O
