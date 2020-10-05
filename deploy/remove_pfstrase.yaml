@@ -11,7 +11,7 @@
 
   - name: remove pfstrase
     yum:
-        name: pfstrased-0.0.1-1.el7.x86_64
+        name: pfstrased-1.0.0-1.el7.x86_64
         state: absent
         update_cache: yes
 
