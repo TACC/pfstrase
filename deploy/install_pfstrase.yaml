@@ -6,7 +6,7 @@
   - name: Copying pfstrased rpm
     copy:
         src: /root/rpmbuild/RPMS/x86_64/pfstrased-0.0.1-1.el7.x86_64.rpm
-        dest: /tmp/pfstrased-0.0.1-1.el7.x86_64.rpm
+        dest: /tmp/pfstrased-1.0.0-1.el7.x86_64.rpm
 
   - name: remove pfstrase
     yum:
@@ -15,7 +15,7 @@
 
   - name: install pfstrase
     yum:
-        name: /tmp/pfstrased-0.0.1-1.el7.x86_64.rpm
+        name: /tmp/pfstrased-1.0.0-1.el7.x86_64.rpm
         state: latest
         update_cache: yes
 
