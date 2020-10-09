@@ -386,6 +386,9 @@ static void da_refresh() {
   json_object_object_add(screvents, "load_eff", json_object_new_string(""));
   json_object_object_add(screvents, "iops", json_object_new_string(""));
   json_object_object_add(screvents, "bytes", json_object_new_string(""));    
+  json_object_object_add(screvents, "sp_flops", json_object_new_string(""));    
+  json_object_object_add(screvents, "dp_flops", json_object_new_string(""));    
+  json_object_object_add(screvents, "mbw", json_object_new_string(""));    
 
   json_object *eid, *tid;      
   json_object_object_foreach(screen_map, s, se) {
@@ -409,6 +412,12 @@ static void da_refresh() {
 	json_object_object_add(tags, "iops", json_object_get(eid));
       if (json_object_object_get_ex(te, "bytes", &eid))
 	json_object_object_add(tags, "bytes", json_object_get(eid));
+      if (json_object_object_get_ex(te, "sp_flops", &eid))
+	json_object_object_add(tags, "sp_flops", json_object_get(eid));
+      if (json_object_object_get_ex(te, "dp_flops", &eid))
+	json_object_object_add(tags, "dp_flops", json_object_get(eid));
+      if (json_object_object_get_ex(te, "mbw", &eid))
+	json_object_object_add(tags, "mbw", json_object_get(eid));
 
       if (detailed == 1) {
 	json_object_object_foreach(te, event, val) {

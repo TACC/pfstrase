@@ -58,24 +58,55 @@ static void derived_events(json_object *server_entry) {
     double cpu = 0;
     double sum_reqs = 0;
     double sum_bytes = 0;
+    double sum_sp_flops = 0;
+    double sum_dp_flops = 0;
+    double sum_mbw = 0;
     json_object_object_foreach(tag_entry, eventname, value) {    
       if (strcmp(eventname, "nclients") == 0 || strcmp(eventname, "bytes") == 0  || strcmp(eventname, "iops") == 0) continue;
+
       if (strcmp(eventname, "read_bytes") == 0 || strcmp(eventname, "write_bytes") == 0) {
 	sum_bytes += json_object_get_double(value);
 	json_object_object_add(tag_entry, eventname, json_object_new_double(json_object_get_double(value)*cf));
       }
       else if (strcmp(eventname, "load") == 0)
 	cpu = json_object_get_double(value);
+      else if (strcmp(eventname, "scalar_single") == 0)
+	sum_sp_flops += json_object_get_double(value);
+      else if (strcmp(eventname, "128b_single") == 0)
+	sum_sp_flops += 4*json_object_get_double(value);
+      else if (strcmp(eventname, "256b_single") == 0)
+	sum_sp_flops += 8*json_object_get_double(value);
+      else if (strcmp(eventname, "512b_single") == 0)
+	sum_sp_flops += 16*json_object_get_double(value);
+      else if (strcmp(eventname, "scalar_double") == 0)
+	sum_dp_flops += json_object_get_double(value);
+      else if (strcmp(eventname, "128b_double") == 0)
+	sum_dp_flops += 2*json_object_get_double(value);
+      else if (strcmp(eventname, "256b_double") == 0)
+	sum_dp_flops += 4*json_object_get_double(value);
+      else if (strcmp(eventname, "512b_double") == 0)
+	sum_dp_flops += 8*json_object_get_double(value);
+      else if (strcmp(eventname, "CAS_READS") == 0)
+	sum_mbw += json_object_get_double(value);
+      else if (strcmp(eventname, "CAS_WRITES") == 0)
+	sum_mbw += json_object_get_double(value);
       else
 	sum_reqs += json_object_get_double(value);
     }
+
+    sum_mbw = sum_mbw*64/(1024.0*1024.0*1024.0);
+    sum_dp_flops = sum_dp_flops/1000000000;
+    sum_sp_flops = sum_dp_flops/1000000000;
 
     total_iops += sum_reqs;
     total_bytes += sum_bytes*cf;
     json_object_object_add(tag_entry, "load", json_object_new_double(cpu*0.01));
     json_object_object_add(tag_entry, "iops", json_object_new_double(sum_reqs));
     json_object_object_add(tag_entry, "bytes", json_object_new_double(sum_bytes*cf));
-    //printf("%s\n", json_object_to_json_string(tag_entry));
+    json_object_object_add(tag_entry, "sp_flops", json_object_new_double(sum_sp_flops));
+    json_object_object_add(tag_entry, "dp_flops", json_object_new_double(sum_dp_flops));
+    json_object_object_add(tag_entry, "mbw", json_object_new_double(sum_mbw));
+
   }
   double factor_iops = 1.0/total_iops;
   double factor_bytes = 1.0/total_bytes;
@@ -314,7 +345,7 @@ void group_ratesbytags(int nt, ...) {
       json_object_put(pre_tags);
       json_object_put(tags);
     }
-
+    
     //printf("%s\n", json_object_to_json_string(tag_rate_map));
     derived_events(tag_rate_map);
     json_object_object_add(screen_map, server, json_object_get(tag_rate_map));
@@ -355,9 +386,9 @@ void group_statsbytags(int nt, ...) {
     if (is_class(host_entry, "oss") > 0) {
       aggregate_stat(host_entry, group_tags, "oss", tag_map);
     }
-    
+    aggregate_stat(host_entry, group_tags, "llite", tag_map);
     aggregate_stat(host_entry, group_tags, "intel_pmc3", tag_map);
-    aggregate_stat(host_entry, group_tags, "intel_skx_imc", tag_map);
+    aggregate_stat(host_entry, group_tags, "intel_imc", tag_map);
 
     /* Get cpu load due to kernel as well */
     json_object *cpu_map = json_object_new_object();
@@ -388,8 +419,7 @@ void group_statsbytags(int nt, ...) {
     json_object_object_add(server_tag_map, servername, json_object_get(tag_map));   
     json_object_put(tag_map);
   }  
-  printf("%s\n", json_object_to_json_string(server_tag_rate_map)); 
-
+  //printf("%s\n", json_object_to_json_string(server_tag_rate_map)); 
 }
 
 /* Tag servers exports with client names, jids, uids, and filesystem */
