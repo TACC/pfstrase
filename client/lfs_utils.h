@@ -3,6 +3,7 @@
 
 #include <time.h>
 #include <json/json.h>
+#include "cpuid.h"
 
 enum device_class{MDS, OSS, OSC};
 
@@ -18,6 +19,9 @@ struct device_info
   char oss_nid_path[128];
   char class_str[16];
   enum device_class class;   
+  int nr_cpus;
+  int n_pmcs;
+  processor_t processor;
 };
 
 struct device_info *get_dev_data();

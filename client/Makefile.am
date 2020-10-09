@@ -13,18 +13,25 @@ pfstrase_client_CPPFLAGS = -D_GNU_SOURCE
 pfstrase_client_SOURCES = 	 \
 	cpu.h 		 \
 	cpu.c 		 \
+	cpuid.h 		 \
+	cpuid.c 		 \
 	daemonize.h	 \
 	daemonize.c	 \
 	collect.h 	\
 	collect.c	\
 	exports.h	\
 	exports.c	\
+	intel_pmc3.h    \
+	intel_pmc3.c    \
+	intel_skx_imc.c    \
 	lfs_utils.h	\
 	lfs_utils.c	\
 	llite.h		\
 	llite.c		\
 	osc.h 		\
 	osc.c		\
+	pci.h \
+	pci.c \
 	pfstrase_client.c \
 	sysinfo.h	\
 	sysinfo.c	\

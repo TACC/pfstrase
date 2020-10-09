@@ -5,6 +5,7 @@
 #include "lfs_utils.h"
 #include "collect.h"
 #include "cpu.h"
+#include "intel_pmc3.h"
 #include "exports.h"
 #include "llite.h"
 #include "target.h"
@@ -21,7 +22,6 @@ void collect_devices(json_object *jobj)
     fprintf(stderr, "cannot clock_gettime(): %m\n");
   }
 
-  //json_object *tags_json = json_object_new_object();
   json_object_object_add(jobj, "time", json_object_new_double(info->time.tv_sec + \
 								   1e-9*info->time.tv_nsec));
   json_object_object_add(jobj, "obdclass", json_object_new_string(info->class_str));
@@ -33,7 +33,6 @@ void collect_devices(json_object *jobj)
     json_object_object_add(jobj, "uid", json_object_new_string(info->uid));
   }
 
-  //json_object_object_add(jobj, "tags", tags_json);  
   json_object *data_json = json_object_new_array();
   // SYSINFO    
   if (collect_sysinfo(data_json) < 0)
@@ -41,7 +40,13 @@ void collect_devices(json_object *jobj)
   // CPU
   if (collect_cpu(data_json) < 0)
     fprintf(stderr, "cpu collection failed\n");
- 
+
+  if (collect_intel_pmc3(data_json) < 0)
+    fprintf(stderr, "intel_pmc3 collection failed\n");
+  if (collect_intel_skx_imc(data_json) < 0)
+    fprintf(stderr, "intel_skx_imc collection failed\n");
+    
+
   // Server exports and targets
   if (info->class == MDS || info->class == OSS) {
     if (collect_exports(data_json) < 0)
@@ -56,10 +61,11 @@ void collect_devices(json_object *jobj)
     if (collect_llite(data_json) < 0)
       fprintf(stderr, "llite collection failed\n");   
     // OSC
-    if (collect_osc(data_json) < 0)
-      fprintf(stderr, "osc collection failed\n");
+    //if (collect_osc(data_json) < 0)
+    //fprintf(stderr, "osc collection failed\n");
   }
   json_object_object_add(jobj, "data", data_json);  
+  //printf("%s\n", json_object_to_json_string(data_json));
 }
 
 int collect_stats(const char *path, json_object *stats)

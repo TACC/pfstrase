@@ -355,7 +355,10 @@ void group_statsbytags(int nt, ...) {
     if (is_class(host_entry, "oss") > 0) {
       aggregate_stat(host_entry, group_tags, "oss", tag_map);
     }
-  
+    
+    aggregate_stat(host_entry, group_tags, "intel_pmc3", tag_map);
+    aggregate_stat(host_entry, group_tags, "intel_skx_imc", tag_map);
+
     /* Get cpu load due to kernel as well */
     json_object *cpu_map = json_object_new_object();
     aggregate_stat(host_entry, group_tags, "cpu", cpu_map);
@@ -385,7 +388,7 @@ void group_statsbytags(int nt, ...) {
     json_object_object_add(server_tag_map, servername, json_object_get(tag_map));   
     json_object_put(tag_map);
   }  
- 
+  printf("%s\n", json_object_to_json_string(server_tag_rate_map)); 
 
 }
 
@@ -438,7 +441,7 @@ void tag_stats() {
   }
   //gettimeofday(&te, NULL); 
   //printf("time for tag %f\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000. );
-
+  
 }
 
 static int update_host_entry(json_object *rpc_json) {
@@ -491,6 +494,7 @@ static int update_host_entry(json_object *rpc_json) {
   
   }
   rc = 1;
+  //printf("%s\n", json_object_to_json_string(host_map));
  out:
   return rc;
 }
@@ -510,7 +514,7 @@ int update_host_map(char *rpc) {
     fprintf(stderr, "RPC `%s': %s\n", rpc, json_tokener_error_desc(error));
     goto out;
   }
-
+  
   int i;
   if (json_object_is_type(rpc_json, json_type_array)) {
     int arraylen = json_object_array_length(rpc_json);
@@ -519,7 +523,7 @@ int update_host_map(char *rpc) {
   }
   else
     update_host_entry(rpc_json);
-
+  //printf("%s\n", json_object_to_json_string(rpc_json));
   //gettimeofday(&te, NULL); 
   //printf("time for process %f\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000. );
 

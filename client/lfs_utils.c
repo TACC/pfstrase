@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/stat.h>
 #include "lfs_utils.h"
 
 #define PROCFS_BUF_SIZE 4096
@@ -28,6 +29,11 @@ static void devices_discover(void) {
   snprintf(info.jid, sizeof(info.jid), "-");  
   snprintf(info.uid, sizeof(info.uid), "-");
 
+  info.nr_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+  info.processor = signature(&info.n_pmcs);
+  begin_intel_pmc3();
+  begin_intel_skx_imc();
+
   // Get hostname, device class, and time
   if (clock_gettime(CLOCK_REALTIME, &info.time) != 0) {
     fprintf(stderr, "cannot clock_gettime(): %m\n");
@@ -50,22 +56,34 @@ static void devices_discover(void) {
   char peers_path[128];
 
   FILE *fd = NULL;
-  if (fd = fopen("/sys/kernel/debug/lustre/devices", "r")) {
+  
+  if (fd = fopen("/sys/kernel/debug/lustre/devices", "r"))
     strcpy(devices_path,      "/sys/kernel/debug/lustre/devices");    
-    strcpy(info.llite_path,   "/sys/kernel/debug/lustre/llite");
-    strcpy(info.osc_path,     "/sys/kernel/debug/lustre/osc");
-    strcpy(info.oss_nid_path, "/sys/fs/lustre/osc");
-  }
-  else if (fd = fopen("/proc/fs/lustre/devices", "r")) {
+  else if (fd = fopen("/proc/fs/lustre/devices", "r"))
     strcpy(devices_path,      "/proc/fs/lustre/devices");
-    strcpy(info.llite_path,   "/proc/fs/lustre/llite");
-    strcpy(info.osc_path,     "/proc/fs/lustre/osc");
-    strcpy(info.oss_nid_path, "/proc/fs/lustre/osc");
-  }
   else {    
     fprintf(stderr, "cannot open %s: %m\n", "devices file");
     goto err;
   }
+
+  struct stat dir_stat;
+  stat("/sys/kernel/debug/lustre/llite", &dir_stat);
+  if (S_ISDIR(dir_stat.st_mode))
+    strcpy(info.llite_path, "/sys/kernel/debug/lustre/llite");
+  else
+    strcpy(info.llite_path, "/proc/fs/lustre/llite");
+
+  stat("/sys/kernel/debug/lustre/osc", &dir_stat);
+  if (S_ISDIR(dir_stat.st_mode))
+    strcpy(info.osc_path, "/sys/kernel/debug/lustre/osc");
+  else
+    strcpy(info.osc_path,     "/proc/fs/lustre/osc");
+
+  stat("/sys/fs/lustre/osc", &dir_stat);
+  if (S_ISDIR(dir_stat.st_mode))
+    strcpy(info.oss_nid_path, "/sys/fs/lustre/osc");
+  else
+    strcpy(info.oss_nid_path, "/proc/fs/lustre/osc");
 
   setvbuf(fd, procfs_buf, _IOFBF, sizeof(procfs_buf));
   while(getline(&line_buf, &line_buf_size, fd) >= 0) {

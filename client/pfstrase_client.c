@@ -70,13 +70,14 @@ int read_conf_file()
 }
 
 /* Send data based on ev timer interval */
+
 static void sock_timer_cb(struct ev_loop *loop, ev_timer *w, int revents) 
 {
-  //fprintf(log_stream, "collect and send data based on socket timer\n");
   sock_send_data(server, port);
 }
 
 /* Signal Callbacks for SIGINT (terminate) and SIGHUP (reload conf file) */
+
 static void signal_cb_int(EV_P_ ev_signal *sig, int revents)
 {
     fprintf(log_stream, "Stopping pfstrase_client\n");
@@ -173,6 +174,7 @@ int main(int argc, char *argv[])
 
   /* Setup signal callbacks to stop pfstrase_client or reload conf file */
   signal(SIGPIPE, SIG_IGN);
+  
   static struct ev_signal sigint;
   ev_signal_init(&sigint, signal_cb_int, SIGINT);
   ev_signal_start(EV_DEFAULT, &sigint);
@@ -180,7 +182,7 @@ int main(int argc, char *argv[])
   static struct ev_signal sighup;
   ev_signal_init(&sighup, signal_cb_hup, SIGHUP);
   ev_signal_start(EV_DEFAULT, &sighup);
-
+  
   /* Read configuration from config file */
   read_conf_file(0);
   
@@ -190,13 +192,17 @@ int main(int argc, char *argv[])
   } else {
     fprintf(log_stream, "pfstrase data to server %s on port %s.\n", server, port);
   }
-  
+
+  //json_object *message_json = json_object_new_object();
+  //collect_devices(message_json);  
+  //printf("%s\n", json_object_to_json_string(message_json));
   /* Initialize timer routine to collect and send data */
+  
   ev_timer_init(&timer, sock_timer_cb, 0.0, freq);   
   ev_timer_start(EV_DEFAULT, &timer);
   fprintf(log_stream, "Setting pfstrase collection frequency to %fs\n", freq);
   ev_run(EV_DEFAULT, 0);
-
+  
   /* Close log file, when it is used. */
   if (log_stream != stderr) {
     fclose(log_stream);
