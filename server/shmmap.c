@@ -20,7 +20,7 @@
 #define mm_size 500*1024*1024
 
 sem_t *mutex_sem = NULL;
-int fd_shm = NULL;
+int fd_shm = -1;
 caddr_t *mm_ptr = NULL;
 
 void shmmap_server_init(void) {
@@ -97,7 +97,7 @@ void set_shm_map() {
   //gettimeofday(&ts, NULL); 
 
   tag_stats();    
-  group_statsbytags(5, "fid", "server", "client", "jid", "uid");
+  group_statsbytag(3, "host", "jid", "uid");
   
   const char *buffer = json_object_to_json_string(server_tag_rate_map);
   //printf(buffer);

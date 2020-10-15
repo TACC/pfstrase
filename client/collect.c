@@ -28,11 +28,6 @@ void collect_devices(json_object *jobj)
   json_object_object_add(jobj, "hostname", json_object_new_string(info->hostname));
   json_object_object_add(jobj, "nid", json_object_new_string(info->nid));
 
-  if (info->class == OSC) {
-    json_object_object_add(jobj, "jid", json_object_new_string(info->jid));
-    json_object_object_add(jobj, "uid", json_object_new_string(info->uid));
-  }
-
   json_object *data_json = json_object_new_array();
   // SYSINFO    
   if (collect_sysinfo(data_json) < 0)

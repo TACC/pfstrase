@@ -18,7 +18,6 @@
 __attribute__((constructor))
 static void map_init(void) {
   host_map = json_object_new_object();
-  nid_map = json_object_new_object();
   server_tag_map = json_object_new_object();
   server_tag_rate_map = json_object_new_object();
   group_tags = json_object_new_object();
@@ -27,7 +26,6 @@ static void map_init(void) {
 __attribute__((destructor))
 static void map_kill(void) {
   json_object_put(host_map);
-  json_object_put(nid_map);
   json_object_put(server_tag_map);
   json_object_put(server_tag_rate_map);
   json_object_put(group_tags);
@@ -61,6 +59,10 @@ static void derived_events(json_object *server_entry) {
     double sum_sp_flops = 0;
     double sum_dp_flops = 0;
     double sum_mbw = 0;
+    double sum_ins = 0;
+    double sum_cyc = 0;
+    double sum_ref = 0;
+    double load = 0;
     json_object_object_foreach(tag_entry, eventname, value) {    
       if (strcmp(eventname, "nclients") == 0 || strcmp(eventname, "bytes") == 0  || strcmp(eventname, "iops") == 0) continue;
 
@@ -68,8 +70,6 @@ static void derived_events(json_object *server_entry) {
 	sum_bytes += json_object_get_double(value);
 	json_object_object_add(tag_entry, eventname, json_object_new_double(json_object_get_double(value)*cf));
       }
-      else if (strcmp(eventname, "load") == 0)
-	cpu = json_object_get_double(value);
       else if (strcmp(eventname, "scalar_single") == 0)
 	sum_sp_flops += json_object_get_double(value);
       else if (strcmp(eventname, "128b_single") == 0)
@@ -90,6 +90,24 @@ static void derived_events(json_object *server_entry) {
 	sum_mbw += json_object_get_double(value);
       else if (strcmp(eventname, "CAS_WRITES") == 0)
 	sum_mbw += json_object_get_double(value);
+      else if (strcmp(eventname, "ACT_COUNT") == 0)
+	continue;
+      else if (strcmp(eventname, "PRE_COUNT_MISS") == 0)
+	continue;
+      else if (strcmp(eventname, "user") == 0)
+        load += json_object_get_double(value);
+      else if (strcmp(eventname, "system") == 0)
+	load += json_object_get_double(value);
+      else if (strcmp(eventname, "idle") == 0)
+	continue;
+      else if (strcmp(eventname, "freeram") == 0)
+	continue;
+      else if (strcmp(eventname, "instructions_retired") == 0)
+	sum_ins += json_object_get_double(value);
+      else if (strcmp(eventname, "core_cycles") == 0)
+	sum_cyc += json_object_get_double(value);
+      else if (strcmp(eventname, "ref_cycles") == 0)
+	sum_ref += json_object_get_double(value);
       else
 	sum_reqs += json_object_get_double(value);
     }
@@ -98,37 +116,14 @@ static void derived_events(json_object *server_entry) {
     sum_dp_flops = sum_dp_flops/1000000000;
     sum_sp_flops = sum_dp_flops/1000000000;
 
-    total_iops += sum_reqs;
-    total_bytes += sum_bytes*cf;
-    json_object_object_add(tag_entry, "load", json_object_new_double(cpu*0.01));
+    json_object_object_add(tag_entry, "load", json_object_new_double(load*0.01));
     json_object_object_add(tag_entry, "iops", json_object_new_double(sum_reqs));
     json_object_object_add(tag_entry, "bytes", json_object_new_double(sum_bytes*cf));
     json_object_object_add(tag_entry, "sp_flops", json_object_new_double(sum_sp_flops));
     json_object_object_add(tag_entry, "dp_flops", json_object_new_double(sum_dp_flops));
     json_object_object_add(tag_entry, "mbw", json_object_new_double(sum_mbw));
-
-  }
-  double factor_iops = 1.0/total_iops;
-  double factor_bytes = 1.0/total_bytes;
-
-  json_object_object_foreach(server_entry, retags, retag_entry) {
-    if (strcmp(retags, "time") == 0) continue;
-    json_object *l, *i, *b;
-
-    if (!json_object_object_get_ex(retag_entry, "load", &l)) continue;
-
-    double l_factor = 0;
-    int norm = 0;
-    if (total_iops > 0 && json_object_object_get_ex(retag_entry, "iops", &i)) {
-      l_factor +=json_object_get_double(i)*factor_iops;
-      norm += 1;
-    }
-    if (total_bytes > 0 && json_object_object_get_ex(retag_entry, "bytes", &b)) {
-      l_factor +=json_object_get_double(b)*factor_bytes;
-      norm += 1;
-    }
-    if (norm > 0)
-      json_object_object_add(retag_entry, "load_eff", json_object_new_double(json_object_get_double(l)*l_factor/norm));
+    json_object_object_add(tag_entry, "cpi", json_object_new_double(sum_ins/sum_cyc));
+    json_object_object_add(tag_entry, "freq", json_object_new_double(2.7*sum_cyc/sum_ref));
   }
 }
 
@@ -195,7 +190,7 @@ static void add_stats(json_object *tag_map, char *tags, json_object *stats) {
   if (json_object_object_get_ex(tag_map, tags, &pre_stats)) {
 
     json_object_object_foreach(stats, event, new_val) {
-      if (json_object_object_get_ex(pre_stats, event, &pre_val) && strcmp(event, "load") != 0) 
+      if (json_object_object_get_ex(pre_stats, event, &pre_val)) 
 	json_object_object_add(pre_stats, event, json_object_new_int64(json_object_get_int64(new_val) + json_object_get_int64(pre_val)));
       else
 	json_object_object_add(pre_stats, event, json_object_get(new_val));
@@ -209,7 +204,7 @@ static void add_stats(json_object *tag_map, char *tags, json_object *stats) {
 }
 
 /* Aggregate a stats type over tags */
-static void aggregate_stat(json_object *host_entry, json_object *tag_tuple, char *stat_type, json_object *tag_map) {
+static void aggregate_stat(json_object *host_entry, json_object *tag_tuple, json_object *tag_map) {
   int i;
   int arraylen;
   json_object *da, *de, *tid, *stats;
@@ -219,12 +214,10 @@ static void aggregate_stat(json_object *host_entry, json_object *tag_tuple, char
     return;
 
   json_object *clients = json_object_new_object();
+
   for (i = 0; i < arraylen; i++) {
     de = json_object_array_get_idx(da, i);
-        
-    if (!json_object_object_get_ex(de, "stats", &stats) ||
-	!json_object_object_get_ex(de, "stats_type", &tid) ||
-	(strcmp(stat_type, json_object_get_string(tid)) != 0))
+    if (!json_object_object_get_ex(de, "stats", &stats)) 
       continue;
     
     json_object *tags = json_object_new_object();
@@ -236,17 +229,24 @@ static void aggregate_stat(json_object *host_entry, json_object *tag_tuple, char
     snprintf(tags_str, sizeof(tags_str), json_object_to_json_string(tags));
     json_object_put(tags);
 
-    if (json_object_object_get_ex(de, "client", &tid)) {
-      json_object *tmp;
-      if (tid && !json_object_object_get_ex(clients, json_object_get_string(tid), &tmp)) {
-	json_object_object_add(clients, json_object_get_string(tid), json_object_new_string(""));
-	json_object_object_add(stats, "nclients", json_object_new_int64(1));
-      }
-    }
-
+    json_object *empty;
+    json_object_object_add(stats, "nclients", json_object_new_int64(1));
+    if (json_object_object_get_ex(de, "host", &tid) && json_object_object_get_ex(clients, json_object_get_string(tid), &empty))
+      json_object_object_add(stats, "nclients", json_object_new_int64(0));
+    else
+      json_object_object_add(clients, json_object_get_string(tid), json_object_new_string(""));
+    	      
     add_stats(tag_map, tags_str, stats);
   }
+
   json_object_put(clients);
+}
+
+void filter(json_object *tags, char *value, char *tag) {
+  json_object *tid;
+  if (value && json_object_object_get_ex(tags, tag, &tid) && strcmp(json_object_get_string(tid), value) != 0)
+    json_object_object_add(tags, tag, json_object_new_string("*"));	   	
+  return;
 }
 
 void group_ratesbytags(int nt, ...) {
@@ -254,8 +254,6 @@ void group_ratesbytags(int nt, ...) {
   va_list args;
   enum json_tokener_error error = json_tokener_success;
 
-  //struct timeval ts,te;
-  //gettimeofday(&ts, NULL); 
   va_start(args, nt);
 
   json_object_put(group_tags);
@@ -267,103 +265,51 @@ void group_ratesbytags(int nt, ...) {
   va_end(args);
 
   json_object *tid;
-  json_object_object_foreach(server_tag_rate_map, server, rate_entry) {    
-    json_object *time;
-    if (!json_object_object_get_ex(rate_entry, "time", &time)) continue;
+  json_object *time;
+  if (!json_object_object_get_ex(server_tag_rate_map, "time", &time)) return;
 
-    json_object *tag_rate_map = json_object_new_object();
-    json_object_object_foreach(rate_entry, t, rates) {    
-      json_object *pre_tags = NULL;
-      if (strcmp(t, "time") == 0)  {
-	json_object_object_add(tag_rate_map, "time", json_object_get(time));
-	continue;      
-      }
+  json_object_put(screen_map);
+  screen_map = json_object_new_object();
 
-      pre_tags = json_tokener_parse_verbose(t, &error);
-      if (error != json_tokener_success) {
-	fprintf(stderr, "tags format incorrect `%s': %s\n", t, json_tokener_error_desc(error));
-	continue;
-      }
-
-      json_object *tags = json_object_new_object();
-      json_object_object_foreach(group_tags, tag, t) {
-	if (json_object_object_get_ex(pre_tags, tag, &tid))
-	  json_object_object_add(tags, tag, json_object_get(tid));
+  json_object_object_foreach(server_tag_rate_map, t, rates) {    
+    json_object *pre_tags = NULL;
+    if (strcmp(t, "time") == 0)  {
+      json_object_object_add(screen_map, "time", json_object_get(time));
+      continue;      
     }
 
-  // uid filter
-  if (filter_user != NULL) {
-    json_object *uid;
-    json_object_object_get_ex(tags, "uid", &uid);
-
-    if (uid == 0) continue;
-
-    if (strcmp(json_object_get_string(uid), filter_user) != 0) {
-      json_object_object_add(tags, "uid", json_object_new_string("*"));
+    pre_tags = json_tokener_parse_verbose(t, &error);
+    if (error != json_tokener_success) {
+      fprintf(stderr, "tags format incorrect `%s': %s\n", t, json_tokener_error_desc(error));
+      continue;
     }
+
+    json_object *tags = json_object_new_object();
+    json_object_object_foreach(group_tags, tag, t) {
+      if (json_object_object_get_ex(pre_tags, tag, &tid))
+	json_object_object_add(tags, tag, json_object_get(tid));
+    }
+    filter(tags, filter_user, "uid");
+    filter(tags, filter_job, "jid");
+    filter(tags, filter_host, "host");
+
+    char tags_str[256];
+    snprintf(tags_str, sizeof(tags_str), json_object_to_json_string(tags));
+    add_stats(screen_map, tags_str, rates);
+    json_object_put(pre_tags);
+    json_object_put(tags);
   }
-
-  // server filter
-  if (filter_server != NULL) {
-    json_object *server;
-    json_object_object_get_ex(tags, "server", &server);
-
-    if (server == 0) continue;
-
-    if (strcmp(json_object_get_string(server), filter_server) != 0) {
-      json_object_object_add(tags, "server", json_object_new_string("*"));
-    }
-  }
-
-  // client filter
-  if (filter_client != NULL) {
-    json_object *client;
-    json_object_object_get_ex(tags, "client", &client);
-
-    if (client == 0) continue;
-
-    if (strcmp(json_object_get_string(client), filter_client) != 0) {
-      json_object_object_add(tags, "client", json_object_new_string("*"));
-    }
-  }
-
-  // job filter
-  if (filter_job != NULL) {
-    json_object *jid;
-    json_object_object_get_ex(tags, "jid", &jid);
-
-    if (jid == 0) continue;
-
-    if (strcmp(json_object_get_string(jid), filter_job) != 0) {
-      json_object_object_add(tags, "jid", json_object_new_string("*"));
-    }
-  }
-
-      char tags_str[256];
-      snprintf(tags_str, sizeof(tags_str), json_object_to_json_string(tags));
-      add_stats(tag_rate_map, tags_str, rates);
-      json_object_put(pre_tags);
-      json_object_put(tags);
-    }
     
-    //printf("%s\n", json_object_to_json_string(tag_rate_map));
-    derived_events(tag_rate_map);
-    json_object_object_add(screen_map, server, json_object_get(tag_rate_map));
-    json_object_put(tag_rate_map);
-    
-  }
+  derived_events(screen_map);
 }
 
 /* Group stats by given tag tuple */
-void group_statsbytags(int nt, ...) {
+void group_statsbytag(int nt, ...) {
 
   int i;
   va_list args;
 
-  //struct timeval ts,te;
-  //gettimeofday(&ts, NULL); 
   va_start(args, nt);
-
   json_object_put(group_tags);
   group_tags = json_object_new_object();
   for (i = 0; i < nt; i++) {
@@ -371,7 +317,10 @@ void group_statsbytags(int nt, ...) {
     json_object_object_add(group_tags, str, json_object_new_string(""));
   } 
   va_end(args);
-  
+
+  json_object_put(server_tag_rate_map);
+  server_tag_rate_map = json_object_new_object();;
+
   json_object_object_foreach(host_map, servername, host_entry) {    
     /* Only update if data is new */
     json_object *new_time;
@@ -379,99 +328,43 @@ void group_statsbytags(int nt, ...) {
       continue;
 
     json_object *tag_map = json_object_new_object();
-
-    if (is_class(host_entry, "mds") > 0) {
-      aggregate_stat(host_entry, group_tags, "mds", tag_map);
-    }
-    if (is_class(host_entry, "oss") > 0) {
-      aggregate_stat(host_entry, group_tags, "oss", tag_map);
-    }
-    aggregate_stat(host_entry, group_tags, "llite", tag_map);
-    aggregate_stat(host_entry, group_tags, "intel_pmc3", tag_map);
-    aggregate_stat(host_entry, group_tags, "intel_imc", tag_map);
-
-    /* Get cpu load due to kernel as well */
-    json_object *cpu_map = json_object_new_object();
-    aggregate_stat(host_entry, group_tags, "cpu", cpu_map);
-
-    json_object_object_foreach(cpu_map, s, cpu_entry) { 
-      json_object *system;
-      json_object_object_get_ex(cpu_entry, "system", &system);
-      
-      json_object_object_foreach(tag_map, t, tag_entry) {
-	json_object_object_add(tag_entry, "load", json_object_get(system));
-      }
-    }
-    json_object_put(cpu_map);
+    aggregate_stat(host_entry, group_tags, tag_map);
     json_object_object_add(tag_map, "time", json_object_get(new_time));
-    
+
     json_object *pre_tag_map;
     if (json_object_object_get_ex(server_tag_map, servername, &pre_tag_map)) {
-      json_object *tag_rate_map = json_object_new_object();
-      json_object_object_add(tag_rate_map, "time", json_object_get(new_time));
-      
-      calc_rates(pre_tag_map, tag_map, tag_rate_map);
-      //derived_events(tag_rate_map);
-      json_object_object_add(server_tag_rate_map, servername, json_object_get(tag_rate_map));
-      json_object_put(tag_rate_map);
+      json_object_object_add(server_tag_rate_map, "time", json_object_get(new_time));      
+      calc_rates(pre_tag_map, tag_map, server_tag_rate_map);
     }
     
     json_object_object_add(server_tag_map, servername, json_object_get(tag_map));   
     json_object_put(tag_map);
   }  
-  //printf("%s\n", json_object_to_json_string(server_tag_rate_map)); 
 }
 
 /* Tag servers exports with client names, jids, uids, and filesystem */
 void tag_stats() {
   int arraylen;
   int j;
-  json_object *data_array, *data_entry, *nid_entry;
+  json_object *data_array, *data_entry;
   json_object *tag;
-  //struct timeval ts,te;
-  //gettimeofday(&ts, NULL); 
 
   json_object_object_foreach(host_map, key, host_entry) {    
-    if (is_class(host_entry, "mds") < 0 && is_class(host_entry, "oss") < 0)
-      continue;
     if (!json_object_object_get_ex(host_entry, "data", &data_array))
       continue;
-
-    json_object *server = json_object_new_string(key);
     arraylen = json_object_array_length(data_array);
     for (j = 0; j < arraylen; j++) {
-
+      
       data_entry = json_object_array_get_idx(data_array, j);
 
-      if (json_object_object_get_ex(data_entry, "client_nid", &tag)) {
-	if  (json_object_object_get_ex(nid_map, json_object_get_string(tag), &nid_entry)) {
-	  if (json_object_object_get_ex(nid_entry, "hid", &tag))
-	    json_object_object_add(data_entry, "client", json_object_get(tag));
-	  if (json_object_object_get_ex(nid_entry, "jid", &tag))
-	    json_object_object_add(data_entry, "jid", json_object_get(tag));
-	  if (json_object_object_get_ex(nid_entry, "uid", &tag))
-	    json_object_object_add(data_entry, "uid", json_object_get(tag));
-	}          
-	else
-	  json_object_object_add(data_entry, "client", json_object_get(tag));
-      }
-      
-      json_object_object_add(data_entry, "server", json_object_get(server));      
-
-      /* Tag with filesystem name */
-      if (json_object_object_get_ex(data_entry, "target", &tag)) {
-	char target[32];
-	snprintf(target, sizeof(target), "%s", json_object_get_string(tag));  
-	char *p = target + strlen(target) - 8;
-	*p = '\0';
-	json_object_object_add(data_entry, "fid", json_object_new_string(target));	  
-      }      
+      if (json_object_object_get_ex(host_entry, "hid", &tag))
+	json_object_object_add(data_entry, "host", json_object_get(tag));
+      if (json_object_object_get_ex(host_entry, "jid", &tag)) 
+	json_object_object_add(data_entry, "jid", json_object_get(tag));
+      if (json_object_object_get_ex(host_entry, "uid", &tag))
+	json_object_object_add(data_entry, "uid", json_object_get(tag));     
     }
-    json_object_put(server);
-  }
-  //gettimeofday(&te, NULL); 
-  //printf("time for tag %f\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000. );
-  
+  }  
 }
 
 static int update_host_entry(json_object *rpc_json) {
@@ -511,20 +404,11 @@ static int update_host_entry(json_object *rpc_json) {
 
     if (json_object_object_get_ex(rpc_json, "uid", &tag))
       json_object_object_add(host_entry, "uid", json_object_get(tag));
-
-    if (json_object_object_get_ex(rpc_json, "obdclass", &tag))
-      json_object_object_add(host_entry, "obdclass", json_object_get(tag));
-
+    
     if (json_object_object_get_ex(rpc_json, "data", &tag))
       json_object_object_add(host_entry, "data", json_object_get(tag));
-
-    if (is_class(host_entry, "mds") < 0 && is_class(host_entry, "oss") < 0)
-      if (json_object_object_get_ex(rpc_json, "nid", &tag))	
-	json_object_object_add(nid_map, json_object_get_string(tag), json_object_get(host_entry));
-  
   }
   rc = 1;
-  //printf("%s\n", json_object_to_json_string(host_map));
  out:
   return rc;
 }
@@ -534,9 +418,6 @@ int update_host_map(char *rpc) {
 
   int rc = -1;
   json_object *rpc_json = NULL;
-
-  //struct timeval ts,te;
-  //gettimeofday(&ts, NULL); 
 
   enum json_tokener_error error = json_tokener_success;
   rpc_json = json_tokener_parse_verbose(rpc, &error);  
@@ -553,10 +434,6 @@ int update_host_map(char *rpc) {
   }
   else
     update_host_entry(rpc_json);
-  //printf("%s\n", json_object_to_json_string(rpc_json));
-  //gettimeofday(&te, NULL); 
-  //printf("time for process %f\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000. );
-
   rc = 1;
 
  out:

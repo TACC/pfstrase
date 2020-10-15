@@ -26,8 +26,6 @@ __attribute__((constructor))
 static void devices_discover(void) {
 
   snprintf(info.nid, sizeof(info.nid), "-");
-  snprintf(info.jid, sizeof(info.jid), "-");  
-  snprintf(info.uid, sizeof(info.uid), "-");
 
   info.nr_cpus = sysconf(_SC_NPROCESSORS_ONLN);
   info.processor = signature(&info.n_pmcs);

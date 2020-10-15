@@ -150,7 +150,7 @@ void screen_start(EV_P)
   ev_signal_start(EV_A_ &sigwinch_w);
 
   /* Sort by load by default */
-  snprintf(sortbykey, sizeof(sortbykey), "load_eff");
+  //snprintf(sortbykey, sizeof(sortbykey), "load_eff");
 
   detailed = 0;
   screen_is_active = 1;
@@ -181,23 +181,17 @@ static void refresh_timer_cb(EV_P_ ev_timer *w, int revents)
     get_shm_map();
 
     switch(groupby) {
-    case 4:
-      group_ratesbytags(5, "fid", "server", "client", "jid", "uid");
-      break;
     case 3:
-      group_ratesbytags(4, "fid", "server", "jid", "uid");
+      group_ratesbytags(3, "host", "jid", "uid");
       break;
     case 2:
-      group_ratesbytags(3, "fid", "server", "uid");
+      group_ratesbytags(2, "jid", "uid");
       break;
     case 1:
-      group_ratesbytags(2, "fid", "server");
-      break;
-    case 5:
-      group_ratesbytags(1, "server");
+      group_ratesbytags(1, "uid");
       break;
     default:
-      group_ratesbytags(5, "fid", "server", "client", "jid", "uid");
+      group_ratesbytags(3, "host", "jid", "uid");
       break;
     }
   }
@@ -265,23 +259,17 @@ static void screen_key_cb(EV_P_ int key)
   case 'q':
     ev_break(EV_A_ EVBREAK_ALL); /* XXX */
     return;
-  case 'f':
+  case 'u':
     groupby = 1;
     break;
-  case 'u':
+  case 'j':
     groupby = 2;
     break;
-  case 'j':
+  case 'h':
     groupby = 3;
     break;
-  case 'c':
-    groupby = 4;
-    break;
-  case 's':
-    groupby = 5;
-    break;
-  case 'l':
-    snprintf(sortbykey, sizeof(sortbykey), "load_eff");
+  case 'f':
+    snprintf(sortbykey, sizeof(sortbykey), "dp_flops");
     break;
   case 'i':
     snprintf(sortbykey, sizeof(sortbykey), "iops");   
@@ -383,16 +371,16 @@ static void da_refresh() {
 
   json_object_object_add(screvents, "nclients", json_object_new_string(""));
   json_object_object_add(screvents, "load", json_object_new_string(""));
-  json_object_object_add(screvents, "load_eff", json_object_new_string(""));
   json_object_object_add(screvents, "iops", json_object_new_string(""));
   json_object_object_add(screvents, "bytes", json_object_new_string(""));    
   json_object_object_add(screvents, "sp_flops", json_object_new_string(""));    
   json_object_object_add(screvents, "dp_flops", json_object_new_string(""));    
   json_object_object_add(screvents, "mbw", json_object_new_string(""));    
+  json_object_object_add(screvents, "cpi", json_object_new_string(""));    
+  json_object_object_add(screvents, "freq", json_object_new_string(""));    
 
   json_object *eid, *tid;      
-  json_object_object_foreach(screen_map, s, se) {
-    json_object_object_foreach(se, t, te) {
+  json_object_object_foreach(screen_map, t, te) {
       json_object *tags = NULL;
       if (strcmp(t, "time") == 0) continue;      
       
@@ -406,8 +394,6 @@ static void da_refresh() {
 	json_object_object_add(tags, "nclients", json_object_get(eid));      
       if (json_object_object_get_ex(te, "load", &eid))
 	json_object_object_add(tags, "load", json_object_get(eid));      
-      if (json_object_object_get_ex(te, "load_eff", &eid))
-	json_object_object_add(tags, "load_eff", json_object_get(eid));      
       if (json_object_object_get_ex(te, "iops", &eid))
 	json_object_object_add(tags, "iops", json_object_get(eid));
       if (json_object_object_get_ex(te, "bytes", &eid))
@@ -418,10 +404,14 @@ static void da_refresh() {
 	json_object_object_add(tags, "dp_flops", json_object_get(eid));
       if (json_object_object_get_ex(te, "mbw", &eid))
 	json_object_object_add(tags, "mbw", json_object_get(eid));
+      if (json_object_object_get_ex(te, "cpi", &eid))
+	json_object_object_add(tags, "cpi", json_object_get(eid));
+      if (json_object_object_get_ex(te, "freq", &eid))
+	json_object_object_add(tags, "freq", json_object_get(eid));
 
       if (detailed == 1) {
 	json_object_object_foreach(te, event, val) {
-	  if ((strcmp(event, "load") == 0) || (strcmp(event, "load_eff") == 0) || (strcmp(event, "iops") == 0) ||
+	  if ((strcmp(event, "user") == 0) || (strcmp(event, "iops") == 0) ||
 	      (strcmp(event, "bytes") == 0) || (json_object_get_double(val) < 2)) continue;
 	
 	  json_object_object_add(screvents, event, json_object_new_string(""));
@@ -432,7 +422,6 @@ static void da_refresh() {
     end:
       if(tags)
 	json_object_put(tags);
-    }
   }
   json_object_array_sort(scrdata_array, sort_da);
   da_len = json_object_array_length(scrdata_array);
@@ -536,7 +525,6 @@ static void usage(void)
           "  c      Group by pfs client\n"
           "  s      Group by pfs server\n"
           "\n"
-          "  l      Sort by effective load (load_eff)\n"
           "  i      Sort by IOPS\n"
           "  b      Sort by bytes\n"
           "\n"
@@ -566,11 +554,8 @@ int main(int argc, char *argv[])
       case 'u':
         filter_user = optarg;
         break;
-      case 'c':
-        filter_client = optarg;
-        break;
       case 's':
-        filter_server = optarg;
+        filter_host = optarg;
         break;
       case 'j':
         filter_job = optarg;
