@@ -5,6 +5,7 @@
 #include <time.h>
 #include <sys/stat.h>
 #include "lfs_utils.h"
+#include "intel_pmc3.h"
 
 #define PROCFS_BUF_SIZE 4096
 
@@ -29,9 +30,10 @@ static void devices_discover(void) {
 
   info.nr_cpus = sysconf(_SC_NPROCESSORS_ONLN);
   info.processor = signature(&info.n_pmcs);
-  begin_intel_pmc3();
-  begin_intel_skx_imc();
-
+  if (begin_intel_pmc3() < 0)
+    fprintf(stderr, "cannot program processor pmcs: %m\n");
+  if (begin_intel_skx_imc() < 0)
+    fprintf(stderr, "cannot program imc counters: %m\n");
   // Get hostname, device class, and time
   if (clock_gettime(CLOCK_REALTIME, &info.time) != 0) {
     fprintf(stderr, "cannot clock_gettime(): %m\n");

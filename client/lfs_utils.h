@@ -4,6 +4,7 @@
 #include <time.h>
 #include <json/json.h>
 #include "cpuid.h"
+#include "intel_skx_imc.h"
 
 enum device_class{MDS, OSS, OSC};
 

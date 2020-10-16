@@ -23,6 +23,7 @@ pfstrase_client_SOURCES = 	 \
 	exports.c	\
 	intel_pmc3.h    \
 	intel_pmc3.c    \
+	intel_skx_imc.h    \
 	intel_skx_imc.c    \
 	lfs_utils.h	\
 	lfs_utils.c	\
@@ -39,5 +40,10 @@ pfstrase_client_SOURCES = 	 \
 	socket_client.c \
         target.h \
 	target.c	
+
+if INFINIBAND
+pfstrase_client_SOURCES	+= \
+	ib_sw.c
+endif
 
 EXTRA_DIST = pfstrase.service pfstrase.conf pfstrase_initd.sh

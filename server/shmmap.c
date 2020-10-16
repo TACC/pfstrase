@@ -23,7 +23,7 @@ sem_t *mutex_sem = NULL;
 int fd_shm = -1;
 caddr_t *mm_ptr = NULL;
 
-void shmmap_server_init(void) {
+void shm_server_init(void) {
   umask(S_IXGRP | S_IXOTH);
   sem_unlink(SEM_MUTEX_NAME);
   if ((mutex_sem = sem_open (SEM_MUTEX_NAME, O_CREAT, 0666, 0)) == SEM_FAILED) {
@@ -52,7 +52,7 @@ void shmmap_server_init(void) {
   }
 }
 
-void shmmap_server_kill(void) {
+void shm_server_kill(void) {
   if (munmap (mm_ptr, mm_size) == -1)
     fprintf(stderr, "munmap failed: %s\n", strerror(errno));
   if (fd_shm)
@@ -63,7 +63,7 @@ void shmmap_server_kill(void) {
   shm_unlink(SERVER_TAG_RATE_MAP_FILE);
 }
 
-void shmmap_client_init(void) {
+void shm_client_init(void) {
   if ((mutex_sem = sem_open (SEM_MUTEX_NAME, 0)) == SEM_FAILED) {
     fprintf(stderr, "sem_open failed: %s\n", strerror(errno));
     exit(1);
@@ -78,7 +78,7 @@ void shmmap_client_init(void) {
   }  
 }
 
-void shmmap_client_kill(void) {
+void shm_client_kill(void) {
   sem_wait(mutex_sem);
   if (sem_post(mutex_sem) == -1)
     fprintf(stderr, "sem_post failed: %s\n", strerror(errno));

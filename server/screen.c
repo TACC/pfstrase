@@ -14,6 +14,8 @@
 #include <stdio.h>
 #include <pwd.h>
 #include <getopt.h>
+#include <grp.h>
+
 #include "stats.h"
 #include "shmmap.h"
 #include "screen.h"
@@ -369,15 +371,16 @@ static void da_refresh() {
   scrdata_array = json_object_new_array();
   screvents = json_object_new_object();
 
-  json_object_object_add(screvents, "nclients", json_object_new_string(""));
+  json_object_object_add(screvents, "nhosts", json_object_new_string(""));
   json_object_object_add(screvents, "load", json_object_new_string(""));
-  json_object_object_add(screvents, "iops", json_object_new_string(""));
-  json_object_object_add(screvents, "bytes", json_object_new_string(""));    
   json_object_object_add(screvents, "sp_flops", json_object_new_string(""));    
   json_object_object_add(screvents, "dp_flops", json_object_new_string(""));    
   json_object_object_add(screvents, "mbw", json_object_new_string(""));    
+  json_object_object_add(screvents, "ibw", json_object_new_string(""));    
   json_object_object_add(screvents, "cpi", json_object_new_string(""));    
   json_object_object_add(screvents, "freq", json_object_new_string(""));    
+  json_object_object_add(screvents, "iops", json_object_new_string(""));
+  json_object_object_add(screvents, "bytes", json_object_new_string(""));    
 
   json_object *eid, *tid;      
   json_object_object_foreach(screen_map, t, te) {
@@ -390,8 +393,8 @@ static void da_refresh() {
         goto end;
       }
 
-      if (json_object_object_get_ex(te, "nclients", &eid))
-	json_object_object_add(tags, "nclients", json_object_get(eid));      
+      if (json_object_object_get_ex(te, "nhosts", &eid))
+	json_object_object_add(tags, "nhosts", json_object_get(eid));      
       if (json_object_object_get_ex(te, "load", &eid))
 	json_object_object_add(tags, "load", json_object_get(eid));      
       if (json_object_object_get_ex(te, "iops", &eid))
@@ -404,6 +407,8 @@ static void da_refresh() {
 	json_object_object_add(tags, "dp_flops", json_object_get(eid));
       if (json_object_object_get_ex(te, "mbw", &eid))
 	json_object_object_add(tags, "mbw", json_object_get(eid));
+      if (json_object_object_get_ex(te, "ibw", &eid))
+	json_object_object_add(tags, "ibw", json_object_get(eid));
       if (json_object_object_get_ex(te, "cpi", &eid))
 	json_object_object_add(tags, "cpi", json_object_get(eid));
       if (json_object_object_get_ex(te, "freq", &eid))
@@ -411,13 +416,13 @@ static void da_refresh() {
 
       if (detailed == 1) {
 	json_object_object_foreach(te, event, val) {
-	  if ((strcmp(event, "user") == 0) || (strcmp(event, "iops") == 0) ||
-	      (strcmp(event, "bytes") == 0) || (json_object_get_double(val) < 2)) continue;
-	
-	  json_object_object_add(screvents, event, json_object_new_string(""));
-	  json_object_object_add(tags, event, json_object_get(val));
+	  if (!json_object_object_get_ex(screvents, json_object_get_string(val), &eid)) {	  
+	    json_object_object_add(screvents, event, json_object_new_string(""));
+	    json_object_object_add(tags, event, json_object_get(val));
+	  }
 	}
       }
+
       json_object_array_add(scrdata_array, json_object_get(tags));
     end:
       if(tags)
@@ -575,7 +580,7 @@ int main(int argc, char *argv[])
     filter_user = p->pw_name;
   }
 
-  shmmap_client_init();
+  shm_client_init();
   
   screen_init(refresh_interval);
   screen_start(EV_DEFAULT);
@@ -584,7 +589,7 @@ int main(int argc, char *argv[])
   
   screen_stop(EV_DEFAULT);
 
-  shmmap_client_kill();
+  shm_client_kill();
 
   return EXIT_SUCCESS;
 }

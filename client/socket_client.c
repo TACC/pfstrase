@@ -9,6 +9,7 @@
 #include <netdb.h>
 #include <syslog.h>
 #include <json/json.h>
+#include "collect.h"
 
 #define SOCKET_BUFFERSIZE 1048576*10
 char request[SOCKET_BUFFERSIZE];

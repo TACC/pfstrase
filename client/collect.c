@@ -6,6 +6,7 @@
 #include "collect.h"
 #include "cpu.h"
 #include "intel_pmc3.h"
+#include "ib_sw.h"
 #include "exports.h"
 #include "llite.h"
 #include "target.h"
@@ -40,7 +41,8 @@ void collect_devices(json_object *jobj)
     fprintf(stderr, "intel_pmc3 collection failed\n");
   if (collect_intel_skx_imc(data_json) < 0)
     fprintf(stderr, "intel_skx_imc collection failed\n");
-    
+
+  collect_ib_sw(data_json);
 
   // Server exports and targets
   if (info->class == MDS || info->class == OSS) {

@@ -4,6 +4,7 @@
 
 int update_host_map(char *rpc);
 void group_statsbytag(int nt, ...);
+void group_ratesbytags(int nt, ...);
 void tag_stats();
 
 json_object *host_map;

@@ -9,6 +9,28 @@ AC_CHECK_HEADERS([ev.h], [ev=true], [AC_MSG_ERROR([Failed to find header ev.h])]
 AC_SEARCH_LIBS([json_object_new_object], [json-c], [libjson=yes], [libjson=no])
 AC_CHECK_HEADERS([json/json.h], [json=true], [AC_MSG_ERROR([Failed to find header json.h])])
 
+AC_ARG_ENABLE([infiniband],
+[  --enable-infiniband	Enable Infiniband support (must be set to true or false)],
+[case "${enableval}" in
+  yes) AC_SEARCH_LIBS([mad_rpc_open_port], [ibmad], [have_ib=yes], 
+    [AC_MSG_ERROR([Unable to find libibmad.so!])])
+  if test "x${have_ib}" = xyes; then 
+     AC_CHECK_HEADERS([infiniband/umad.h infiniband/mad.h], [infiniband=true],
+     [AC_MSG_ERROR([Unable to find umad.h or mad.h on this system!])])  
+  fi
+  ;;
+  no)  infiniband=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-infiniband]) ;;
+esac],
+[AC_SEARCH_LIBS([mad_rpc_open_port], [ibmad], [have_ib=yes],
+  [AC_MSG_ERROR([Unable to find libibmad.so!])])
+  if test "x${have_ib}" = xyes; then 
+     AC_CHECK_HEADERS([infiniband/umad.h infiniband/mad.h], [infiniband=true], 
+     [AC_MSG_ERROR([Unable to find umad.h or mad.h on this system!])])  
+  fi
+])
+AM_CONDITIONAL([INFINIBAND], [test x$infiniband = xtrue])
+
 PKG_PROG_PKG_CONFIG
 AC_ARG_WITH([systemduserunitdir],
      [AS_HELP_STRING([--with-systemduserunitdir=DIR], [Directory for systemd user service files])],,
