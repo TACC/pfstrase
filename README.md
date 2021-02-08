@@ -57,6 +57,10 @@ db_interval 30
 sharedmem_interval 1
 port     5672
 ```
+### Website
+
+in progress...
+dependencies: django, psycopg2, pandas, bokeh
 
 ### 2. Client setup
 The client daemon collects usage data and sends it to the server via JSON reports at the specified polling rate.
