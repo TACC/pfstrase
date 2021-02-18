@@ -6,7 +6,7 @@ int pq_connect(char *pq_server, char *dbname, char *dbuser) {
   int rc = -1;
   
   char conninfo[256];
-  snprintf(conninfo, sizeof(conninfo), "dbname=%s user=%s host=%s", dbname, dbuser, pq_server);
+  snprintf(conninfo, sizeof(conninfo), "dbname=%s user=%s host=%s port=5433", dbname, dbuser, pq_server);
   conn = PQconnectdb(conninfo);
   /* Check to see that the backend connection was successfully made */
   if (PQstatus(conn) != CONNECTION_OK) {
@@ -32,18 +32,17 @@ int pq_insert() {
   int rc = -1;
   PGresult *res;
   int i;
-
-  //struct timeval ts,te;
-  //gettimeofday(&ts, NULL); 
+  printf("here: pq_insert\n");
+  struct timeval ts,te;
+  gettimeofday(&ts, NULL); 
   int total_size = 0;  
   tag_stats();
-  group_ratesbytags(5, "fid", "server", "client", "jid", "uid");
-
+  //group_ratesbytags(5, "fid", "server", "client", "jid", "uid");
+  group_ratesbytags(4, "fid", "server", "jid", "uid");
   json_object_object_foreach(screen_map, s, se) {
     char query[256000] = "insert into stats (time, hostname, fid, jid, uid, client, event_name, value) values ";
     int empty_len = strlen(query);
     char *qcur = query + empty_len, * const qend = query + sizeof(query);
-
     json_object *time;
     if (!json_object_object_get_ex(se, "time", &time)) continue;
    
@@ -94,12 +93,13 @@ int pq_insert() {
     total_size += query_len;
     if (query_len > empty_len) {
       query[strlen(query) - 2] = ';';
+    printf("%s\n",query);
       res = PQexec(conn, query);
       PQclear(res);
     }
   }
-  //gettimeofday(&te, NULL);   
-  //printf("time for insert %f of size %d\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000., total_size);
+  gettimeofday(&te, NULL);   
+  printf("time for insert %f of size %d\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000., total_size);
 
   rc = 1;
 

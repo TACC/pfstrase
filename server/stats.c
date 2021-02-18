@@ -195,7 +195,7 @@ static void aggregate_stat(json_object *host_entry, json_object *tag_tuple, char
 	!json_object_object_get_ex(de, "stats_type", &tid) ||
 	(strcmp(stat_type, json_object_get_string(tid)) != 0))
       continue;
-    
+    //printf("%s\n", json_object_to_json_string(de));
     json_object *tags = json_object_new_object();
     json_object_object_foreach(tag_tuple, tag, t) {    
       if (json_object_object_get_ex(de, tag, &tid))
@@ -346,15 +346,19 @@ void group_statsbytags(int nt, ...) {
     json_object *new_time;
     if (is_new_entry(servername, host_entry, &new_time) < 0)
       continue;
+    json_object *da;
+    if (!json_object_object_get_ex(host_entry, "data", &da))
+      continue;
 
     json_object *tag_map = json_object_new_object();
 
-    if (is_class(host_entry, "mds") > 0) {
-      aggregate_stat(host_entry, group_tags, "mds", tag_map);
-    }
-    if (is_class(host_entry, "oss") > 0) {
-      aggregate_stat(host_entry, group_tags, "oss", tag_map);
-    }
+    //if (is_class(host_entry, "mds") > 0) {
+    aggregate_stat(host_entry, group_tags, "mds", tag_map);
+    //}
+    //if (is_class(host_entry, "oss") > 0) {
+    aggregate_stat(host_entry, group_tags, "oss", tag_map);
+    //}
+    //printf("%s\n", json_object_to_json_string(tag_map));
   
     /* Get cpu load due to kernel as well */
     json_object *cpu_map = json_object_new_object();
@@ -385,8 +389,6 @@ void group_statsbytags(int nt, ...) {
     json_object_object_add(server_tag_map, servername, json_object_get(tag_map));   
     json_object_put(tag_map);
   }  
- 
-
 }
 
 /* Tag servers exports with client names, jids, uids, and filesystem */
@@ -399,8 +401,10 @@ void tag_stats() {
   //gettimeofday(&ts, NULL); 
 
   json_object_object_foreach(host_map, key, host_entry) {    
+    /*
     if (is_class(host_entry, "mds") < 0 && is_class(host_entry, "oss") < 0)
       continue;
+    */
     if (!json_object_object_get_ex(host_entry, "data", &data_array))
       continue;
 
@@ -484,11 +488,15 @@ static int update_host_entry(json_object *rpc_json) {
 
     if (json_object_object_get_ex(rpc_json, "data", &tag))
       json_object_object_add(host_entry, "data", json_object_get(tag));
-
+    else {
+      if (json_object_object_get_ex(rpc_json, "nid", &tag))	
+	json_object_object_add(nid_map, json_object_get_string(tag), json_object_get(host_entry));
+    }
+    /*
     if (is_class(host_entry, "mds") < 0 && is_class(host_entry, "oss") < 0)
       if (json_object_object_get_ex(rpc_json, "nid", &tag))	
 	json_object_object_add(nid_map, json_object_get_string(tag), json_object_get(host_entry));
-  
+    */
   }
   rc = 1;
  out:
@@ -519,7 +527,7 @@ int update_host_map(char *rpc) {
   }
   else
     update_host_entry(rpc_json);
-
+  //printf("%s\n", json_object_to_json_string(rpc_json));
   //gettimeofday(&te, NULL); 
   //printf("time for process %f\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000. );
 
