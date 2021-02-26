@@ -1,0 +1,65 @@
+  {% csrf_token %}  
+      
+  <div class="container">
+    <div class="form-row">    
+      
+      <div class="form-group col-md-2">
+	<label for="time_interval">Time Interval</label>
+	<div class="btn-group" data-toggle="buttons" aria-label="Time Interval">
+	{% for ti in choice.time_interval.field.choices %}
+	<label class="btn btn-primary {% if choice.time_interval.value == ti.0 %}active{% endif %}">
+	  <input type="radio" id="time_interval" name="time_interval" value="{{ti.0}}"
+		 {% if choice.time_interval.value == ti.0 %} checked {% endif %}/>{{ti.1}}
+	</label>
+	{% endfor %}
+	</div>
+      </div>
+      
+      <div class="form-group col-md-2">
+	<label for="time_bucket">Time Bin Width</label>
+	<div class="btn-group" data-toggle="buttons">
+	  {% for tb in choice.time_bucket.field.choices %}
+	  <label class="btn btn-primary {% if choice.time_bucket.value == tb.0 %}active{% endif %}">
+	    <input type="radio" name="time_bucket" value="{{tb.0}}"
+		   {% if choice.time_bucket.value == tb.0 %} checked {% endif %}/>{{tb.1}}
+	  </label>	  
+	  {% endfor %}
+	</div>
+      </div>
+      
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="form-row">    
+      
+      <div class="form-group col-md-2">
+	<label for="tag">Group By Tag</label>
+	<div class="btn-group" data-toggle="buttons">
+	  {% for tag in choice.tag.field.choices %}
+	  <label class="btn btn-default {% if choice.tag.value == tag.0 %}active{% endif %}">
+	    <input type="radio" name="tag" value="{{tag.0}}"
+		   {% if choice.tag.value == tag.0 %} checked {% endif %}/>{{tag.1}}
+	  </label>
+	  {% endfor %}
+	</div>
+      </div>
+      
+      <div class="form-group col-md-2">
+	<label for="event">Display IO Event</label>
+	<select name="event" class="custom-select">
+	  {% for event in choice.event.field.choices %}
+	  <option value="{{ event.0 }}" {% if choice.event.value == event.0 %}selected="selected"{% endif %}>{{ event.1 }}</option>
+	  {% endfor %}
+	</select>  
+      </div>
+    </div>
+  </div>
+
+  <div class="container">      
+    <div class="form-row">    
+      <div class="form-group col-md-2">
+	<button type="submit" class="btn btn-info">Refresh</button>
+      </div>
+    </div>
+  </div>

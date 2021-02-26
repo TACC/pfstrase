@@ -26,9 +26,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-CELERY_BROKER_URL = 'amqp://guest:guest@127.0.0.1//'
-CELERY_RESULT_BACKEND = 'rpc://guest:guest@127.0.0.1//'
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -79,11 +76,11 @@ WSGI_APPLICATION = 'pfstrase.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME'  : 'pfstrase_db1',
-        'USER': 'postgres',
-        'PASSWORD': 'postgres',
+        'NAME'  : 'pfstrase_db',
+        'USER': 'pfstrase',
+        'PASSWORD': 'pfstrase',
         'HOST': 'localhost',
-        'PORT': '5432',
+        'PORT': '5433',
     }
 }
 

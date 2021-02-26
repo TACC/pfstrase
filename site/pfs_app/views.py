@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 import pytz, time
-import requests, json
+from math import pi
 
-from django.shortcuts import render, render_to_response
+from django.shortcuts import render
 from django.db.models import Count, F, Value, IntegerField, FloatField, CharField
 from django.db.models.functions import Cast, Concat
 from django.contrib.postgres.fields.jsonb import KeyTextTransform as ktt
@@ -10,16 +10,20 @@ from django.contrib.postgres.fields.jsonb import KeyTransform as kt
 from django.contrib.postgres.aggregates import StringAgg
 from django.utils import timezone
 from django.db.models import Avg,Sum,Max,Min
+from django import forms
 
 from bokeh.plotting import figure
 from bokeh.embed import components
 from bokeh.resources import CDN
-from bokeh.layouts import gridplot
-from bokeh.palettes import d3
-from bokeh.models import ColumnDataSource, Plot, Grid, DataRange1d, Range1d
-from bokeh.models import HoverTool, PanTool, WheelZoomTool, BoxZoomTool, UndoTool, RedoTool, ResetTool
+from bokeh.layouts import gridplot, column
+from bokeh.palettes import d3, Category20b
+from bokeh.models import ColumnDataSource, Plot, Grid, DataRange1d, Range1d, Div, RadioButtonGroup, CustomJS
+from bokeh.models import HoverTool, PanTool, WheelZoomTool, BoxZoomTool, UndoTool, RedoTool, ResetTool, OpenURL
 from bokeh.models.glyphs import Step, Line
-from bokeh.transform import factor_cmap
+from bokeh.transform import factor_cmap, transform, linear_cmap, cumsum
+from bokeh.models import (BasicTicker, ColorBar, ColumnDataSource,
+                          LinearColorMapper, PrintfTickFormatter,)
+
 
 from pandas import read_sql
 import pandas 
@@ -29,198 +33,42 @@ import time
 tz = timezone.get_current_timezone()
 
 import psycopg2
-conn = psycopg2.connect("dbname=pfstrase_db1 user=postgres")
+conn = psycopg2.connect("dbname=pfstrase_db user=postgres port=5433")
 cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-"""
-class TimePlot():
-    def __init__(self, bucket, interval):
-        self.bucket = bucket
-        self.interval = interval
-        self.cur = conn.cursor()
-
-        self.cur.execute("DROP VIEW IF EXISTS server_bucket_stats CASCADE;")
-        self.cur.execute("DROP VIEW IF EXISTS client_bucket_tags CASCADE;")
-        self.cur.execute("CREATE TEMP VIEW server_bucket_stats AS select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, obdclass, hostname, target, stats_type, event_name, client_nid, locf(avg(value)) as bucket_value from stats where time > now() - interval '{1}' and obdclass in ('mds', 'oss') group by obdclass, hostname, target, stats_type, client_nid, event_name, t;".format(self.bucket, self.interval))
-        self.cur.execute("CREATE TEMP VIEW client_bucket_tags AS select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, locf(last(nid, time)) as nid, locf(last(uid, time)) as uid, locf(last(jid, time)) as jid from stats where time > now() - interval '{1}' and obdclass = 'osc' group by hostname, t;".format(self.bucket, self.interval), conn)
-        
-        self.hostnames = read_sql("select distinct hostname from stats where time > now() - interval '{0}'".format(interval), conn)["hostname"]
-        self.hc = {}
-        colors = d3["Category10"][10]*5#[20]
-        for i, h in enumerate(self.hostnames):
-            self.hc[h] = colors[i%20]
-
-    pandas.set_option('display.max_columns', 20)
-
-    def grouprateby_tags(self, obd, stats_type, event_tuple):
-        s = time.time()
-        self.cur.execute("CREATE TEMP VIEW rate AS SELECT t, hostname, client_nid, (sum(bucket_value) - lag(sum(bucket_value)) OVER w) / extract(epoch from t - lag(t) OVER w) as value FROM server_bucket_stats where obdclass = '{0}' and stats_type = '{1}' and event_name in {2} group by hostname, client_nid, t window w as (order by hostname, client_nid, t);".format(obd, stats_type, event_tuple))
-        self.cur.execute("CREATE TEMP VIEW tagged_rate AS select rate.t, rate.value, rate.hostname, rate.client_nid, client_bucket_tags.hostname as client_hostname, uid, jid from rate join client_bucket_tags on rate.t = client_bucket_tags.t and rate.client_nid = client_bucket_tags.nid;")
-        df = read_sql("SELECT * FROM tagged_rate", conn)
-        self.cur.execute("DROP VIEW rate CASCADE;")
-        print("grouprateby_tags", time.time() - s)
-        return df.set_index("t").tz_convert(tz)
-
-    def grouprateby_host(self, obd, stats_type, event_tuple):
-        s = time.time()
-        self.cur.execute("CREATE TEMP VIEW rate AS SELECT t, hostname, (sum(bucket_value) - lag(sum(bucket_value)) OVER w) / extract(epoch from t - lag(t) OVER w) as value FROM server_bucket_stats where obdclass = '{0}' and stats_type = '{1}' and event_name in {2} group by hostname, t window w as (order by hostname, t);".format(obd, stats_type, event_tuple))
-        df = read_sql("SELECT * FROM rate", conn)
-        self.cur.execute("DROP VIEW rate CASCADE;")
-        print("grouprateby_host", time.time() - s)
-        return df.set_index("t").tz_convert(tz)
-
-    def groupvalueby_host(self, obd, stats_type, event_tuple):
-        s = time.time()
-        self.cur.execute("CREATE TEMP VIEW values AS SELECT t, hostname, sum(bucket_value) as value FROM server_bucket_stats where obdclass = '{0}' and stats_type = '{1}' and event_name in {2} group by hostname, t window w as (order by hostname, t);".format(obd, stats_type, event_tuple))
-        df = read_sql("SELECT * FROM values", conn)
-        self.cur.execute("DROP VIEW values CASCADE;")
-        print("groupvalueby_host", time.time() - s)
-        return df.set_index("t").tz_convert(tz)
-
-    def grouplastvalueby_target_events(self, obd, stats_type, event_tuple):
-        s = time.time()
-        self.cur.execute("CREATE TEMP VIEW lastvalues AS SELECT DISTINCT ON (target, event_name) t, hostname, target, event_name, bucket_value AS value FROM server_bucket_stats WHERE obdclass in {0} and stats_type in {1} and event_name in {2} ORDER BY target, event_name, t DESC;".format(obd, stats_type, event_tuple))
-        df = read_sql("SELECT * FROM lastvalues", conn)
-        self.cur.execute("DROP VIEW lastvalues CASCADE;")
-        print("grouplastvalueby_target_events", time.time() - s)
-        return df.set_index("t").tz_convert(tz)
-
-    def format_plot(self, p):
-        p.legend.click_policy="hide"
-        p.legend.orientation = "horizontal"
-        p.xaxis.axis_label_text_font_size = "12pt"
-        p.yaxis.axis_label_text_font_size = "12pt"
-        new_legend = p.legend[0]
-        p.legend[0] = None
-        p.add_layout(new_legend, 'below')
-
-    def plotrateby_tag(self, obdclass, stats_type, events):        
-        if "statfs" in events:
-            label = "iops"
-            scale = 1.0
-        if "read_bytes" in events:
-            label = "MB/s"
-            scale = 1.0/(1024*1024)
-        
-        df = self.grouprateby_tags(obdclass, stats_type, events)
-        server_hostnames = sorted(list(df.hostname.unique()))
-        plots = []
-        for tag in ["client_hostname", "jid", "uid"]:
-            tags = list(df[tag].unique())
-            groupby_hostname_tag = df.groupby([df.index, "hostname", tag]).sum().reset_index(level = "hostname").reset_index(level = tag)
-            groupby_hostname = groupby_hostname_tag.groupby([groupby_hostname_tag.index, "hostname"]).sum().reset_index(level = "hostname")
-            hover = HoverTool(tooltips = [("time", "@time{%Y-%m-%d %H:%M:%S}"), (tag, "@"+tag), (label, "@values")], 
-                          formatters = {"time" : "datetime"}, line_policy = "nearest")    
-            for h in server_hostnames:
-                selectby_hostname = groupby_hostname[groupby_hostname.hostname == h]
-
-                plot = figure(title =  h + " " + label + " by " + tag, 
-                              plot_width=1200, plot_height=300, x_axis_type = "datetime", 
-                              y_range = Range1d(0, (1.1*scale*selectby_hostname["value"]).max()), y_axis_label = label, 
-                              tools = "pan,wheel_zoom,save,box_zoom,reset", toolbar_location = "above")
-                plot.tools.append(hover)
-                source = ColumnDataSource({"time" : selectby_hostname.index.tz_localize(None), 
-                                           tag : ['sum']*len(selectby_hostname.index), 
-                                           "hostname": selectby_hostname["hostname"], 
-                                           "values" : scale*selectby_hostname["value"]})
-                plot.line(source = source, x = "time", y = "values", line_color = self.hc[h], 
-                          line_width = 4, line_alpha = 0.5, legend_label = h)
-                for n in tags:                
-                    selectby_hostname_client = groupby_hostname_tag[(groupby_hostname_tag["hostname"] == h) & (groupby_hostname_tag[tag] == n)]
-                    #selectby_hostname_client.at[0, "value"] = 0.0
-                    source = ColumnDataSource({"time" : selectby_hostname_client.index.tz_localize(None),
-                                               tag : selectby_hostname_client[tag], 
-                                               "hostname": [h]*len(selectby_hostname_client.index),
-                                               "values" : scale*selectby_hostname_client["value"]})
-                    try: c = self.hc[n]
-                    except: c = d3["Category10"][10][tags.index(n)%10]
-                    plot.triangle(source = source, x = "time", y = "values", color = c, legend_label = n)
-                self.format_plot(plot)
-                plots += [plot]
-        return gridplot(plots, ncols = 1)
-
-    def plotrateby_host(self, obdclass, stats_type, events):        
-        if stats_type == "cpu":
-            label = "Cores used"
-            scale = 1.0/100.
-        df = self.grouprateby_host(obdclass, stats_type, events)
-        hostnames = list(df.hostname.unique())
-        hover = HoverTool(tooltips = [("time", "@time{%Y-%m-%d %H:%M:%S}"), (label, "@values")], 
-                          formatters = {"time" : "datetime"}, line_policy = "nearest")    
-        plot = figure(title =  label, plot_width=1200, plot_height=300, x_axis_type = "datetime", 
-                      y_range = Range1d(0, (1.1*scale*df["value"]).max()), y_axis_label = label, 
-                      tools = "pan,wheel_zoom,save,box_zoom,reset", toolbar_location = "above")
-        plot.tools.append(hover)        
-        for h in hostnames:
-            selectby_hostname = df[df.hostname == h]
-            source = ColumnDataSource({"time" : selectby_hostname.index.tz_localize(None), 
-                                       "hostname": selectby_hostname["hostname"], 
-                                       "values" : scale*selectby_hostname["value"]})
-            plot.line(source = source, x = "time", y = "values", line_color = self.hc[h], 
-                      line_width = 4, line_alpha = 0.5, legend_label = h)
-        self.format_plot(plot)
-        return plot
-
-
-    def plotlatestvalueby_host(self):            
-        scale = 1/1000.0
-        plots = []
-
-        df = self.grouplastvalueby_target_events(("mds", "oss"), ("mdt", "ost"), 
-                                                 ('filesfree', 'filestotal', 'kbytesfree', 'kbytestotal'))
-        targets = list(df.target.unique())
-        hover = HoverTool(tooltips = [("time", "@time{%Y-%m-%d %H:%M:%S}"), ("Used Inodes [K]", "@used")], 
-                          formatters = {"time" : "datetime"}, line_policy = "nearest")    
-
-        plot = figure(plot_width=1200, plot_height=300, x_range = targets,
-                      y_range = Range1d(0, (1.1*scale*df["value"]).max()), y_axis_label = "Inode Usage [K]", 
-                      toolbar_location = "above", tools = "pan,wheel_zoom,save,box_zoom,reset")
-        plot.tools.append(hover)
-        df_total = df[df["event_name"] == "filestotal"]
-        df_free = df[df["event_name"] == "filesfree"]
-        source = ColumnDataSource({"targets" : targets, "total" : scale*df_total["value"], 
-                                   "time" : df_free.index.tz_localize(None),
-                                   "used" : scale*(df_total["value"].to_numpy()-df_free["value"].to_numpy())})
-        plot.vbar(x = "targets", top = "total", source = source, width = 0.8, alpha = 0.5, legend_label = "Total Files")    
-        plot.vbar(x = "targets", top = "used", source = source, width = 0.8, color = "red", legend_label = "Used Files")
-        plots += [plot]
-
-        scale = 1.0/(1024*1024)
-        hover = HoverTool(tooltips = [("time", "@time{%Y-%m-%d %H:%M:%S}"), ("Used GB", "@used")], 
-                          formatters = {"time" : "datetime"}, line_policy = "nearest")    
-
-        plot = figure(plot_width=1200, plot_height=300, x_range = targets,
-                      y_range = Range1d(0, (1.1*scale*df["value"]).max()), y_axis_label = "Disk Usage [GB]", 
-                      toolbar_location = "above", tools = "pan,wheel_zoom,save,box_zoom,reset")
-        plot.tools.append(hover)
-        df_total = df[df["event_name"] == "kbytestotal"]
-        df_free = df[df["event_name"] == "kbytesfree"]
-        source = ColumnDataSource({"targets" : targets, "total" : scale*df_total["value"], 
-                                   "time" : df_free.index.tz_localize(None),
-                                   "used" : scale*(df_total["value"].to_numpy()-df_free["value"].to_numpy())})
-        plot.vbar(x = "targets", top = "total", source = source, width = 0.8, alpha = 0.5, legend_label = "Total GB")    
-        plot.vbar(x = "targets", top = "used", source = source, width = 0.8, color = "red", legend_label = "Used GB")
-        plots += [plot]
-
-        return gridplot(plots, ncols = 1)
-"""
 
 class RatePlot():
-    def __init__(self, bucket, interval):
+    def __init__(self, bucket, start, end = "clock_timestamp()"):
         self.bucket = bucket
-        self.interval = interval
+        self.start = start
+        self.end  = end
         self.cur = conn.cursor()
+        print(read_sql("select version()",conn))
 
         self.cur.execute("DROP VIEW IF EXISTS server_rates CASCADE;")
+                
+        query = """CREATE TEMP VIEW server_rates AS select time_bucket_gapfill('{0}', time) as 
+        t, hostname, uid, jid, event_name, locf(last(value,time), treat_null_as_missing => true) as value from stats 
+        where time > {1} and time <= {2} 
+        group by t, hostname, uid, jid, event_name order by hostname, t;""".format(self.bucket, self.start, self.end)
 
-        self.cur.execute("CREATE TEMP VIEW server_rates AS select time, hostname, uid, jid, client, event_name, value from stats where time > now() - interval '{0}'".format(interval), conn)
-        self.cur.execute("CREATE TEMP VIEW server_bucketed AS select time_bucket_gapfill('{0}', time, now() - interval '{1}', now()) as t, hostname, uid, jid, client, event_name, coalesce(last(value,time), 0) as value from server_rates group by t, hostname, uid, jid, client, event_name order by hostname, t;".format(self.bucket, self.interval))
+        self.cur.execute(query)        
 
-        self.hostnames = read_sql("select distinct hostname from server_rates", conn)["hostname"]
-        self.hc = {}
-        colors = d3["Category10"][10]*5#[20]
-        for i, h in enumerate(self.hostnames):
-            self.hc[h] = colors[i%20]
+        ev = time.time()
+        df = read_sql("select hostname, event_name, uid, jid from server_rates group by hostname, event_name, uid, jid", conn)
+        self.hostnames = sorted(list(set(df["hostname"])))
+        self.events = sorted(list(set(df["event_name"])))
+        self.uids = sorted(list(set(df["uid"])))
+        self.jids = sorted(list(set(df["jid"])))
+        print("time to select distinct tags", time.time()-ev)
 
+        print("intialize view")
+        #print(self.hostnames)
+        #print(self.events)
+        #print(self.uids)
+        #print(self.jids)
+
+        self.units = {"load" : "#cores", "load_eff" : "#cores", "bytes" : "MB/s", 
+                      "read_bytes" : "MB/s", "write_bytes" : "MB/s", "nclients" : "#", "iops" : "#/s"}
         pandas.set_option('display.max_columns', 20)
 
     def format_plot(self, p):
@@ -232,98 +80,243 @@ class RatePlot():
         p.legend[0] = None
         p.add_layout(new_legend, 'below')
 
-    def plothostrateby_tag(self, hostname, event_name, tag):        
+    def plothosteventby_tag(self, tag_name, event, hostname = None, tag = None):        
 
-        df = read_sql("select t, hostname, {2}, sum(value) as value from server_bucketed where hostname like '{0}%' and event_name = '{1}' group by t, hostname, {2}".format(hostname, event_name, tag), conn)
-        df = df.set_index("t").tz_convert(tz)
-
-        scale = 1.0
-        hover = HoverTool(tooltips = [("host", "@hostname"), (tag, "@" + tag), ("time", "@time{%Y-%m-%d %H:%M:%S}"), (event_name, "@values")], 
-                          formatters = {"time" : "datetime"}, line_policy = "nearest")    
-
-        hs = df["hostname"].unique()
-        ts = df[tag].unique()
-
-        plots = []
-        for h in hs:                     
-            selectby_hostname = df[(df["hostname"] == h)]
-            groupby_hostname = selectby_hostname.groupby([selectby_hostname.index, "hostname"]).sum().reset_index(level = "hostname")
-
-            ylimit = (1.1*scale*groupby_hostname["value"]).max()
-            plot = figure(title =  event_name, plot_width=1200, plot_height=300, x_axis_type = "datetime", 
-                          y_range = Range1d(0, ylimit), y_axis_label = event_name, 
-                          tools = "pan,wheel_zoom,save,box_zoom,reset", toolbar_location = "above")
-            plot.tools.append(hover)        
-
-            #print(groupby_hostname)
-            btime = groupby_hostname.index.tz_localize(None)
+        if hostname:
+            df = read_sql("""select t, hostname, {0}, sum(value) as value from server_rates 
+            where event_name = '{1}' and hostname = '{2}' 
+            group by t, hostname, {0} order by hostname, {0}, t""".format(tag_name, event, hostname), conn)
+            hosts = [hostname]
+        else:
+            df = read_sql("""select t, hostname, {0}, sum(value) as value from server_rates 
+            where event_name = '{1}' 
+            group by t, hostname, {0} order by hostname, {0}, t""".format(tag_name, event), conn)        
+            hosts = self.hostnames
         
-            source = ColumnDataSource({"time" : btime, 
-                                       "hostname" : groupby_hostname["hostname"], 
-                                       "values" : scale*groupby_hostname["value"]})
-            plot.line(source = source, x = "time", y = "values", line_color = self.hc[h], 
-                      line_width = 4, line_alpha = 0.5, legend_label = h)
-            
-            source = ColumnDataSource({"time" : selectby_hostname.index.tz_localize(None),
-                                       "hostname" : selectby_hostname["hostname"], 
-                                       tag : selectby_hostname[tag], 
-                                       "values" : scale*selectby_hostname["value"]})
-            
-            plot.triangle(source = source, x = "time", y = "values", color = factor_cmap(tag, palette=d3["Category10"][10], factors = ts))
-            self.format_plot(plot)
+        df["t"].dt.tz_convert(tz).dt.tz_localize(None)        
+        ts = sorted(list(set(df["t"])))
+        dt = (ts[1] - ts[0]).total_seconds()
+
+        if tag:            
+            df.loc[(df[tag_name] != tag), tag_name] = '*'
+            df = df.groupby(["t", "hostname", tag_name]).sum().reset_index()
+            print(df)
+        tags = df[tag_name].unique()
+        color = list(Category20b[min(20, max(3, len(tags)))])
+        cmap = {}
+        for i, t in enumerate(tags):
+            try: cmap[t] = color[i]
+            except: cmap[t] = "#7f7f7f"
+
+        try: 
+            units = self.units[event]
+        except:
+            units = "#/s"
+        plots = []
+
+        for h in hosts:   
+            data = df[df.hostname == h]
+            source = ColumnDataSource(data = data.pivot(index="t", columns = tag_name, values = "value"))
+            ylimit = (1.1*data["value"]).max()
+            plot = figure(title = h + ": " + event + " by " + tag_name, plot_width=1200, plot_height=300, 
+                          x_axis_type = "datetime", 
+                          y_range = Range1d(0, ylimit), y_axis_label = units, 
+                          tools = "pan,wheel_zoom,save,box_zoom,reset",tooltips="$name: @$name")
+            plot.vbar_stack(tags, x= "t", width=dt*1000, alpha=0.5, color = list(cmap.values()), source = source)
+
             plots += [plot]
         return gridplot(plots, ncols = 1)
 
-    def plotrateby_host(self, hostname, event_name):        
+    def piechartsby_tag(self, tag, event, hostname = None):
+        
+        if hostname:
+            df = read_sql("""select distinct on ({0}) t, hostname, {0}, sum(value) as value
+            from server_rates where hostname = '{2}' and event_name = '{1}' 
+            group by t, hostname, {0} order by {0}, hostname, t desc""".format(tag,event,hostname),conn)
+            hosts = [hostname]
+        else:
+            df = read_sql("""select distinct on ({0}, hostname) t, hostname, {0}, sum(value) as value
+            from server_rates where event_name = '{1}' 
+            group by t, hostname, {0} order by {0}, hostname, t desc""".format(tag,event),conn)
+            hosts = self.hostnames
 
-        df = read_sql("select t, hostname, sum(value) as value from server_bucketed where hostname like '{0}%' and event_name = '{1}' group by t, hostname".format(hostname, event_name), conn)
-        df = df.set_index("t").tz_convert(tz)
-        scale = 1.0
-        hover = HoverTool(tooltips = [("host", "@hostname"), ("time", "@time{%Y-%m-%d %H:%M:%S}"), (event_name, "@values")], 
-                          formatters = {"time" : "datetime"}, line_policy = "nearest")    
-        plot = figure(title =  event_name, plot_width=1200, plot_height=300, x_axis_type = "datetime", 
-                      y_range = Range1d(0, (1.1*scale*df["value"]).max()), y_axis_label = event_name, 
-                      tools = "pan,wheel_zoom,save,box_zoom,reset", toolbar_location = "above")
-        plot.tools.append(hover)        
+        df = df.set_index("t").tz_convert(tz).tz_localize(None)            
 
-        for h in df.hostname.unique(): 
-            selectby_hostname = df[df.hostname == h]
-            source = ColumnDataSource({"time" : selectby_hostname.index.tz_localize(None), 
-                                       "hostname": selectby_hostname["hostname"], 
-                                       "values" : scale*selectby_hostname["value"]})
-            plot.line(source = source, x = "time", y = "values", line_color = self.hc[h], 
-                      line_width = 4, line_alpha = 0.5, legend_label = h)
+        plots = []
+        tags  = df[tag].unique()
+        color = list(Category20b[min(20, max(3, len(tags)))])
+        cmap = {}
+        for i, t in enumerate(tags):
+            try: cmap[t] = color[i]
+            except: cmap[t] = "#7f7f7f"
+        df.insert(1, "color", list(df[tag]))
+        df = df.replace({"color" : cmap})
 
-        self.format_plot(plot)
-        return plot
+        df_total = df.groupby([df.index, "hostname"]).sum().reset_index(level = "hostname")
 
-def home(request):
-    field = {}
+        total_colors = ["#75968f", "#a5bab7", "#c9d9d3", "#e2e2e2", "#dfccce", "#ddb7b1", "#cc7878", "#933b41", "#550b1d"]
+        mapper = LinearColorMapper(palette=total_colors, low=df_total["value"].min(), high=df_total["value"].max())
+        TOOLS = "hover,save,box_zoom,reset,wheel_zoom"
 
-    bucket = "60 seconds"
-    interval = '2.5 hours'
+        for h in hosts:
+            data = df[df.hostname == h].copy()
+            total = df_total[df_total.hostname == h].copy()            
+            data["angle"] = data["value"] / total["value"] * 2*pi            
 
-    P = RatePlot(bucket, interval)
-    field["mds_load_script"], field["mds_load_div"] = components(P.plothostrateby_tag("mds", "load_eff", "uid"))
-
-    field["mds_script"], field["mds_div"] = components(P.plothostrateby_tag("mds", "iops", "uid"))
-    field["oss_script"], field["oss_div"] = components(P.plothostrateby_tag("oss", "bytes", "uid"))
-    """
-    field["ost_script"], field["ost_div"] = components(P.plotlatestvalueby_host())
-
-    iops_tuples = ('open', 'close', 'setattr', 'create', 'statfs', 'set_info')
-    bw_tuples = ('read_bytes', 'write_bytes')
-    cpu_tuples = ('system', 'user', "iowait", "nice", "irq", "softirq")
-
-    field["mds_freeram_script"], field["mds_freeram_div"] = components(P.plotrateby_host("mds", "cpu", cpu_tuples))
-    field["oss_freeram_script"], field["oss_freeram_div"] = components(P.plotrateby_host("oss", "cpu", cpu_tuples))
+            p = figure(plot_height=150, plot_width = 150, 
+                       title= h.split('.')[0], 
+                       tools=TOOLS, 
+                       tooltips='@'+tag+ ': @value',
+                       x_range=(-0.5, 0.5), y_range=(-0.5, 0.5))
             
-    field["mds_script"], field["mds_div"] = components(P.plotrateby_tag("mds", "mds", iops_tuples))
-    field["oss_script"], field["oss_div"] = components(P.plotrateby_tag("oss", "oss", bw_tuples))
-    """
+            p.annular_wedge(x=0, y=0.0, inner_radius=0.1, outer_radius=0.4,
+                            start_angle=cumsum('angle', include_zero=True), end_angle=cumsum('angle'),
+                            line_color="white", fill_color="color", source=data)            
+            
+            p.wedge(x=0, y=0.0, radius=0.1,
+                    start_angle=0, end_angle=2*pi,
+                    line_color=None, fill_color= {'field' : "value", 'transform' : mapper}, source=total)
+            
+            p.axis.visible=False
+            p.grid.grid_line_color = None
+            plots += [p]
+
+        title = Div(text="<b>" + str(data.index[-1]) + ":</b> " + event + " by " + tag, sizing_mode="stretch_width", 
+                    style={'font-size': '100%', 'color': 'black'})
+        
+        return column(title, gridplot(plots, ncols = int(1 + len(hosts)**0.5)))
+
+    def ploteventby_host(self, event_name):
+        df = read_sql("""select t, hostname, sum(value) as value from server_rates 
+        where event_name = '{0}' group by t, hostname order by hostname""".format(event_name), conn)
+        ts = sorted(list(set(df["t"])))
+        df = df.set_index("t").tz_convert(tz).tz_localize(None)        
+        dt = (ts[1] - ts[0]).total_seconds()
+
+        hosts = self.hostnames[::-1]
+        colors = ["#75968f", "#a5bab7", "#c9d9d3", "#e2e2e2", "#dfccce", "#ddb7b1", "#cc7878", "#933b41", "#550b1d"]
+        mapper = LinearColorMapper(palette=colors, low=df["value"].min(), high=df["value"].max())
+
+        TOOLS = "save,pan,box_zoom,reset,wheel_zoom"
+        p = figure(plot_width=20*len(ts), plot_height=max(200, 20*len(hosts)), title="Total " + event_name + " per server",
+                   x_axis_type = 'datetime', 
+                   y_range = hosts,
+                   x_axis_location="above", toolbar_location='below', 
+                   tools=TOOLS)
+        p.add_tools(HoverTool(tooltips=[('host', '@hostname'), ("time", "@t{%Y-%m-%d %H:%M:%S}"), 
+                                        (event_name, '@value')], formatters = {"@t" : "datetime"}))
+        
+        p.rect(x = "t", y = "hostname", width = dt*1000, height=1, source = df, 
+               fill_color = {'field' : 'value', 'transform' : mapper}, line_color="white")
+
+        color_bar = ColorBar(color_mapper=mapper, location=(0, 0),
+                             ticker=BasicTicker(desired_num_ticks=len(colors)),
+                             formatter=PrintfTickFormatter(format="%.2f"))
+        p.add_layout(color_bar, 'right')
+        p.grid.grid_line_color = None        
+        p.axis.axis_line_color = None
+        p.axis.major_tick_line_color = None
+        p.axis.major_label_text_font_size = "10px"
+        p.axis.major_label_standoff = 1
+        p.xaxis.major_label_orientation = 1.0
+        p.x_range.range_padding = 0
+        return p
+
+P = RatePlot("1m", "clock_timestamp() - interval '15m'")    
+
+class ChoiceForm(forms.Form):
+    TAGCHOICES = [("jid", "jid"),("uid", "uid")]
+    EVENTCHOICES = [(e, e) for e in P.events]
+    tag = forms.ChoiceField(choices=TAGCHOICES, initial = "jid", required = True)
+    event = forms.ChoiceField(choices=EVENTCHOICES, initial = "load_eff", required = True)
+
+    TIMECHOICES = [("15m", "15m"),("1h", "1h"),("1d", "1d")]
+    BUCKETCHOICES = [("30s", "30s"),("1m", "1m"),("1h", "1h")]
+    time_interval = forms.ChoiceField(choices=TIMECHOICES, initial = "15m", required = True)
+    time_bucket = forms.ChoiceField(choices=BUCKETCHOICES, initial = "1m", required = True)
+
+def history(request, hostname):
+    field = {}
+    if request.method == 'POST':
+        tag = request.POST["tag"]
+        event = request.POST["event"]
+        time_interval = request.POST["time_interval"]
+        time_bucket = request.POST["time_bucket"]
+        P = RatePlot(time_bucket, "clock_timestamp() - interval '{0}'".format(time_interval))    
+        field["choice"] = ChoiceForm(request.POST)
+    else:
+        tag = "jid"
+        event = "nclients"
+        time_interval = "15m"
+        time_bucket = "1m"
+        P = RatePlot(time_bucket, "clock_timestamp() - interval '{0}'".format(time_interval))    
+        field["choice"] = ChoiceForm()
+
+    field["pie_script"], field["pie_div"] = components(P.piechartsby_tag(tag, event, hostname = hostname))
+    field["hm_script"], field["hm_div"] = components(P.plothosteventby_tag(tag, event, hostname = hostname))
 
     field["resources"] = CDN.render()
     field["datetime"] = timezone.now()
+    field["hostnames"] = P.hostnames
+    field["hostname"] = hostname
+    return render(request, "pfs_app/history.html", field)
+
+def tag_detail(request):
+    print(request)
+
+    tag = request.GET["tag"]
+
+    field = {}
+
+    tag_name = "jid"
+    event = "nclients"
+    time_bucket = "30m"
+        
+    ts = read_sql("""select min(time), max(time) from stats where jid = '{0}'""".format(tag), conn)
+    
+    tmin = "\'" + str(ts["min"].dt.tz_convert(tz).dt.tz_localize(None).values[0]) + "\'"
+    tmax = "\'" + str(ts["max"].dt.tz_convert(tz).dt.tz_localize(None).values[0]) + "\'"
+
+    P = RatePlot(time_bucket, tmin, tmax)
+    
+    field["choice"] = ChoiceForm()        
+
+    #field["pie_script"], field["pie_div"] = components(P.piechartsby_tag(tag_name, event))
+    field["hm_script"], field["hm_div"] = components(P.plothosteventby_tag(tag_name, event, tag = tag))
+
+    field["resources"] = CDN.render()
+    field["datetime"] = timezone.now()
+    field["hostnames"] = P.hostnames
+
+    return render(request, "pfs_app/tag_detail.html", field)
+
+def home(request):
+    field = {}
+    if request.method == 'POST':
+        tag = request.POST["tag"]
+        event = request.POST["event"]
+        time_interval = request.POST["time_interval"]
+        time_bucket = request.POST["time_bucket"]
+        P = RatePlot(time_bucket, "clock_timestamp() - interval '{0}'".format(time_interval))
+        field["choice"] = ChoiceForm(request.POST)
+    else:
+        tag = "jid"
+        event = "load_eff"
+        time_interval = "15m"
+        time_bucket = "1m"
+        P = RatePlot(time_bucket, "clock_timestamp() - interval '{0}'".format(time_interval))
+        field["choice"] = ChoiceForm()
+        
+    q = time.time()
+    field["pie_script"], field["pie_div"] = components(P.piechartsby_tag(tag, event))
+    print("time to build pie chart", time.time()-q)
+    q = time.time()
+    field["hm_script"], field["hm_div"] = components(P.ploteventby_host(event))
+    print("time to build heat map", time.time()-q)
+
+    field["resources"] = CDN.render()
+    field["datetime"] = timezone.now()
+    field["hostnames"] = P.hostnames
     
     return render(request, "pfs_app/home.html", field)
 
