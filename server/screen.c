@@ -178,7 +178,10 @@ enum json_tokener_error error = json_tokener_success;
 static void refresh_timer_cb(EV_P_ ev_timer *w, int revents)
 {
   if (da_refresh_flag) {
+    //printf("before\n", json_object_to_json_string(server_tag_rate_map));
     get_shm_map();
+    
+    //printf("after %s\n", json_object_to_json_string(server_tag_rate_map));
 
     switch(groupby) {
     case 4:
