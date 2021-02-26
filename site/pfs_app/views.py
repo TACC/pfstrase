@@ -16,11 +16,11 @@ from bokeh.plotting import figure
 from bokeh.embed import components
 from bokeh.resources import CDN
 from bokeh.layouts import gridplot, column
-from bokeh.palettes import d3, Category20b
-from bokeh.models import ColumnDataSource, Plot, Grid, DataRange1d, Range1d, Div, RadioButtonGroup, CustomJS
+from bokeh.palettes import d3, Category20b, Category20
+from bokeh.models import ColumnDataSource, Plot, Grid, DataRange1d, Range1d, Div, RadioButtonGroup, CustomJS, Label
 from bokeh.models import HoverTool, PanTool, WheelZoomTool, BoxZoomTool, UndoTool, RedoTool, ResetTool, OpenURL
 from bokeh.models.glyphs import Step, Line
-from bokeh.transform import factor_cmap, transform, linear_cmap, cumsum
+from bokeh.transform import factor_cmap, transform, cumsum
 from bokeh.models import (BasicTicker, ColorBar, ColumnDataSource,
                           LinearColorMapper, PrintfTickFormatter,)
 
@@ -47,7 +47,7 @@ class RatePlot():
         self.cur.execute("DROP VIEW IF EXISTS server_rates CASCADE;")
                 
         query = """CREATE TEMP VIEW server_rates AS select time_bucket_gapfill('{0}', time) as 
-        t, hostname, uid, jid, event_name, locf(last(value,time), treat_null_as_missing => true) as value from stats 
+        t, hostname, uid, jid, event_name, locf(avg(value), treat_null_as_missing => true) as value from stats 
         where time > {1} and time <= {2} 
         group by t, hostname, uid, jid, event_name order by hostname, t;""".format(self.bucket, self.start, self.end)
 
@@ -62,8 +62,8 @@ class RatePlot():
         print("time to select distinct tags", time.time()-ev)
 
         print("intialize view")
-        #print(self.hostnames)
-        #print(self.events)
+        print(self.hostnames)
+        print(self.events)
         #print(self.uids)
         #print(self.jids)
 
@@ -100,7 +100,6 @@ class RatePlot():
         if tag:            
             df.loc[(df[tag_name] != tag), tag_name] = '*'
             df = df.groupby(["t", "hostname", tag_name]).sum().reset_index()
-            print(df)
         tags = df[tag_name].unique()
         color = list(Category20b[min(20, max(3, len(tags)))])
         cmap = {}
@@ -116,6 +115,7 @@ class RatePlot():
 
         for h in hosts:   
             data = df[df.hostname == h]
+            if len(data) == 0: continue
             source = ColumnDataSource(data = data.pivot(index="t", columns = tag_name, values = "value"))
             ylimit = (1.1*data["value"]).max()
             plot = figure(title = h + ": " + event + " by " + tag_name, plot_width=1200, plot_height=300, 
@@ -141,49 +141,49 @@ class RatePlot():
             hosts = self.hostnames
 
         df = df.set_index("t").tz_convert(tz).tz_localize(None)            
-
+        
         plots = []
         tags  = df[tag].unique()
-        color = list(Category20b[min(20, max(3, len(tags)))])
+        color = list(Category20[20])
+
         cmap = {}
         for i, t in enumerate(tags):
-            try: cmap[t] = color[i]
-            except: cmap[t] = "#7f7f7f"
+            cmap[t] = color[i%20]
+
         df.insert(1, "color", list(df[tag]))
         df = df.replace({"color" : cmap})
 
         df_total = df.groupby([df.index, "hostname"]).sum().reset_index(level = "hostname")
 
-        total_colors = ["#75968f", "#a5bab7", "#c9d9d3", "#e2e2e2", "#dfccce", "#ddb7b1", "#cc7878", "#933b41", "#550b1d"]
-        mapper = LinearColorMapper(palette=total_colors, low=df_total["value"].min(), high=df_total["value"].max())
         TOOLS = "hover,save,box_zoom,reset,wheel_zoom"
 
         for h in hosts:
             data = df[df.hostname == h].copy()
+            if len(data) == 0: continue
             total = df_total[df_total.hostname == h].copy()            
             data["angle"] = data["value"] / total["value"] * 2*pi            
 
-            p = figure(plot_height=150, plot_width = 150, 
+            p = figure(plot_height=180, plot_width = 180, 
                        title= h.split('.')[0], 
                        tools=TOOLS, 
                        tooltips='@'+tag+ ': @value',
-                       x_range=(-0.5, 0.5), y_range=(-0.5, 0.5))
-            
-            p.annular_wedge(x=0, y=0.0, inner_radius=0.1, outer_radius=0.4,
+                       x_range=(-0.8, 0.8))#, y_range=(-0.6, 0.6))
+
+            p.annular_wedge(x=0, y=0.0, inner_radius=0.25, outer_radius=0.7,
                             start_angle=cumsum('angle', include_zero=True), end_angle=cumsum('angle'),
-                            line_color="white", fill_color="color", source=data)            
-            
-            p.wedge(x=0, y=0.0, radius=0.1,
-                    start_angle=0, end_angle=2*pi,
-                    line_color=None, fill_color= {'field' : "value", 'transform' : mapper}, source=total)
-            
+                            line_color="white", fill_color="color", source=data)                        
+
+            p.add_layout(Label(x=0,y=0,text_baseline="middle", text_align="center", text = "{0:.1f}".format(total["value"].values[0])))
             p.axis.visible=False
             p.grid.grid_line_color = None
             plots += [p]
 
-        title = Div(text="<b>" + str(data.index[-1]) + ":</b> " + event + " by " + tag, sizing_mode="stretch_width", 
-                    style={'font-size': '100%', 'color': 'black'})
-        
+        if len(df) > 0:
+            title = Div(text="<b>" + str(df.index[-1]) + ":</b> " + event + " by " + tag, sizing_mode="stretch_width", 
+                        style={'font-size': '100%', 'color': 'black'})
+        else:
+            title = Div(text="event" + " by " + tag + " N/A", sizing_mode="stretch_width", 
+                        style={'font-size': '100%', 'color': 'black'})
         return column(title, gridplot(plots, ncols = int(1 + len(hosts)**0.5)))
 
     def ploteventby_host(self, event_name):
@@ -253,8 +253,10 @@ def history(request, hostname):
         field["choice"] = ChoiceForm()
 
     field["pie_script"], field["pie_div"] = components(P.piechartsby_tag(tag, event, hostname = hostname))
-    field["hm_script"], field["hm_div"] = components(P.plothosteventby_tag(tag, event, hostname = hostname))
-
+    try:
+        field["hm_script"], field["hm_div"] = components(P.plothosteventby_tag(tag, event, hostname = hostname))
+    except:
+        pass
     field["resources"] = CDN.render()
     field["datetime"] = timezone.now()
     field["hostnames"] = P.hostnames
@@ -273,7 +275,7 @@ def tag_detail(request):
     time_bucket = "30m"
         
     ts = read_sql("""select min(time), max(time) from stats where jid = '{0}'""".format(tag), conn)
-    
+    print(ts)
     tmin = "\'" + str(ts["min"].dt.tz_convert(tz).dt.tz_localize(None).values[0]) + "\'"
     tmax = "\'" + str(ts["max"].dt.tz_convert(tz).dt.tz_localize(None).values[0]) + "\'"
 
@@ -311,7 +313,9 @@ def home(request):
     field["pie_script"], field["pie_div"] = components(P.piechartsby_tag(tag, event))
     print("time to build pie chart", time.time()-q)
     q = time.time()
+
     field["hm_script"], field["hm_div"] = components(P.ploteventby_host(event))
+
     print("time to build heat map", time.time()-q)
 
     field["resources"] = CDN.render()
