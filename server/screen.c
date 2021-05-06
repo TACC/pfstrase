@@ -200,7 +200,7 @@ static void refresh_timer_cb(EV_P_ ev_timer *w, int revents)
       group_ratesbytags(1, "server");
       break;
     default:
-      group_ratesbytags(5, "fid", "server", "client", "jid", "uid");
+      group_ratesbytags(5, "fid", "server", "jid", "uid");
       break;
     }
   }
@@ -441,7 +441,7 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 
   if (da_refresh_flag == 1) da_refresh();
   /* Construct header */
-  char header_tags[512] = "";
+  char header_tags[2048] = "";
   char *cur = header_tags, * const end = header_tags + sizeof(header_tags);
   json_object_object_foreach(group_tags, t, v) {
     cur += snprintf(cur, end - cur, "%-14.14s ", t);

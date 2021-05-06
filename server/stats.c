@@ -59,8 +59,9 @@ static void derived_events(json_object *server_entry) {
     double sum_reqs = 0;
     double sum_bytes = 0;
     json_object_object_foreach(tag_entry, eventname, value) {    
-      if (strcmp(eventname, "nclients") == 0 || strcmp(eventname, "bytes") == 0  || strcmp(eventname, "iops") == 0) continue;
-      if (strcmp(eventname, "read_bytes") == 0 || strcmp(eventname, "write_bytes") == 0) {
+
+      if (strstr(eventname, "[usecs]") || strcmp(eventname, "nclients") == 0 || strcmp(eventname, "bytes") == 0  || strcmp(eventname, "iops") == 0) continue;
+      if (strstr(eventname, "read_bytes") || strstr(eventname, "write_bytes")) {
 	sum_bytes += json_object_get_double(value);
 	json_object_object_add(tag_entry, eventname, json_object_new_double(json_object_get_double(value)*cf));
       }
@@ -68,6 +69,7 @@ static void derived_events(json_object *server_entry) {
 	cpu = json_object_get_double(value);
       else
 	sum_reqs += json_object_get_double(value);
+      //printf("%s %d %d %d\n", eventname, value, sum_reqs, sum_bytes);
     }
 
     total_iops += sum_reqs;
@@ -195,7 +197,7 @@ static void aggregate_stat(json_object *host_entry, json_object *tag_tuple, char
 	!json_object_object_get_ex(de, "stats_type", &tid) ||
 	(strcmp(stat_type, json_object_get_string(tid)) != 0))
       continue;
-    //printf("%s\n", json_object_to_json_string(de));
+    
     json_object *tags = json_object_new_object();
     json_object_object_foreach(tag_tuple, tag, t) {    
       if (json_object_object_get_ex(de, tag, &tid))
@@ -352,12 +354,12 @@ void group_statsbytags(int nt, ...) {
 
     json_object *tag_map = json_object_new_object();
 
-    //if (is_class(host_entry, "mds") > 0) {
-    aggregate_stat(host_entry, group_tags, "mds", tag_map);
-    //}
-    //if (is_class(host_entry, "oss") > 0) {
-    aggregate_stat(host_entry, group_tags, "oss", tag_map);
-    //}
+    if (is_class(host_entry, "mds") > 0) {
+      aggregate_stat(host_entry, group_tags, "mds", tag_map);
+    }
+    if (is_class(host_entry, "oss") > 0) {
+      aggregate_stat(host_entry, group_tags, "oss", tag_map);
+    }
     //printf("%s\n", json_object_to_json_string(tag_map));
   
     /* Get cpu load due to kernel as well */
@@ -489,7 +491,7 @@ static int update_host_entry(json_object *rpc_json) {
     if (json_object_object_get_ex(rpc_json, "data", &tag))
       json_object_object_add(host_entry, "data", json_object_get(tag));
     else {
-      if (json_object_object_get_ex(rpc_json, "nid", &tag))	
+      if (json_object_object_get_ex(rpc_json, "nid", &tag)) 
 	json_object_object_add(nid_map, json_object_get_string(tag), json_object_get(host_entry));
     }
     /*
@@ -521,6 +523,7 @@ int update_host_map(char *rpc) {
 
   int i;
   if (json_object_is_type(rpc_json, json_type_array)) {
+    //printf("%s\n",json_object_get_string(rpc_json));
     int arraylen = json_object_array_length(rpc_json);
     for (i = 0; i < arraylen; i++)
       update_host_entry(json_object_array_get_idx(rpc_json, i));

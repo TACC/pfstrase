@@ -32,7 +32,7 @@ int pq_insert() {
   int rc = -1;
   PGresult *res;
   int i;
-  printf("here: pq_insert\n");
+
   struct timeval ts,te;
   gettimeofday(&ts, NULL); 
   int total_size = 0;  
@@ -93,7 +93,6 @@ int pq_insert() {
     total_size += query_len;
     if (query_len > empty_len) {
       query[strlen(query) - 2] = ';';
-    printf("%s\n",query);
       res = PQexec(conn, query);
       PQclear(res);
     }
