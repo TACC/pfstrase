@@ -40,7 +40,7 @@ def ingest(channel, method_frame, header_frame, body):
         cur.executemany("INSERT INTO stats (" + cols + ") values (" + names + ");", vals)
     conn.commit()
 
-parameters = pika.ConnectionParameters("tacc-stats03")
+parameters = pika.ConnectionParameters("localhost")
 connection = pika.BlockingConnection(parameters)
 channel = connection.channel()
 

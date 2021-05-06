@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-{% load staticfiles %}
+{% load static %}
 <html lang="en">
   <head>
     <title>PFSTRASE</title>
@@ -11,28 +11,31 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
   </head>
 
   <body>
     <div class ="container-fluid">
       
       <nav class="navbar navbar-default" role="navigation">
-	<div class="navbar-header"><a href="https://www.tacc.utexas.edu"> <img src="{% url 'media' path='TACC_logo.png' %}" style="max-width:50%;"/></a></div>
-	<center>{{ machine_name }}</center>
-	<a>
-            <div class="form-group">
-              <input type="text" class="form-control" name ="jobid" placeholder="Job ID">
-            </div>
-            <button type="submit" class="btn btn-default">find job</button>
-	        {% if logout %}
-            <a class="btn btn-danger" href="{% url 'logout'%}">Log out</a>
-	        {% endif %}
-	      </form>
-	    </a>
-     </nav>
-    {% block content %}
-    {% endblock %}    
+	<div class="navbar-header">
+	  <a href="https://www.tacc.utexas.edu"> <img src="{% url 'media' path='TACC_logo.png' %}" style="max-width:50%;"/></a>
+	</div>
+
+	<form class="navbar-form navbar-right" action="{% url 'tag_detail' %}" method="get" role="search">
+	  {% csrf_token %}      
+          <div class="form-group">
+            <input type="text" class="form-control" name ="tag" placeholder="Job ID">
+          </div>
+          <button type="submit" class="btn btn-default">find job</button>
+
+          <a class="btn btn-danger pull-right" href="{% url 'home' %}">PFSTRASE Home</a>	
+	</form>
+	
+
+	  
+      </nav>
+      {% block content %}
+      {% endblock %}    
     </div> 
   </body>
 </html>

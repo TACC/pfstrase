@@ -17,11 +17,13 @@ from django.contrib import admin
 from django.urls import path
 from django.views.static import serve
 import pfstrase.settings as settings
-from pfs_app.views import home
+from pfs_app.views import home, history, tag_detail
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home, name='home'),    
+    path('history/<str:hostname>', history, name='history'),    
+    path('tag_detail/', tag_detail, name='tag_detail'),    
     path(r'media/<path>', serve, {'document_root': settings.MEDIA_ROOT}, 
          name = "media"), 
 ]
