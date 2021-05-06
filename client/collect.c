@@ -88,12 +88,17 @@ int collect_stats(const char *path, json_object *stats)
       continue;
     }
     
-    int n = sscanf(line, "%llu samples %*s %*u %*u %llu", &count, &sum);
-    if (n == 1)
-      val = count;
-    if (n == 2)
-      val = sum;
-    json_object_object_add(stats, key, json_object_new_int64(val)); 
+    char units[16];
+    int n = sscanf(line, "%llu samples %s %*u %*u %llu", &count, units, &sum);
+    if (n == 1 || n == 2) {
+      json_object_object_add(stats, key, json_object_new_int64(count)); 
+    }
+    else if (n == 3) {
+      json_object_object_add(stats, key, json_object_new_int64(count)); 
+      char sum_key[32];
+      snprintf(sum_key, sizeof(sum_key), "%s_%s", key, units);
+      json_object_object_add(stats, sum_key, json_object_new_int64(sum)); 
+    }
   }
   if (line_buf != NULL) 
     free(line_buf);

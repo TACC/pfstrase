@@ -55,8 +55,8 @@ void sock_send_data(const char *dn, const char *port)
   while ((bytes_sent = send(server_socket, request + p, sizeof(request) - p*sizeof(char), 0)) > 0)
     p += bytes_sent;
 
-  if (bytes_sent < 0)
-    fprintf(stderr, "cannot send: %s\n", strerror(errno));
+  //if (bytes_sent < 0)
+  //fprintf(stderr, "cannot send: %s\n", strerror(errno));
 
   json_object_put(message_json);
   close(server_socket);
