@@ -200,7 +200,7 @@ static void refresh_timer_cb(EV_P_ ev_timer *w, int revents)
       group_ratesbytags(1, "server");
       break;
     default:
-      group_ratesbytags(5, "fid", "server", "jid", "uid");
+      group_ratesbytags(4, "fid", "server", "jid", "uid");
       break;
     }
   }

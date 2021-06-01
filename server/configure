@@ -4466,7 +4466,7 @@ done
 
   fi
   ;;
-  no) gpu = false ;;
+  no) psql = false ;;
   *) as_fn_error $? "bad value ${enableval} for --enable-psql" "$LINENO" 5 ;;
 esac
 else

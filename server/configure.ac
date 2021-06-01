@@ -21,7 +21,7 @@ AC_ARG_ENABLE([psql],
     AC_CHECK_HEADERS([libpq-fe.h], [pqfe=true], [AC_MSG_ERROR([Failed to find header libpq-fe.h])])
   fi
   ;;
-  no) gpu = false ;;
+  no) psql = false ;;
   *) AC_MSG_ERROR([bad value ${enableval} for --enable-psql]) ;;
 esac],
 [psql=false])
