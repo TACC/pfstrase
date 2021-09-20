@@ -1,4 +1,8 @@
 # PFSTRASE
+
+[![DOI](https://zenodo.org/badge/158410235.svg)](https://zenodo.org/badge/latestdoi/158410235)
+
+
 ## About
 As the name suggests PFSTRASE (Parallel FileSystem TRacing and Analysis SErvice) provides monitoring of parallel file system servers and clients in order to assist with diagnosing performance issues. Data is collected on throughput and IOPS of clients as well as server load, and can be filtered by server host, client host, user ID or job ID to quickly isolate and identify undesirable activity. Usage can be viewed in real-time via the interactive viewer ‘pfstop’ while the web based interface provides options for analysis of in-depth historical data.
 
