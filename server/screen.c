@@ -94,6 +94,7 @@ int screen_init(double interval)
 
   ev_timer_init(&refresh_timer_w, &refresh_timer_cb, 0.001, interval);
   ev_io_init(&stdin_io_w, &stdin_io_cb, STDIN_FILENO, EV_READ);
+  ev_set_priority(&stdin_io_w, EV_MAXPRI);
   ev_signal_init(&sigint_w, &sigint_cb, SIGINT);
   ev_signal_init(&sigterm_w, &sigint_cb, SIGTERM);
   ev_signal_init(&sigwinch_w, &sigwinch_cb, SIGWINCH);
@@ -177,34 +178,49 @@ enum json_tokener_error error = json_tokener_success;
 
 static void refresh_timer_cb(EV_P_ ev_timer *w, int revents)
 {
+  //printf("da refresh flag %d\n", da_refresh_flag);
   if (da_refresh_flag) {
     //printf("before\n", json_object_to_json_string(server_tag_rate_map));
-    get_shm_map();
-    
-    //printf("after %s\n", json_object_to_json_string(server_tag_rate_map));
+    struct timeval ts,te;
+    gettimeofday(&ts, NULL); 
 
-    switch(groupby) {
-    case 4:
-      group_ratesbytags(5, "fid", "server", "client", "jid", "uid");
-      break;
-    case 3:
-      group_ratesbytags(4, "fid", "server", "jid", "uid");
-      break;
-    case 2:
-      group_ratesbytags(3, "fid", "server", "uid");
-      break;
-    case 1:
-      group_ratesbytags(2, "fid", "server");
-      break;
-    case 5:
-      group_ratesbytags(1, "server");
-      break;
-    default:
-      group_ratesbytags(4, "fid", "server", "jid", "uid");
-      break;
-    }
+    get_shm_map();
+
+    gettimeofday(&te, NULL);   
+    //printf("time for shm map cpy %f\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000.);
   }
 
+  
+  struct timeval ts,te;
+  gettimeofday(&ts, NULL); 
+
+  switch(groupby) {
+  case 4:
+    group_ratesbytags(6, "system", "fid", "server", "client", "jid", "uid");
+    break;
+  case 3:
+    group_ratesbytags(5, "system", "fid", "server", "jid", "uid");
+    break;
+  case 2:
+    group_ratesbytags(4, "system", "fid", "server", "uid");
+    break;
+  case 1:
+    group_ratesbytags(3, "system", "fid", "server");
+    break;
+  case 5:
+    group_ratesbytags(2, "system", "server");
+    break;
+  case 6:
+    group_ratesbytags(1, "server");
+    break;
+  default:
+    group_ratesbytags(5, "system", "fid", "server", "jid", "uid");
+    break;
+  }
+
+  gettimeofday(&te, NULL);   
+  //printf("time for groupby %f\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000.);
+  
   screen_refresh_cb(EV_A_ LINES, COLS);
   ev_clear_pending(EV_A_ w);
   refresh();
@@ -212,6 +228,7 @@ static void refresh_timer_cb(EV_P_ ev_timer *w, int revents)
 
 static void stdin_io_cb(EV_P_ ev_io *w, int revents)
 {
+
   int key = getch();
   if (key == ERR)
     return;
@@ -265,8 +282,11 @@ static void screen_key_cb(EV_P_ int key)
   switch (tolower(key)) {
   case ' ':
     break;
+  case '\n':
+    screen_refresh(EV_A);
+    break;
   case 'q':
-    ev_break(EV_A_ EVBREAK_ALL); /* XXX */
+    ev_break(EV_A_ EVBREAK_ALL);
     return;
   case 'f':
     groupby = 1;
@@ -283,14 +303,20 @@ static void screen_key_cb(EV_P_ int key)
   case 's':
     groupby = 5;
     break;
+  case 'n':
+    groupby = 6;
+    break;
   case 'l':
     snprintf(sortbykey, sizeof(sortbykey), "load_eff");
+    //da_refresh_flag = 0;
     break;
   case 'i':
-    snprintf(sortbykey, sizeof(sortbykey), "iops");   
+    snprintf(sortbykey, sizeof(sortbykey), "iops");
+    //da_refresh_flag = 0;   
     break;
   case 'b':
     snprintf(sortbykey, sizeof(sortbykey), "bytes");
+    //da_refresh_flag = 0;
     break;
   case 'd':
     if (detailed) {
@@ -299,6 +325,7 @@ static void screen_key_cb(EV_P_ int key)
     else {
       detailed = 1;
     }
+    //da_refresh_flag = 0;
     break;
   case KEY_DOWN:
     scroll_delta += 1;
@@ -331,6 +358,7 @@ static void screen_key_cb(EV_P_ int key)
     }
     da_refresh_flag = 0;
   }
+  da_refresh_flag = 0;
   screen_refresh(EV_A);
 }
 
@@ -338,7 +366,7 @@ void status_bar_vprintf(EV_P_ const char *fmt, va_list args)
 {
   vsnprintf(status_bar, sizeof(status_bar), fmt, args);
   status_bar_time = ev_now(EV_A);
-  screen_refresh(EV_A);
+  //screen_refresh(EV_A);
 }
 void status_bar_printf(EV_P_ const char *fmt, ...)
 {
@@ -416,7 +444,7 @@ static void da_refresh() {
       if (detailed == 1) {
 	json_object_object_foreach(te, event, val) {
 	  if ((strcmp(event, "load") == 0) || (strcmp(event, "load_eff") == 0) || (strcmp(event, "iops") == 0) ||
-	      (strcmp(event, "bytes") == 0) || (json_object_get_double(val) < 2)) continue;
+	      (strcmp(event, "bytes") == 0) || strstr(event, "usec") || (json_object_get_double(val) < 2)) continue;
 	
 	  json_object_object_add(screvents, event, json_object_new_string(""));
 	  json_object_object_add(tags, event, json_object_get(val));
@@ -439,7 +467,12 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
 
   erase();
 
+  //struct timeval ts,te;
+  //gettimeofday(&ts, NULL); 
   if (da_refresh_flag == 1) da_refresh();
+  //gettimeofday(&te, NULL);   
+  //printf("time for da_refresh %f\n", (double)(te.tv_sec - ts.tv_sec) + (double)(te.tv_usec - ts.tv_usec)/1000000.);
+
   /* Construct header */
   char header_tags[2048] = "";
   char *cur = header_tags, * const end = header_tags + sizeof(header_tags);
@@ -488,7 +521,7 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   move(line, 0);
   clrtobot();
   
-  if (new_start != scroll_start || status_bar_time + 4 < now)
+  if (new_start != scroll_start || status_bar_time < now)
     status_bar_printf(EV_A_ "%d-%d out of %d",
                       new_start + (da_len != 0),
                       j, da_len);
@@ -593,7 +626,7 @@ int main(int argc, char *argv[])
   
   screen_stop(EV_DEFAULT);
 
-  shmmap_client_kill();
+  //shmmap_client_kill();
 
   return EXIT_SUCCESS;
 }

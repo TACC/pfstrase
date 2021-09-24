@@ -45,12 +45,14 @@ with open(nid_file) as fd:
     for line in fd:
         try:
             nid, fqdn, hn = line.split()
+            system = hn.split('.')[1]
         except: pass
         try:
             nid, hn = line.split()
+            system = hn.split('.')[1]
         except: continue
-        rpcs += [{"hostname" : hn, "nid" : nid}]
-
+        rpcs += [{"hostname" : hn, "nid" : nid, "system" : system}]
+#print(rpcs)
 if not rpcs:
     print("No NIDS found.")
     exit(1)

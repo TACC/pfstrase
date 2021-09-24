@@ -10,7 +10,7 @@
 #include <syslog.h>
 #include <json/json.h>
 
-#define SOCKET_BUFFERSIZE 1048576*10
+#define SOCKET_BUFFERSIZE 1048576*100
 char request[SOCKET_BUFFERSIZE];
 
 void sock_send_data(const char *dn, const char *port)

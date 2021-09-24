@@ -17,7 +17,7 @@
 #include "stats.h"
 #include "shmmap.h"
 
-#define mm_size 500*1024*1024
+#define mm_size 100*1024*1024
 
 sem_t *mutex_sem = NULL;
 int fd_shm = NULL;
@@ -92,17 +92,17 @@ void shmmap_client_kill(void) {
 
 void set_shm_map() {
 
-  sem_wait(mutex_sem);
   //struct timeval ts,te;
   //gettimeofday(&ts, NULL); 
 
   tag_stats();    
-  group_statsbytags(5, "fid", "server", "client", "jid", "uid");
-  
+  //group_statsbytags(6, "system", "fid", "server", "client", "jid", "uid");
+  group_statsbytags(5, "system", "fid", "server", "jid", "uid");
   const char *buffer = json_object_to_json_string(server_tag_rate_map);
   //printf(buffer);
-  memcpy(mm_ptr, buffer, strlen(buffer));
 
+  sem_wait(mutex_sem);
+  memcpy(mm_ptr, buffer, strlen(buffer));
   if (sem_post (mutex_sem) == -1)
     fprintf(stderr, "sem_post failed: %s\n", strerror(errno));  
 
@@ -115,12 +115,12 @@ void get_shm_map() {
   json_object *server_map = NULL;
   int val;
 
-  sem_wait(mutex_sem);
 
   //struct timeval ts,te;
   //gettimeofday(&ts, NULL); 
   
   enum json_tokener_error error = json_tokener_success;    
+  sem_wait(mutex_sem);
   server_map = json_tokener_parse_verbose((char *)mm_ptr, &error);
   if (error != json_tokener_success) {
     //fprintf(stderr, "mm_ptr parsing failed `%s': %s\n", json_object_to_json_string(server_map), 
@@ -130,8 +130,6 @@ void get_shm_map() {
   json_object_put(server_tag_rate_map);
   server_tag_rate_map = json_object_get(server_map);
 
-  //host_map = (json_object *)mm_ptr;
-  //printf("here %s\n", json_object_to_json_string(host_map));
   if (sem_post(mutex_sem) == -1)
     fprintf(stderr, "sem_post failed: %s\n", strerror(errno));
 

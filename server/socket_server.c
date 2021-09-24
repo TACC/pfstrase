@@ -98,7 +98,7 @@ void sock_rpc()
     fprintf(stderr, "cannot recv: %s\n", strerror(errno));
     return;
   }
-
+  //printf("bytes recvd: %zu\n", strlen(request));
   if (process_rpc(request) < 0)
     return;
     //fprintf(stderr, "rpc processing failed: %s\n", strerror(errno));

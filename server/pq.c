@@ -1,5 +1,6 @@
 #include "pq.h"
 #include "stats.h"
+#include "shmmap.h"
 #include <string.h>
 
 int pq_connect(char *pq_server, char *dbname, char *dbuser) {
@@ -28,7 +29,7 @@ void pq_finish() {
 
 enum json_tokener_error error = json_tokener_success;
 int pq_insert() {
-  
+
   int rc = -1;
   PGresult *res;
   int i;
@@ -36,11 +37,11 @@ int pq_insert() {
   struct timeval ts,te;
   gettimeofday(&ts, NULL); 
   int total_size = 0;  
-  tag_stats();
-  //group_ratesbytags(5, "fid", "server", "client", "jid", "uid");
-  group_ratesbytags(4, "fid", "server", "jid", "uid");
+  get_shm_map();
+  group_ratesbytags(5, "system", "fid", "server", "jid", "uid");
+
   json_object_object_foreach(screen_map, s, se) {
-    char query[256000] = "insert into stats (time, hostname, fid, jid, uid, client, event_name, value) values ";
+    char query[128000] = "insert into stats (time, hostname, system, fid, jid, uid, client, event_name, value) values ";
     int empty_len = strlen(query);
     char *qcur = query + empty_len, * const qend = query + sizeof(query);
     json_object *time;
@@ -49,6 +50,7 @@ int pq_insert() {
     json_object_object_foreach(se, t, te) {
 
       if (strcmp(t, "time") == 0) continue;     
+
       json_object *tags = NULL;      
       tags = json_tokener_parse_verbose(t, &error);
       if (error != json_tokener_success) {
@@ -56,43 +58,71 @@ int pq_insert() {
         goto end;
       }
 
-      char tag_str[256];
+      char tag_str[1024];
       char *cur = tag_str, * const end = tag_str + sizeof(tag_str);
       cur += snprintf(cur, end - cur, "to_timestamp(%f), ", json_object_get_double(time)); /* time */
       cur += snprintf(cur, end - cur, "'%s', ", s); /* hostname */
-
+      
       json_object *tid;
+      if (json_object_object_get_ex(tags, "system", &tid))
+	cur += snprintf(cur, end - cur, "'%s', ", json_object_get_string(tid));
+      else
+	cur += snprintf(cur, end - cur, "'*', ");
       if (json_object_object_get_ex(tags, "fid", &tid))
 	cur += snprintf(cur, end - cur, "'%s', ", json_object_get_string(tid));
       else
-	cur += snprintf(cur, end - cur, "'-', ");
+	cur += snprintf(cur, end - cur, "'*', ");
       if (json_object_object_get_ex(tags, "jid", &tid))
 	cur += snprintf(cur, end - cur, "'%s', ", json_object_get_string(tid));
       else
-	cur += snprintf(cur, end - cur, "'-', ");
+	cur += snprintf(cur, end - cur, "'*', ");
       if (json_object_object_get_ex(tags, "uid", &tid))
 	cur += snprintf(cur, end - cur, "'%s', ", json_object_get_string(tid));
       else
-	cur += snprintf(cur, end - cur, "'-', ");
+	cur += snprintf(cur, end - cur, "'*', ");
       if (json_object_object_get_ex(tags, "client", &tid))
 	cur += snprintf(cur, end - cur, "'%s', ", json_object_get_string(tid));
       else
-	cur += snprintf(cur, end - cur, "'-', ");
-
+	cur += snprintf(cur, end - cur, "'*', ");
+     
+      char record_str[8192];
+      char *rcur = record_str, * const rend = record_str + sizeof(record_str);
       json_object_object_foreach(te, event, val) {
 	if (json_object_get_double(val) > 0)
-	  qcur += snprintf(qcur, qend - qcur, "(%s '%s', %f), ", tag_str, event, json_object_get_double(val));
+	  rcur += snprintf(rcur, rend - rcur, "(%s '%s', %f), ", tag_str, event, json_object_get_double(val));
       }
+
+      //printf("cur %s %zu %zu\n", record_str, strlen(record_str), strlen(query));
+
+      if ((qcur + strlen(record_str)) > qend) {
+	int query_len = strlen(query);
+	  total_size += query_len;
+	  if (query_len > empty_len) {
+	    query[query_len - 2] = ';';
+	    res = PQexec(conn, query);
+	    PQclear(res);
+	  }
+	  qcur = query + empty_len;	  
+      }
+
+      qcur += snprintf(qcur, qend - qcur, "%s", record_str);
 
     end:
       if(tags)
         json_object_put(tags);
     }
-
+    /*
+      json_object_object_foreach(te, event, val) {
+      if (json_object_get_double(val) > 0)
+      //qcur += snprintf(qcur, qend - qcur, "(%s '%s', %f), ", tag_str, event, json_object_get_double(val));
+      }
+    */
+    
     int query_len = strlen(query);
     total_size += query_len;
     if (query_len > empty_len) {
-      query[strlen(query) - 2] = ';';
+      printf("query total\n");
+      query[query_len - 2] = ';';
       res = PQexec(conn, query);
       PQclear(res);
     }

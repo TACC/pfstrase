@@ -1,4 +1,4 @@
-bin_PROGRAMS = pfstrase_server pfstop
+bin_PROGRAMS = pfstrase_server pfstop pfsql
 
 AM_DISTCHECK_CONFIGURE_FLAGS = \
   --with-systemduserunitdir=$$dc_install_base/$(systemduserunitdir)
@@ -24,13 +24,6 @@ pfstrase_server_SOURCES = 	 \
 	stats.h \
 	stats.c
 
-if PSQL
-pfstrase_server_SOURCES += \
-	pq.h \
-	pq.c
-pfstrase_server_CPPFLAGS += -DPSQL
-endif
-
 pfstop_CPPFLAGS = -D_GNU_SOURCE
 
 pfstop_SOURCES = 	 \
@@ -40,3 +33,17 @@ pfstop_SOURCES = 	 \
 	shmmap.h \
 	stats.h \
 	stats.c
+
+if PSQL
+pfsql_CPPFLAGS = -D_GNU_SOURCE
+pfsql_SOURCES = 	 \
+	daemonize.h	 \
+	daemonize.c	 \
+	shmmap.c \
+	shmmap.h \
+	stats.h \
+	stats.c \
+	pq.h \
+	pq.c \
+	pfsql.c
+endif
