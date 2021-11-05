@@ -17,7 +17,7 @@ static FILE *log_stream = NULL;
 static char *dbserver = NULL;
 static char *dbname = NULL;
 static char *dbuser = NULL;
-static char *port = "5432";
+static char *port = "5433";
 static double db_interval = 30;
 
 static ev_timer pq_timer;

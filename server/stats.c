@@ -58,7 +58,8 @@ static void derived_events(json_object *server_entry) {
     double sum_bytes = 0;
     json_object_object_foreach(tag_entry, event, value) {    
 
-      if (strstr(event, "[usec") || strcmp(event, "nclients") == 0 || strcmp(event, "bytes") == 0  || strcmp(event, "iops") == 0) continue;
+      if (strstr(event, "[usec") || strcmp(event, "read_bytes") == 0 || strcmp(event, "write_bytes") == 0 || 
+	  strcmp(event, "nclients") == 0 || strcmp(event, "bytes") == 0  || strcmp(event, "iops") == 0) continue;
       if (strstr(event, "[bytes")) {
 	sum_bytes += json_object_get_double(value);
 	json_object_object_add(tag_entry, event, json_object_new_double(json_object_get_double(value)*cf));

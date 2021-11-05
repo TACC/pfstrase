@@ -5,8 +5,9 @@
 
 int pq_connect(char *pq_server, char *dbname, char *dbuser) {
   int rc = -1;
-  
+  PGresult *res;
   char conninfo[256];
+
   snprintf(conninfo, sizeof(conninfo), "dbname=%s user=%s host=%s port=5433", dbname, dbuser, pq_server);
   conn = PQconnectdb(conninfo);
   /* Check to see that the backend connection was successfully made */
@@ -18,6 +19,16 @@ int pq_connect(char *pq_server, char *dbname, char *dbuser) {
   }  
   rc = 1;
 
+  /* Create host_data hypertable if it does not exist */  
+  res = PQexec(conn, "CREATE TABLE IF NOT EXISTS host_data (time  TIMESTAMPTZ NOT NULL,host  text,system text,fid  text,jid   text,uid   text,client   text,event text,value   real);");
+  PQclear(res);
+  
+  res = PQexec(conn, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE; SELECT create_hypertable('host_data', 'time', if_not_exists => TRUE, chunk_time_interval => INTERVAL '1 day'); CREATE INDEX IF NOT EXISTS host_data_host_time_idx ON host_data (host, time DESC); CREATE INDEX IF NOT EXISTS host_data_system_time_idx ON host_data (system, time DESC); CREATE INDEX IF NOT EXISTS host_data_uid_time_idx ON host_data (uid, time DESC); CREATE INDEX IF NOT EXISTS host_data_jid_time_idx ON host_data (jid, time DESC); CREATE INDEX IF NOT EXISTS host_data_event_time_idx ON host_data (event, time DESC);");
+  PQclear(res);
+
+  res = PQexec(conn, "ALTER TABLE host_data SET (timescaledb.compress, timescaledb.compress_orderby = 'time DESC', timescaledb.compress_segmentby = 'system,uid,jid,host,event'); SELECT add_compression_policy('host_data', INTERVAL '12h');");
+  PQclear(res);
+    
  out:
   return rc;
 }
@@ -41,7 +52,7 @@ int pq_insert() {
   group_ratesbytags(5, "system", "fid", "server", "jid", "uid");
 
   json_object_object_foreach(screen_map, s, se) {
-    char query[128000] = "insert into stats (time, hostname, system, fid, jid, uid, client, event_name, value) values ";
+    char query[128000] = "insert into host_data (time, host, system, fid, jid, uid, client, event, value) values ";    
     int empty_len = strlen(query);
     char *qcur = query + empty_len, * const qend = query + sizeof(query);
     json_object *time;
@@ -144,9 +155,9 @@ int pq_select() {
   int nrows, ncols;
   int i,j;
 
-  res = PQexec(conn, "select * from stats order by time desc limit 10");
+  res = PQexec(conn, "select * from host_data order by time desc limit 10");
   if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-      fprintf(stderr, "select * from stats failed: %s", PQerrorMessage(conn));
+      fprintf(stderr, "select * from host_data failed: %s", PQerrorMessage(conn));
       goto out;     
   }
   

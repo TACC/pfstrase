@@ -443,8 +443,9 @@ static void da_refresh() {
 
       if (detailed == 1) {
 	json_object_object_foreach(te, event, val) {
-	  if ((strcmp(event, "load") == 0) || (strcmp(event, "load_eff") == 0) || (strcmp(event, "iops") == 0) ||
-	      (strcmp(event, "bytes") == 0) || strstr(event, "usec") || (json_object_get_double(val) < 2)) continue;
+	  if ((strcmp(event, "load") == 0) || (strcmp(event, "load_eff") == 0) || 
+	      (strcmp(event, "read_bytes") == 0) || (strcmp(event, "write_bytes") == 0) || (strcmp(event, "iops") == 0) ||
+	      (strcmp(event, "bytes") == 0) || strstr(event, "[usec") || (json_object_get_double(val) < 2)) continue;
 	
 	  json_object_object_add(screvents, event, json_object_new_string(""));
 	  json_object_object_add(tags, event, json_object_get(val));
@@ -477,11 +478,11 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
   char header_tags[2048] = "";
   char *cur = header_tags, * const end = header_tags + sizeof(header_tags);
   json_object_object_foreach(group_tags, t, v) {
-    cur += snprintf(cur, end - cur, "%-14.14s ", t);
+    cur += snprintf(cur, end - cur, "%-16.16s ", t);
   }
 
   json_object_object_foreach(screvents, e, val) {
-    cur += snprintf(cur, end - cur, "%10.10s ", e);
+    cur += snprintf(cur, end - cur, "%14.14s ", e);
   }
   
   mvprintw(line, 0, "%s", header_tags);
@@ -504,16 +505,16 @@ static void screen_refresh_cb(EV_P_ int LINES, int COLS)
     char *cur = row_tags, * const end = row_tags + sizeof(row_tags);
     json_object_object_foreach(group_tags, t, v) {
       if (json_object_object_get_ex(de, t, &tid))
-	cur += snprintf(cur, end - cur, "%-14.14s ", json_object_get_string(tid));
+	cur += snprintf(cur, end - cur, "%-16.16s ", json_object_get_string(tid));
       else
-	cur += snprintf(cur, end - cur, "%-14s ", "");
+	cur += snprintf(cur, end - cur, "%-16s ", "");
     }
 
     json_object_object_foreach(screvents, e, val) {
       if (json_object_object_get_ex(de, e, &eid))
-	cur += snprintf(cur, end - cur, "%10.2f ", json_object_get_double(eid));     
+	cur += snprintf(cur, end - cur, "%14.2f ", json_object_get_double(eid));     
       else
-	cur += snprintf(cur, end - cur, "%10.1f ", 0.0);
+	cur += snprintf(cur, end - cur, "%14.1f ", 0.0);
     }
     mvprintw(line++, 0, "%s", row_tags); 
   }
