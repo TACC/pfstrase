@@ -2,25 +2,25 @@
 {% block content %}
 {% load tz %}
 
-<form action="{% url 'history' hostname %}" method="post">
+<form action="{% url 'history' host %}" method="post">
   {% include "pfs_app/form.html" %}
 </form>
 
 <div class="container">
-<H2>Current {{ hostname }} Status</H2>
+<H2>Current {{ host }} Status</H2>
 {{ pie_div|safe }} 
 {{ pie_script|safe }}
 </div>
 
 <div class="container">
-<H2>Recent {{ hostname }} History</H2> 
+<H2>Recent {{ host }} History</H2> 
 {{ hm_div|safe }} 
 {{ hm_script|safe }}
 </div>
 
 <div class="container">
 <H3>Detailed Server History</H3>
-{% for host in hostnames %}
+{% for host in hosts %}
 <button type="button" class="btn btn-outline-secondary"><a href="{% url 'history' host %}">{{ host }}</a></button>
 {% endfor %}
 </div>

@@ -7,7 +7,7 @@
 </form>
 
 <div class="container">
-<H2>Current Server Status</H2>
+<H2>Latest Server Updates</H2>
 {{ pie_div|safe }} 
 {{ pie_script|safe }}
 </div>
@@ -20,7 +20,7 @@
 
 <div class="container">
 <H3>Detailed Server History</H3>
-{% for host in hostnames %}
+{% for host in hosts %}
 <button type="button" class="btn btn-outline-secondary"><a href="{% url 'history' host %}">{{ host }}</a></button>
 {% endfor %}
 </div>
