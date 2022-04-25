@@ -46,6 +46,10 @@ pfstop
 command to view the data in an top-like interface. It will filter the data to the user running it unless they are root or part of an administrative group
 currently set in line 74 of server/screen.c (this will be configurable in the future using the conf file).
 
+#### pfsql
+Edit `/etc/pfstrase/pfsql.conf` with appropriate values and start the service. `pfsql` pushes the data to a timeseries database at the `db_interval` set in the configuration file. This data is then available on the web site. 
+
+
 #### PostgreSQL Backend
 The server will send data to a database backend if it is configured at build time with
 ```
